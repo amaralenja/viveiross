@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
+import { Route as AuthenticatedLancamentosRouteImport } from './routes/_authenticated.lancamentos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 
 const LoginRoute = LoginRouteImport.update({
@@ -34,6 +35,12 @@ const AuthenticatedViveirosRoute = AuthenticatedViveirosRouteImport.update({
   path: '/viveiros',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedLancamentosRoute =
+  AuthenticatedLancamentosRouteImport.update({
+    id: '/lancamentos',
+    path: '/lancamentos',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -44,12 +51,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRoutesById {
@@ -58,19 +67,21 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/lancamentos': typeof AuthenticatedLancamentosRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/dashboard' | '/viveiros'
+  fullPaths: '/' | '/login' | '/dashboard' | '/lancamentos' | '/viveiros'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/dashboard' | '/viveiros'
+  to: '/' | '/login' | '/dashboard' | '/lancamentos' | '/viveiros'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/dashboard'
+    | '/_authenticated/lancamentos'
     | '/_authenticated/viveiros'
   fileRoutesById: FileRoutesById
 }
@@ -110,6 +121,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedViveirosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/lancamentos': {
+      id: '/_authenticated/lancamentos'
+      path: '/lancamentos'
+      fullPath: '/lancamentos'
+      preLoaderRoute: typeof AuthenticatedLancamentosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -122,11 +140,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedLancamentosRoute: typeof AuthenticatedLancamentosRoute
   AuthenticatedViveirosRoute: typeof AuthenticatedViveirosRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedLancamentosRoute: AuthenticatedLancamentosRoute,
   AuthenticatedViveirosRoute: AuthenticatedViveirosRoute,
 }
 
