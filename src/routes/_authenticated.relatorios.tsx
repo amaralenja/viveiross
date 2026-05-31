@@ -135,10 +135,17 @@ function RelatoriosPage() {
   }
 
   async function exportPdf() {
-    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    const [pdfModule, tableModule] = await Promise.all([
       import("jspdf"),
       import("jspdf-autotable"),
     ]);
+    const jsPDF = pdfModule.default;
+    const autoTable = tableModule.default ?? tableModule.autoTable;
+
+    if (typeof autoTable !== "function") {
+      throw new Error("Gerador de tabela do PDF não carregou corretamente.");
+    }
+
     const doc = new jsPDF({ orientation: "landscape" });
     const hoje = new Date().toLocaleDateString("pt-BR");
     doc.setFontSize(16);
