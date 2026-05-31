@@ -210,7 +210,15 @@ function RelatoriosPage() {
   );
 }
 
-function ResumoCard({ icon: Icon, label, value }: { icon: IconComponent; label: string; value: string }) {
+function ResumoCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: IconComponent;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-2xl bg-card border p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
