@@ -288,7 +288,7 @@ function ResumoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-card border p-4">
+    <div className="min-w-0 rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon className="size-4" /> {label}
       </div>
@@ -299,9 +299,9 @@ function ResumoCard({
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-muted/40 px-3 py-2">
+    <div className="min-w-0 rounded-lg bg-muted/40 px-3 py-2">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="font-semibold">{value}</p>
+      <p className="break-words font-semibold">{value}</p>
     </div>
   );
 }
