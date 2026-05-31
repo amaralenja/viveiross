@@ -52,7 +52,11 @@ function Dashboard() {
         <KpiCard
           icon={Utensils}
           label="Ração hoje"
-          value={isLoading ? "—" : (data?.racaoHoje ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}
+          value={
+            isLoading
+              ? "—"
+              : (data?.racaoHoje ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+          }
           hint="kg"
         />
         <KpiCard icon={AlertCircle} label="Alertas" value="0" />

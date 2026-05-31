@@ -83,7 +83,18 @@ function RelatoriosPage() {
   }, [linhas]);
 
   function exportCsv() {
-    const header = ["Viveiro", "Fazenda", "Status", "Dias", "Povoados", "Ração kg", "Peso médio g", "Sobrevivência %", "Biomassa kg", "FCA"];
+    const header = [
+      "Viveiro",
+      "Fazenda",
+      "Status",
+      "Dias",
+      "Povoados",
+      "Ração kg",
+      "Peso médio g",
+      "Sobrevivência %",
+      "Biomassa kg",
+      "FCA",
+    ];
     const rows = linhas.map((l) => [
       l.viveiro,
       l.fazenda,
@@ -113,7 +124,11 @@ function RelatoriosPage() {
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="text-muted-foreground mt-1">Consumo, biomassa e FCA por viveiro</p>
         </div>
-        <button onClick={exportCsv} disabled={linhas.length === 0} className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50">
+        <button
+          onClick={exportCsv}
+          disabled={linhas.length === 0}
+          className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
           <Download className="size-5" /> CSV
         </button>
       </div>
@@ -125,7 +140,9 @@ function RelatoriosPage() {
       </div>
 
       {linhas.length === 0 ? (
-        <p className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">Sem dados ainda para relatório.</p>
+        <p className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+          Sem dados ainda para relatório.
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border bg-card">
           <table className="w-full min-w-[760px] text-sm">
@@ -150,9 +167,15 @@ function RelatoriosPage() {
                   <td className="p-4 text-right">{l.dias ?? "—"}</td>
                   <td className="p-4 text-right">{l.qtdPovoada.toLocaleString("pt-BR")}</td>
                   <td className="p-4 text-right">{formatNumber(l.racaoKg)} kg</td>
-                  <td className="p-4 text-right">{l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"}</td>
-                  <td className="p-4 text-right">{l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"}</td>
-                  <td className="p-4 text-right font-semibold">{l.fca ? formatNumber(l.fca) : "—"}</td>
+                  <td className="p-4 text-right">
+                    {l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"}
+                  </td>
+                  <td className="p-4 text-right">
+                    {l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"}
+                  </td>
+                  <td className="p-4 text-right font-semibold">
+                    {l.fca ? formatNumber(l.fca) : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>

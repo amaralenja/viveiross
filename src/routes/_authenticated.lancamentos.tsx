@@ -93,7 +93,12 @@ function LancamentosPage() {
         if (!finalProdutoNome) throw new Error("Informe o produto.");
         const { data: novoProduto, error } = await supabase
           .from("produtos")
-          .insert({ user_id: userId, nome: finalProdutoNome, categoria: finalTipo, unidade: finalUnidade })
+          .insert({
+            user_id: userId,
+            nome: finalProdutoNome,
+            categoria: finalTipo,
+            unidade: finalUnidade,
+          })
           .select()
           .single();
         if (error) throw error;
@@ -161,8 +166,13 @@ function LancamentosPage() {
       {viveiros.length === 0 ? (
         <div className="p-8 rounded-2xl border-2 border-dashed text-center">
           <p className="font-semibold">Cadastre um viveiro primeiro</p>
-          <p className="text-muted-foreground mt-1">Depois disso o lançamento fica em poucos cliques.</p>
-          <Link to="/viveiros" className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground">
+          <p className="text-muted-foreground mt-1">
+            Depois disso o lançamento fica em poucos cliques.
+          </p>
+          <Link
+            to="/viveiros"
+            className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground"
+          >
             Abrir viveiros
           </Link>
         </div>
@@ -176,18 +186,31 @@ function LancamentosPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Viveiro">
-              <select required value={viveiroId} onChange={(e) => setViveiroId(e.target.value)} className="app-input">
+              <select
+                required
+                value={viveiroId}
+                onChange={(e) => setViveiroId(e.target.value)}
+                className="app-input"
+              >
                 <option value="">Escolha</option>
                 {viveiros.map((v: any) => (
-                  <option key={v.id} value={v.id}>{v.nome} · {v.fazendas?.nome ?? "Fazenda"}</option>
+                  <option key={v.id} value={v.id}>
+                    {v.nome} · {v.fazendas?.nome ?? "Fazenda"}
+                  </option>
                 ))}
               </select>
             </Field>
             <Field label="Produto">
-              <select value={produtoId} onChange={(e) => setProdutoId(e.target.value)} className="app-input">
+              <select
+                value={produtoId}
+                onChange={(e) => setProdutoId(e.target.value)}
+                className="app-input"
+              >
                 <option value="__new">+ Novo produto</option>
                 {produtos.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nome} ({p.unidade})</option>
+                  <option key={p.id} value={p.id}>
+                    {p.nome} ({p.unidade})
+                  </option>
                 ))}
               </select>
             </Field>
@@ -196,32 +219,76 @@ function LancamentosPage() {
           {produtoId === "__new" && (
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Nome do produto">
-                <input required value={produtoNome} onChange={(e) => setProdutoNome(e.target.value)} className="app-input" placeholder="Ex: Ração 35%" />
+                <input
+                  required
+                  value={produtoNome}
+                  onChange={(e) => setProdutoNome(e.target.value)}
+                  className="app-input"
+                  placeholder="Ex: Ração 35%"
+                />
               </Field>
               <Field label="Tipo">
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="app-input">
-                  {CATEGORIAS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                <select
+                  value={tipo}
+                  onChange={(e) => setTipo(e.target.value)}
+                  className="app-input"
+                >
+                  {CATEGORIAS.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
                 </select>
               </Field>
               <Field label="Unidade">
-                <input required value={unidade} onChange={(e) => setUnidade(e.target.value)} className="app-input" placeholder="kg" />
+                <input
+                  required
+                  value={unidade}
+                  onChange={(e) => setUnidade(e.target.value)}
+                  className="app-input"
+                  placeholder="kg"
+                />
               </Field>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Field label="Quantidade">
-              <input required min="0.001" step="0.001" type="number" inputMode="decimal" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} className="app-input" placeholder="0" />
+              <input
+                required
+                min="0.001"
+                step="0.001"
+                type="number"
+                inputMode="decimal"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                className="app-input"
+                placeholder="0"
+              />
             </Field>
             <Field label="Data">
-              <input required type="date" value={dataLancamento} onChange={(e) => setDataLancamento(e.target.value)} className="app-input" />
+              <input
+                required
+                type="date"
+                value={dataLancamento}
+                onChange={(e) => setDataLancamento(e.target.value)}
+                className="app-input"
+              />
             </Field>
             <Field label="Observação">
-              <input value={observacao} onChange={(e) => setObservacao(e.target.value)} className="app-input" placeholder="Opcional" />
+              <input
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+                className="app-input"
+                placeholder="Opcional"
+              />
             </Field>
           </div>
 
-          <button disabled={saveMut.isPending} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50">
+          <button
+            disabled={saveMut.isPending}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+          >
             {saveMut.isPending ? "Salvando..." : "Salvar lançamento"}
           </button>
         </form>
@@ -232,16 +299,29 @@ function LancamentosPage() {
         {isLoading ? (
           <p className="text-muted-foreground">Carregando...</p>
         ) : lancamentos.length === 0 ? (
-          <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">Nenhum lançamento ainda.</p>
+          <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">
+            Nenhum lançamento ainda.
+          </p>
         ) : (
           <ul className="space-y-3">
             {lancamentos.map((l: any) => (
-              <li key={l.id} className="rounded-2xl bg-card border p-4 flex items-center justify-between gap-4">
+              <li
+                key={l.id}
+                className="rounded-2xl bg-card border p-4 flex items-center justify-between gap-4"
+              >
                 <div>
-                  <p className="font-semibold">{l.produto_nome} · {formatNumber(l.quantidade)} {l.unidade}</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(l.data_lancamento)} · {l.viveiros?.nome ?? "Viveiro"}</p>
+                  <p className="font-semibold">
+                    {l.produto_nome} · {formatNumber(l.quantidade)} {l.unidade}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(l.data_lancamento)} · {l.viveiros?.nome ?? "Viveiro"}
+                  </p>
                 </div>
-                <button onClick={() => delMut.mutate(l.id)} className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" aria-label="Remover lançamento">
+                <button
+                  onClick={() => delMut.mutate(l.id)}
+                  className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                  aria-label="Remover lançamento"
+                >
                   <Trash2 className="size-5" />
                 </button>
               </li>

@@ -122,8 +122,13 @@ function BiometriasPage() {
       {viveiros.length === 0 ? (
         <div className="p-8 rounded-2xl border-2 border-dashed text-center">
           <p className="font-semibold">Cadastre um viveiro primeiro</p>
-          <p className="text-muted-foreground mt-1">A biometria precisa estar ligada a um viveiro.</p>
-          <Link to="/viveiros" className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground">
+          <p className="text-muted-foreground mt-1">
+            A biometria precisa estar ligada a um viveiro.
+          </p>
+          <Link
+            to="/viveiros"
+            className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground"
+          >
             Abrir viveiros
           </Link>
         </div>
@@ -137,46 +142,101 @@ function BiometriasPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Viveiro">
-              <select required value={viveiroId} onChange={(e) => setViveiroId(e.target.value)} className="app-input">
+              <select
+                required
+                value={viveiroId}
+                onChange={(e) => setViveiroId(e.target.value)}
+                className="app-input"
+              >
                 <option value="">Escolha</option>
                 {viveiros.map((v: any) => (
-                  <option key={v.id} value={v.id}>{v.nome} · {v.fazendas?.nome ?? "Fazenda"}</option>
+                  <option key={v.id} value={v.id}>
+                    {v.nome} · {v.fazendas?.nome ?? "Fazenda"}
+                  </option>
                 ))}
               </select>
             </Field>
             <Field label="Data">
-              <input required type="date" value={dataBiometria} onChange={(e) => setDataBiometria(e.target.value)} className="app-input" />
+              <input
+                required
+                type="date"
+                value={dataBiometria}
+                onChange={(e) => setDataBiometria(e.target.value)}
+                className="app-input"
+              />
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Field label="Peso médio (g)">
-              <input required min="0.01" step="0.01" type="number" inputMode="decimal" value={pesoMedio} onChange={(e) => setPesoMedio(e.target.value)} className="app-input" placeholder="Ex: 8.5" />
+              <input
+                required
+                min="0.01"
+                step="0.01"
+                type="number"
+                inputMode="decimal"
+                value={pesoMedio}
+                onChange={(e) => setPesoMedio(e.target.value)}
+                className="app-input"
+                placeholder="Ex: 8.5"
+              />
             </Field>
             <Field label="Sobrevivência (%)">
-              <input min="0" max="100" step="0.01" type="number" inputMode="decimal" value={sobrevivencia} onChange={(e) => setSobrevivencia(e.target.value)} className="app-input" placeholder="80" />
+              <input
+                min="0"
+                max="100"
+                step="0.01"
+                type="number"
+                inputMode="decimal"
+                value={sobrevivencia}
+                onChange={(e) => setSobrevivencia(e.target.value)}
+                className="app-input"
+                placeholder="80"
+              />
             </Field>
             <Field label="Amostras">
-              <input min="1" type="number" inputMode="numeric" value={amostras} onChange={(e) => setAmostras(e.target.value)} className="app-input" placeholder="Opcional" />
+              <input
+                min="1"
+                type="number"
+                inputMode="numeric"
+                value={amostras}
+                onChange={(e) => setAmostras(e.target.value)}
+                className="app-input"
+                placeholder="Opcional"
+              />
             </Field>
           </div>
 
           <Field label="Observação">
-            <input value={observacao} onChange={(e) => setObservacao(e.target.value)} className="app-input" placeholder="Opcional" />
+            <input
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              className="app-input"
+              placeholder="Opcional"
+            />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-accent p-4">
-              <div className="flex items-center gap-2 text-sm text-accent-foreground/80"><Activity className="size-4" /> Biomassa</div>
+              <div className="flex items-center gap-2 text-sm text-accent-foreground/80">
+                <Activity className="size-4" /> Biomassa
+              </div>
               <p className="mt-1 text-2xl font-bold">{formatNumber(biomassaPreview)} kg</p>
             </div>
             <div className="rounded-xl bg-muted p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground"><FlaskConical className="size-4" /> FCA estimado</div>
-              <p className="mt-1 text-2xl font-bold">{fcaPreview ? formatNumber(fcaPreview) : "—"}</p>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FlaskConical className="size-4" /> FCA estimado
+              </div>
+              <p className="mt-1 text-2xl font-bold">
+                {fcaPreview ? formatNumber(fcaPreview) : "—"}
+              </p>
             </div>
           </div>
 
-          <button disabled={saveMut.isPending} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50">
+          <button
+            disabled={saveMut.isPending}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+          >
             {saveMut.isPending ? "Salvando..." : "Salvar biometria"}
           </button>
         </form>
@@ -187,19 +247,34 @@ function BiometriasPage() {
         {isLoading ? (
           <p className="text-muted-foreground">Carregando...</p>
         ) : biometrias.length === 0 ? (
-          <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">Nenhuma biometria ainda.</p>
+          <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">
+            Nenhuma biometria ainda.
+          </p>
         ) : (
           <ul className="space-y-3">
             {biometrias.map((b: any) => {
               const povoada = b.viveiros?.qtd_povoada ?? 0;
-              const biomassa = (povoada * ((b.sobrevivencia_percent ?? 0) / 100) * Number(b.peso_medio_g ?? 0)) / 1000;
+              const biomassa =
+                (povoada * ((b.sobrevivencia_percent ?? 0) / 100) * Number(b.peso_medio_g ?? 0)) /
+                1000;
               return (
-                <li key={b.id} className="rounded-2xl bg-card border p-4 flex items-center justify-between gap-4">
+                <li
+                  key={b.id}
+                  className="rounded-2xl bg-card border p-4 flex items-center justify-between gap-4"
+                >
                   <div>
-                    <p className="font-semibold">{b.viveiros?.nome ?? "Viveiro"} · {formatNumber(b.peso_medio_g)} g</p>
-                    <p className="text-sm text-muted-foreground">{formatDate(b.data_biometria)} · biomassa {formatNumber(biomassa)} kg</p>
+                    <p className="font-semibold">
+                      {b.viveiros?.nome ?? "Viveiro"} · {formatNumber(b.peso_medio_g)} g
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDate(b.data_biometria)} · biomassa {formatNumber(biomassa)} kg
+                    </p>
                   </div>
-                  <button onClick={() => delMut.mutate(b.id)} className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" aria-label="Remover biometria">
+                  <button
+                    onClick={() => delMut.mutate(b.id)}
+                    className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                    aria-label="Remover biometria"
+                  >
                     <Trash2 className="size-5" />
                   </button>
                 </li>
