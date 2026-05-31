@@ -1,9 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ClipboardList, Plus, Trash2, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+type ViveiroOption = { id: string; nome: string; fazendas: { nome: string } | null };
+type ProdutoOption = { id: string; nome: string; categoria: string; unidade: string };
+type LancamentoRow = {
+  id: string;
+  data_lancamento: string;
+  produto_nome: string;
+  quantidade: number;
+  tipo: string;
+  unidade: string;
+  viveiros: { nome: string } | null;
+};
 
 export const Route = createFileRoute("/_authenticated/lancamentos")({
   head: () => ({ meta: [{ title: "Lançamentos" }] }),
@@ -38,7 +50,7 @@ function LancamentosPage() {
         .eq("status", "ativo")
         .order("nome");
       if (error) throw error;
-      return data;
+      return (data ?? []) as ViveiroOption[];
     },
   });
 
@@ -47,7 +59,7 @@ function LancamentosPage() {
     queryFn: async () => {
       const { data, error } = await supabase.from("produtos").select("*").order("nome");
       if (error) throw error;
-      return data;
+      return (data ?? []) as ProdutoOption[];
     },
   });
 
@@ -60,7 +72,7 @@ function LancamentosPage() {
         .order("data_lancamento", { ascending: false })
         .limit(30);
       if (error) throw error;
-      return data;
+      return (data ?? []) as LancamentoRow[];
     },
   });
 
@@ -193,7 +205,7 @@ function LancamentosPage() {
                 className="app-input"
               >
                 <option value="">Escolha</option>
-                {viveiros.map((v: any) => (
+                {viveiros.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.nome} · {v.fazendas?.nome ?? "Fazenda"}
                   </option>
@@ -304,7 +316,7 @@ function LancamentosPage() {
           </p>
         ) : (
           <ul className="space-y-3">
-            {lancamentos.map((l: any) => (
+            {lancamentos.map((l) => (
               <li
                 key={l.id}
                 className="rounded-2xl bg-card border p-4 flex items-center justify-between gap-4"
@@ -333,7 +345,7 @@ function LancamentosPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="text-sm font-medium block mb-1.5">{label}</span>
