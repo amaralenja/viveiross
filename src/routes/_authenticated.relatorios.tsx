@@ -134,7 +134,11 @@ function RelatoriosPage() {
     ]);
   }
 
-  function exportPdf() {
+  async function exportPdf() {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
     const doc = new jsPDF({ orientation: "landscape" });
     const hoje = new Date().toLocaleDateString("pt-BR");
     doc.setFontSize(16);
