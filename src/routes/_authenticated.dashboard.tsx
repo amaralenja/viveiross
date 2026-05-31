@@ -16,9 +16,16 @@ function Dashboard() {
         .from("viveiros")
         .select("id, status, qtd_povoada")
         .eq("status", "ativo");
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { data: lancamentos } = await supabase
+        .from("lancamentos")
+        .select("quantidade")
+        .eq("tipo", "racao")
+        .eq("data_lancamento", hoje);
       return {
         ativos: viveiros?.length ?? 0,
         povoamento: viveiros?.reduce((s, v) => s + (v.qtd_povoada ?? 0), 0) ?? 0,
+        racaoHoje: lancamentos?.reduce((s, l) => s + Number(l.quantidade ?? 0), 0) ?? 0,
       };
     },
   });
@@ -42,7 +49,12 @@ function Dashboard() {
           value={isLoading ? "—" : (data?.povoamento ?? 0).toLocaleString("pt-BR")}
           hint="camarões"
         />
-        <KpiCard icon={Utensils} label="Ração hoje" value="—" hint="kg" />
+        <KpiCard
+          icon={Utensils}
+          label="Ração hoje"
+          value={isLoading ? "—" : (data?.racaoHoje ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}
+          hint="kg"
+        />
         <KpiCard icon={AlertCircle} label="Alertas" value="0" />
       </div>
 
