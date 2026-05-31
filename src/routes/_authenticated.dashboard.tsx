@@ -2,6 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Warehouse, Scale, Utensils, Plus, AlertCircle } from "lucide-react";
+import type { ComponentType } from "react";
+
+type IconComponent = ComponentType<{ className?: string }>;
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Início — Viveiros" }] }),
@@ -97,7 +100,7 @@ function KpiCard({
   value,
   hint,
 }: {
-  icon: any;
+  icon: IconComponent;
   label: string;
   value: string;
   hint?: string;
