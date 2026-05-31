@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
 import { Route as AuthenticatedLancamentosRouteImport } from './routes/_authenticated.lancamentos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedBiometriasRouteImport } from './routes/_authenticated.biometrias'
@@ -34,6 +35,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedViveirosRoute = AuthenticatedViveirosRouteImport.update({
   id: '/viveiros',
   path: '/viveiros',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedLancamentosRoute =
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/biometrias': typeof AuthenticatedBiometriasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRoutesByTo {
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/biometrias': typeof AuthenticatedBiometriasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRoutesById {
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/_authenticated/biometrias': typeof AuthenticatedBiometriasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/lancamentos': typeof AuthenticatedLancamentosRoute
+  '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRouteTypes {
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/biometrias'
     | '/dashboard'
     | '/lancamentos'
+    | '/relatorios'
     | '/viveiros'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
     | '/biometrias'
     | '/dashboard'
     | '/lancamentos'
+    | '/relatorios'
     | '/viveiros'
   id:
     | '__root__'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '/_authenticated/biometrias'
     | '/_authenticated/dashboard'
     | '/_authenticated/lancamentos'
+    | '/_authenticated/relatorios'
     | '/_authenticated/viveiros'
   fileRoutesById: FileRoutesById
 }
@@ -143,6 +155,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedViveirosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/lancamentos': {
       id: '/_authenticated/lancamentos'
       path: '/lancamentos'
@@ -171,6 +190,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBiometriasRoute: typeof AuthenticatedBiometriasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLancamentosRoute: typeof AuthenticatedLancamentosRoute
+  AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedViveirosRoute: typeof AuthenticatedViveirosRoute
 }
 
@@ -178,6 +198,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBiometriasRoute: AuthenticatedBiometriasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLancamentosRoute: AuthenticatedLancamentosRoute,
+  AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedViveirosRoute: AuthenticatedViveirosRoute,
 }
 
