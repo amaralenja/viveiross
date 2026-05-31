@@ -1,9 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Activity, FlaskConical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+type ViveiroOption = {
+  id: string;
+  nome: string;
+  qtd_povoada: number | null;
+  fazendas: { nome: string } | null;
+};
+type BiometriaRow = {
+  id: string;
+  data_biometria: string;
+  peso_medio_g: number;
+  sobrevivencia_percent: number | null;
+  viveiros: { nome: string; qtd_povoada: number | null } | null;
+};
+type RacaoRow = { viveiro_id: string; quantidade: number; tipo: string };
 
 export const Route = createFileRoute("/_authenticated/biometrias")({
   head: () => ({ meta: [{ title: "Biometrias" }] }),
@@ -28,7 +43,7 @@ function BiometriasPage() {
         .eq("status", "ativo")
         .order("nome");
       if (error) throw error;
-      return data;
+      return (data ?? []) as ViveiroOption[];
     },
   });
 
@@ -41,7 +56,7 @@ function BiometriasPage() {
         .order("data_biometria", { ascending: false })
         .limit(30);
       if (error) throw error;
-      return data;
+      return (data ?? []) as BiometriaRow[];
     },
   });
 
@@ -53,7 +68,7 @@ function BiometriasPage() {
         .select("viveiro_id, quantidade, tipo")
         .eq("tipo", "racao");
       if (error) throw error;
-      return data;
+      return (data ?? []) as RacaoRow[];
     },
   });
 
@@ -149,7 +164,7 @@ function BiometriasPage() {
                 className="app-input"
               >
                 <option value="">Escolha</option>
-                {viveiros.map((v: any) => (
+                {viveiros.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.nome} · {v.fazendas?.nome ?? "Fazenda"}
                   </option>
@@ -252,7 +267,7 @@ function BiometriasPage() {
           </p>
         ) : (
           <ul className="space-y-3">
-            {biometrias.map((b: any) => {
+            {biometrias.map((b) => {
               const povoada = b.viveiros?.qtd_povoada ?? 0;
               const biomassa =
                 (povoada * ((b.sobrevivencia_percent ?? 0) / 100) * Number(b.peso_medio_g ?? 0)) /
@@ -287,7 +302,7 @@ function BiometriasPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="text-sm font-medium block mb-1.5">{label}</span>
