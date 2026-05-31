@@ -85,10 +85,28 @@
     border-color: var(--color-border);
   }
 
-  html, body {
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .app-input {
+    width: 100%;
+    height: 48px;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    padding: 0 1rem;
+    font-size: 16px;
+    outline: none;
+  }
+
+  .app-input:focus {
+    box-shadow: 0 0 0 2px var(--color-ring);
   }
 }
