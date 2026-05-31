@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, type ComponentType } from "react";
-import { Download, FileText, Scale, Utensils } from "lucide-react";
+import { FileDown, FileText, Printer, Scale, Utensils } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 
 type ViveiroRelatorio = {
@@ -106,55 +108,88 @@ function RelatoriosPage() {
     );
   }, [linhas]);
 
-  function exportCsv() {
-    const header = [
-      "Viveiro",
-      "Fazenda",
-      "Status",
-      "Dias",
-      "Povoados",
-      "Ração kg",
-      "Peso médio g",
-      "Sobrevivência %",
-      "Biomassa kg",
-      "FCA",
-    ];
-    const rows = linhas.map((l) => [
+  const header = [
+    "Viveiro",
+    "Fazenda",
+    "Status",
+    "Dias",
+    "Povoados",
+    "Ração kg",
+    "Peso médio g",
+    "Sobrev. %",
+    "Biomassa kg",
+    "FCA",
+  ];
+
+  function buildRows() {
+    return linhas.map((l) => [
       l.viveiro,
       l.fazenda,
       l.status,
-      l.dias ?? "",
-      l.qtdPovoada,
-      l.racaoKg.toFixed(3),
-      l.pesoMedio.toFixed(2),
-      l.sobrevivencia.toFixed(2),
-      l.biomassa.toFixed(2),
-      l.fca.toFixed(2),
+      String(l.dias ?? "—"),
+      l.qtdPovoada.toLocaleString("pt-BR"),
+      formatNumber(l.racaoKg),
+      l.pesoMedio ? formatNumber(l.pesoMedio) : "—",
+      l.sobrevivencia ? formatNumber(l.sobrevivencia) : "—",
+      l.biomassa ? formatNumber(l.biomassa) : "—",
+      l.fca ? formatNumber(l.fca) : "—",
     ]);
-    const csv = [header, ...rows].map((row) => row.map(csvCell).join(";")).join("\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `relatorio-viveiros-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  }
+
+  function exportPdf() {
+    const doc = new jsPDF({ orientation: "landscape" });
+    const hoje = new Date().toLocaleDateString("pt-BR");
+    doc.setFontSize(16);
+    doc.text("Relatório de Viveiros", 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Gerado em ${hoje}`, 14, 22);
+    doc.text(
+      `Viveiros: ${totais.viveiros}  |  Ração total: ${formatNumber(totais.racaoKg)} kg  |  Biomassa total: ${formatNumber(totais.biomassa)} kg`,
+      14,
+      28,
+    );
+    autoTable(doc, {
+      head: [header],
+      body: buildRows(),
+      startY: 34,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [13, 148, 136] },
+    });
+    doc.save(`relatorio-viveiros-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }
+
+  function imprimir() {
+    window.print();
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="text-muted-foreground mt-1">Consumo, biomassa e FCA por viveiro</p>
         </div>
-        <button
-          onClick={exportCsv}
-          disabled={linhas.length === 0}
-          className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
-        >
-          <Download className="size-5" /> CSV
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={imprimir}
+            disabled={linhas.length === 0}
+            className="h-12 px-4 rounded-xl bg-secondary text-secondary-foreground font-semibold inline-flex items-center gap-2 border hover:bg-secondary/80 disabled:opacity-50"
+          >
+            <Printer className="size-5" /> Imprimir
+          </button>
+          <button
+            onClick={exportPdf}
+            disabled={linhas.length === 0}
+            className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+          >
+            <FileDown className="size-5" /> PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="hidden print:block">
+        <h1 className="text-2xl font-bold">Relatório de Viveiros</h1>
+        <p className="text-sm">Gerado em {new Date().toLocaleDateString("pt-BR")}</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
