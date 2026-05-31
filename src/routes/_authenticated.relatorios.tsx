@@ -1,8 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, type ComponentType } from "react";
 import { Download, FileText, Scale, Utensils } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
+type ViveiroRelatorio = {
+  id: string;
+  nome: string;
+  qtd_povoada: number | null;
+  data_povoamento: string | null;
+  status: string;
+  fazendas: { nome: string } | null;
+};
+type LancamentoRelatorio = {
+  viveiro_id: string;
+  produto_nome: string;
+  quantidade: number;
+  unidade: string;
+  tipo: string;
+  data_lancamento: string;
+};
+type BiometriaRelatorio = {
+  viveiro_id: string;
+  data_biometria: string;
+  peso_medio_g: number;
+  sobrevivencia_percent: number | null;
+};
+type IconComponent = ComponentType<{ className?: string }>;
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   head: () => ({ meta: [{ title: "Relatórios" }] }),
@@ -18,7 +42,7 @@ function RelatoriosPage() {
         .select("id, nome, qtd_povoada, data_povoamento, status, fazendas(nome)")
         .order("nome");
       if (error) throw error;
-      return data;
+      return (data ?? []) as ViveiroRelatorio[];
     },
   });
 
@@ -30,7 +54,7 @@ function RelatoriosPage() {
         .select("viveiro_id, produto_nome, quantidade, unidade, tipo, data_lancamento")
         .order("data_lancamento", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as LancamentoRelatorio[];
     },
   });
 
@@ -42,12 +66,12 @@ function RelatoriosPage() {
         .select("viveiro_id, data_biometria, peso_medio_g, sobrevivencia_percent")
         .order("data_biometria", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as BiometriaRelatorio[];
     },
   });
 
   const linhas = useMemo(() => {
-    return viveiros.map((v: any) => {
+    return viveiros.map((v) => {
       const racaoKg = lancamentos
         .filter((l) => l.viveiro_id === v.id && l.tipo === "racao")
         .reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
@@ -186,7 +210,7 @@ function RelatoriosPage() {
   );
 }
 
-function ResumoCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function ResumoCard({ icon: Icon, label, value }: { icon: IconComponent; label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-card border p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
