@@ -2,8 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, type ComponentType } from "react";
 import { FileDown, FileText, Printer, Scale, Utensils } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 
 type ViveiroRelatorio = {
@@ -136,7 +134,11 @@ function RelatoriosPage() {
     ]);
   }
 
-  function exportPdf() {
+  async function exportPdf() {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
     const doc = new jsPDF({ orientation: "landscape" });
     const hoje = new Date().toLocaleDateString("pt-BR");
     doc.setFontSize(16);
