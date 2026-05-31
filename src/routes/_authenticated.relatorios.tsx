@@ -205,43 +205,74 @@ function RelatoriosPage() {
           Sem dados ainda para relatório.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border bg-card">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-muted text-muted-foreground">
-              <tr>
-                <th className="text-left p-4 font-semibold">Viveiro</th>
-                <th className="text-right p-4 font-semibold">Dias</th>
-                <th className="text-right p-4 font-semibold">Povoados</th>
-                <th className="text-right p-4 font-semibold">Ração</th>
-                <th className="text-right p-4 font-semibold">Peso</th>
-                <th className="text-right p-4 font-semibold">Biomassa</th>
-                <th className="text-right p-4 font-semibold">FCA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {linhas.map((l) => (
-                <tr key={l.viveiro} className="border-t">
-                  <td className="p-4">
+        <>
+          {/* Mobile: cards */}
+          <div className="grid gap-3 sm:hidden">
+            {linhas.map((l) => (
+              <div key={l.viveiro} className="rounded-2xl border bg-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
                     <p className="font-semibold">{l.viveiro}</p>
                     <p className="text-xs text-muted-foreground">{l.fazenda}</p>
-                  </td>
-                  <td className="p-4 text-right">{l.dias ?? "—"}</td>
-                  <td className="p-4 text-right">{l.qtdPovoada.toLocaleString("pt-BR")}</td>
-                  <td className="p-4 text-right">{formatNumber(l.racaoKg)} kg</td>
-                  <td className="p-4 text-right">
-                    {l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"}
-                  </td>
-                  <td className="p-4 text-right">
-                    {l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"}
-                  </td>
-                  <td className="p-4 text-right font-semibold">
-                    {l.fca ? formatNumber(l.fca) : "—"}
-                  </td>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full bg-muted">
+                    {l.dias != null ? `${l.dias}d` : "—"}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <Info label="Povoados" value={l.qtdPovoada.toLocaleString("pt-BR")} />
+                  <Info label="Ração" value={`${formatNumber(l.racaoKg)} kg`} />
+                  <Info label="Peso" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
+                  <Info
+                    label="Biomassa"
+                    value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"}
+                  />
+                  <Info label="FCA" value={l.fca ? formatNumber(l.fca) : "—"} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden sm:block overflow-x-auto rounded-2xl border bg-card">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="text-left p-4 font-semibold">Viveiro</th>
+                  <th className="text-right p-4 font-semibold">Dias</th>
+                  <th className="text-right p-4 font-semibold">Povoados</th>
+                  <th className="text-right p-4 font-semibold">Ração</th>
+                  <th className="text-right p-4 font-semibold">Peso</th>
+                  <th className="text-right p-4 font-semibold">Biomassa</th>
+                  <th className="text-right p-4 font-semibold">FCA</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {linhas.map((l) => (
+                  <tr key={l.viveiro} className="border-t">
+                    <td className="p-4">
+                      <p className="font-semibold">{l.viveiro}</p>
+                      <p className="text-xs text-muted-foreground">{l.fazenda}</p>
+                    </td>
+                    <td className="p-4 text-right">{l.dias ?? "—"}</td>
+                    <td className="p-4 text-right">{l.qtdPovoada.toLocaleString("pt-BR")}</td>
+                    <td className="p-4 text-right">{formatNumber(l.racaoKg)} kg</td>
+                    <td className="p-4 text-right">
+                      {l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"}
+                    </td>
+                    <td className="p-4 text-right">
+                      {l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"}
+                    </td>
+                    <td className="p-4 text-right font-semibold">
+                      {l.fca ? formatNumber(l.fca) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+
       )}
     </div>
   );
