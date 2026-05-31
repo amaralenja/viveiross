@@ -297,6 +297,15 @@ function ResumoCard({
   );
 }
 
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-muted/40 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="font-semibold">{value}</p>
+    </div>
+  );
+}
+
 function diasDeCultivo(data: string) {
   const d = new Date(data);
   const hoje = new Date();
