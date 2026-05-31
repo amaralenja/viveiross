@@ -30,9 +30,9 @@ function AuthLayout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-24">
+    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background pb-24">
       <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b">
-        <div className="max-w-5xl mx-auto flex items-center justify-between px-5 py-4">
+        <div className="mx-auto flex w-full max-w-5xl min-w-0 items-center justify-between px-5 py-4">
           <Link to="/dashboard" className="flex items-center gap-2">
             <div className="size-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold">
               V
@@ -50,12 +50,12 @@ function AuthLayout() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-5 py-6">
+      <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 overflow-x-hidden px-5 py-6">
         <Outlet />
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
-        <div className="max-w-5xl mx-auto grid grid-cols-5">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-5">
           {NAV.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
@@ -65,10 +65,10 @@ function AuthLayout() {
                 to={item.to}
                 className={`flex flex-col items-center gap-1 py-3 text-xs font-medium transition ${
                   active ? "text-primary" : "text-muted-foreground"
-                }`}
+                } min-w-0`}
               >
                 <Icon className={`size-6 ${active ? "stroke-[2.5]" : ""}`} />
-                <span>{item.label}</span>
+                <span className="max-w-full truncate px-0.5 text-[10px] sm:text-xs">{item.label}</span>
               </Link>
             );
           })}

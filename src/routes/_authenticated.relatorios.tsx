@@ -135,10 +135,17 @@ function RelatoriosPage() {
   }
 
   async function exportPdf() {
-    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    const [pdfModule, tableModule] = await Promise.all([
       import("jspdf"),
       import("jspdf-autotable"),
     ]);
+    const jsPDF = pdfModule.default;
+    const autoTable = tableModule.default ?? tableModule.autoTable;
+
+    if (typeof autoTable !== "function") {
+      throw new Error("Gerador de tabela do PDF não carregou corretamente.");
+    }
+
     const doc = new jsPDF({ orientation: "landscape" });
     const hoje = new Date().toLocaleDateString("pt-BR");
     doc.setFontSize(16);
@@ -165,24 +172,24 @@ function RelatoriosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 print:hidden">
-        <div>
+    <div className="min-w-0 space-y-6 overflow-x-hidden">
+      <div className="flex min-w-0 flex-col gap-4 print:hidden sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold">Relatórios</h1>
-          <p className="text-muted-foreground mt-1">Consumo, biomassa e FCA por viveiro</p>
+          <p className="mt-1 text-muted-foreground break-words">Consumo, biomassa e FCA por viveiro</p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
           <button
             onClick={imprimir}
             disabled={linhas.length === 0}
-            className="h-12 px-4 rounded-xl bg-secondary text-secondary-foreground font-semibold inline-flex items-center gap-2 border hover:bg-secondary/80 disabled:opacity-50"
+            className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
           >
             <Printer className="size-5" /> Imprimir
           </button>
           <button
             onClick={exportPdf}
             disabled={linhas.length === 0}
-            className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-primary px-3 font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50 sm:px-4"
           >
             <FileDown className="size-5" /> PDF
           </button>
@@ -194,7 +201,7 @@ function RelatoriosPage() {
         <p className="text-sm">Gerado em {new Date().toLocaleDateString("pt-BR")}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
         <ResumoCard icon={FileText} label="Viveiros" value={String(totais.viveiros)} />
         <ResumoCard icon={Utensils} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
         <ResumoCard icon={Scale} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
@@ -207,19 +214,19 @@ function RelatoriosPage() {
       ) : (
         <>
           {/* Mobile: cards */}
-          <div className="grid gap-3 sm:hidden">
+          <div className="grid min-w-0 gap-3 sm:hidden">
             {linhas.map((l) => (
-              <div key={l.viveiro} className="rounded-2xl border bg-card p-4">
+              <div key={l.viveiro} className="min-w-0 rounded-2xl border bg-card p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{l.viveiro}</p>
-                    <p className="text-xs text-muted-foreground">{l.fazenda}</p>
+                  <div className="min-w-0">
+                    <p className="break-words font-semibold">{l.viveiro}</p>
+                    <p className="break-words text-xs text-muted-foreground">{l.fazenda}</p>
                   </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-muted">
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs">
                     {l.dias != null ? `${l.dias}d` : "—"}
                   </span>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 text-sm">
                   <Info label="Povoados" value={l.qtdPovoada.toLocaleString("pt-BR")} />
                   <Info label="Ração" value={`${formatNumber(l.racaoKg)} kg`} />
                   <Info label="Peso" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
@@ -288,7 +295,7 @@ function ResumoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-card border p-4">
+    <div className="min-w-0 rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon className="size-4" /> {label}
       </div>
@@ -299,9 +306,9 @@ function ResumoCard({
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-muted/40 px-3 py-2">
+    <div className="min-w-0 rounded-lg bg-muted/40 px-3 py-2">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="font-semibold">{value}</p>
+      <p className="break-words font-semibold">{value}</p>
     </div>
   );
 }
