@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      biometrias: {
+        Row: {
+          amostras: number | null
+          created_at: string
+          data_biometria: string
+          id: string
+          observacao: string | null
+          peso_medio_g: number
+          sobrevivencia_percent: number | null
+          updated_at: string
+          user_id: string
+          viveiro_id: string
+        }
+        Insert: {
+          amostras?: number | null
+          created_at?: string
+          data_biometria?: string
+          id?: string
+          observacao?: string | null
+          peso_medio_g: number
+          sobrevivencia_percent?: number | null
+          updated_at?: string
+          user_id: string
+          viveiro_id: string
+        }
+        Update: {
+          amostras?: number | null
+          created_at?: string
+          data_biometria?: string
+          id?: string
+          observacao?: string | null
+          peso_medio_g?: number
+          sobrevivencia_percent?: number | null
+          updated_at?: string
+          user_id?: string
+          viveiro_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biometrias_viveiro_id_fkey"
+            columns: ["viveiro_id"]
+            isOneToOne: false
+            referencedRelation: "viveiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fazendas: {
         Row: {
           cidade: string | null
@@ -36,6 +83,96 @@ export type Database = {
           created_at?: string
           id?: string
           nome?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      lancamentos: {
+        Row: {
+          created_at: string
+          data_lancamento: string
+          id: string
+          observacao: string | null
+          produto_id: string | null
+          produto_nome: string
+          quantidade: number
+          tipo: string
+          unidade: string
+          updated_at: string
+          user_id: string
+          viveiro_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_lancamento?: string
+          id?: string
+          observacao?: string | null
+          produto_id?: string | null
+          produto_nome: string
+          quantidade: number
+          tipo?: string
+          unidade?: string
+          updated_at?: string
+          user_id: string
+          viveiro_id: string
+        }
+        Update: {
+          created_at?: string
+          data_lancamento?: string
+          id?: string
+          observacao?: string | null
+          produto_id?: string | null
+          produto_nome?: string
+          quantidade?: number
+          tipo?: string
+          unidade?: string
+          updated_at?: string
+          user_id?: string
+          viveiro_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_viveiro_id_fkey"
+            columns: ["viveiro_id"]
+            isOneToOne: false
+            referencedRelation: "viveiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produtos: {
+        Row: {
+          categoria: string
+          created_at: string
+          id: string
+          nome: string
+          unidade: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          nome: string
+          unidade?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          unidade?: string
           updated_at?: string
           user_id?: string
         }
