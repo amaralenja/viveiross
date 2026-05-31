@@ -273,7 +273,3 @@ function diasDeCultivo(data: string) {
 function formatNumber(value: number) {
   return Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
-
-function csvCell(value: string | number) {
-  return `"${String(value).replace(/"/g, '""')}"`;
-}
