@@ -260,6 +260,7 @@ function ViveirosPage() {
                           />
                         );
                       })()}
+                    </button>
                     <InfoBlock
                       label="Povoamento"
                       value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
