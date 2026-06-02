@@ -219,8 +219,9 @@ function ProdutoModal({
               className="w-full h-12 px-4 rounded-xl border bg-background text-base"
             >
               <option value="racao">Ração</option>
-              <option value="insumo">Insumo</option>
+              <option value="probiotico">Probiótico</option>
               <option value="medicamento">Medicamento</option>
+              <option value="fertilizante">Fertilizante</option>
               <option value="outro">Outro</option>
             </select>
           </div>
