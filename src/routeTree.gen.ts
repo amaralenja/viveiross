@@ -14,7 +14,6 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
-import { Route as AuthenticatedLancamentosRouteImport } from './routes/_authenticated.lancamentos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedBiometriasRouteImport } from './routes/_authenticated.biometrias'
 
@@ -42,12 +41,6 @@ const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   path: '/relatorios',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedLancamentosRoute =
-  AuthenticatedLancamentosRouteImport.update({
-    id: '/lancamentos',
-    path: '/lancamentos',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -64,7 +57,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/biometrias': typeof AuthenticatedBiometriasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
@@ -73,7 +65,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/biometrias': typeof AuthenticatedBiometriasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
@@ -84,7 +75,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/biometrias': typeof AuthenticatedBiometriasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/lancamentos': typeof AuthenticatedLancamentosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
 }
@@ -95,7 +85,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/biometrias'
     | '/dashboard'
-    | '/lancamentos'
     | '/relatorios'
     | '/viveiros'
   fileRoutesByTo: FileRoutesByTo
@@ -104,7 +93,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/biometrias'
     | '/dashboard'
-    | '/lancamentos'
     | '/relatorios'
     | '/viveiros'
   id:
@@ -114,7 +102,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/biometrias'
     | '/_authenticated/dashboard'
-    | '/_authenticated/lancamentos'
     | '/_authenticated/relatorios'
     | '/_authenticated/viveiros'
   fileRoutesById: FileRoutesById
@@ -162,13 +149,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/lancamentos': {
-      id: '/_authenticated/lancamentos'
-      path: '/lancamentos'
-      fullPath: '/lancamentos'
-      preLoaderRoute: typeof AuthenticatedLancamentosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -189,7 +169,6 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedBiometriasRoute: typeof AuthenticatedBiometriasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedLancamentosRoute: typeof AuthenticatedLancamentosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedViveirosRoute: typeof AuthenticatedViveirosRoute
 }
@@ -197,7 +176,6 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBiometriasRoute: AuthenticatedBiometriasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedLancamentosRoute: AuthenticatedLancamentosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedViveirosRoute: AuthenticatedViveirosRoute,
 }
@@ -214,3 +192,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
