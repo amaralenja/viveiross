@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/_authenticated")({
 const NAV = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
   { to: "/viveiros", label: "Viveiros", icon: Warehouse },
+  { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/biometrias", label: "Biometria", icon: FlaskConical },
   { to: "/relatorios", label: "Relatórios", icon: FileText },
 ] as const;
