@@ -56,6 +56,22 @@ function ViveirosPage() {
     },
   });
 
+  const { data: racaoPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "racao-total"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("viveiro_id, quantidade")
+        .eq("tipo", "racao");
+      if (error) throw error;
+      const acc: Record<string, number> = {};
+      for (const l of data ?? []) {
+        acc[l.viveiro_id] = (acc[l.viveiro_id] ?? 0) + Number(l.quantidade ?? 0);
+      }
+      return acc;
+    },
+  });
+
   const delMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("viveiros").delete().eq("id", id);
@@ -124,6 +140,13 @@ function ViveirosPage() {
                         ? `${diasDeCultivo(v.data_povoamento)} dias`
                         : "Sem povoamento"}
                     </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+
+                      <span className="font-semibold text-foreground">
+                        {(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                      </span>{" "}
+                      de ração já lançados
+                    </p>
                   </div>
                 </div>
                 <button
@@ -176,6 +199,7 @@ function ViveirosPage() {
           onClose={() => setRacaoViveiro(null)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["lancamentos"] });
+            qc.invalidateQueries({ queryKey: ["viveiros", "racao-total"] });
             qc.invalidateQueries({ queryKey: ["dashboard"] });
             setRacaoViveiro(null);
           }}
