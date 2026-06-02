@@ -135,17 +135,7 @@ function ViveirosPage() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground truncate">
-                      {relName(v.fazendas) || "Sem fazenda"} ·{" "}
-                      {v.data_povoamento
-                        ? `${diasDeCultivo(v.data_povoamento)} dias`
-                        : "Sem povoamento"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-
-                      <span className="font-semibold text-foreground">
-                        {(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
-                      </span>{" "}
-                      de ração já lançados
+                      {relName(v.fazendas) || "Sem fazenda"}
                     </p>
                   </div>
                 </div>
@@ -158,6 +148,24 @@ function ViveirosPage() {
                 >
                   <Trash2 className="size-5" />
                 </button>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <InfoBlock
+                  label="Dias de cultivo"
+                  value={v.data_povoamento ? `${diasDeCultivo(v.data_povoamento)}` : "—"}
+                  hint={v.data_povoamento ? formatDateBR(v.data_povoamento) : "Sem povoamento"}
+                  highlight
+                />
+                <InfoBlock
+                  label="Povoamento"
+                  value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
+                  hint="pós-larvas"
+                />
+                <InfoBlock
+                  label="Ração total"
+                  value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
+                  hint="kg"
+                />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -210,9 +218,42 @@ function ViveirosPage() {
 }
 
 function diasDeCultivo(data: string) {
-  const d = new Date(data);
+  const [y, m, d] = data.split("-").map(Number);
+  const inicio = new Date(y, (m ?? 1) - 1, d ?? 1);
   const hoje = new Date();
-  return Math.max(0, Math.floor((hoje.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)));
+  hoje.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((hoje.getTime() - inicio.getTime()) / 86400000));
+}
+
+function formatDateBR(data: string) {
+  const [y, m, d] = data.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function InfoBlock({
+  label,
+  value,
+  hint,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`p-3 rounded-xl border ${
+        highlight ? "bg-primary/10 border-primary/20" : "bg-muted/40"
+      }`}
+    >
+      <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">{label}</p>
+      <p className={`mt-0.5 text-xl font-bold leading-tight ${highlight ? "text-primary" : "text-foreground"}`}>
+        {value}
+      </p>
+      {hint && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</p>}
+    </div>
+  );
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
