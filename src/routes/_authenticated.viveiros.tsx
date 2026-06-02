@@ -59,21 +59,23 @@ function ViveirosPage() {
     },
   });
 
-  const { data: totaisPorViveiro = { racao: {}, custo: {} } } = useQuery({
+  const { data: totaisPorViveiro = { racao: {}, custo: {}, primeiraData: {} } } = useQuery({
     queryKey: ["viveiros", "totais"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("viveiro_id, quantidade, custo_total, preco_unidade, produto_id, produtos(preco_unidade)")
+        .select("viveiro_id, quantidade, custo_total, preco_unidade, produto_id, data_lancamento, produtos(preco_unidade)")
         .eq("tipo", "racao");
       if (error) throw error;
       const racao: Record<string, number> = {};
       const custo: Record<string, number> = {};
+      const primeiraData: Record<string, string> = {};
       for (const l of (data ?? []) as Array<{
         viveiro_id: string;
         quantidade: number | null;
         custo_total: number | null;
         preco_unidade: number | null;
+        data_lancamento: string | null;
         produtos: { preco_unidade: number | null } | { preco_unidade: number | null }[] | null;
       }>) {
         const qtd = Number(l.quantidade ?? 0);
@@ -82,7 +84,6 @@ function ViveirosPage() {
         if (l.custo_total != null) {
           valor = Number(l.custo_total);
         } else {
-          // fallback: usa preço atual do produto se o lançamento não tem custo salvo
           const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
           const preco = l.preco_unidade ?? prod?.preco_unidade ?? null;
           if (preco != null) valor = Number(preco) * qtd;
@@ -90,12 +91,19 @@ function ViveirosPage() {
         if (valor != null) {
           custo[l.viveiro_id] = (custo[l.viveiro_id] ?? 0) + valor;
         }
+        if (l.data_lancamento) {
+          const atual = primeiraData[l.viveiro_id];
+          if (!atual || l.data_lancamento < atual) {
+            primeiraData[l.viveiro_id] = l.data_lancamento;
+          }
+        }
       }
-      return { racao, custo };
+      return { racao, custo, primeiraData };
     },
   });
-  const racaoPorViveiro = totaisPorViveiro.racao;
-  const custoPorViveiro = totaisPorViveiro.custo;
+  const racaoPorViveiro = totaisPorViveiro.racao ?? {};
+  const custoPorViveiro = totaisPorViveiro.custo ?? {};
+  const primeiraDataPorViveiro = totaisPorViveiro.primeiraData ?? {};
 
   const delMut = useMutation({
     mutationFn: async (id: string) => {
@@ -235,12 +243,23 @@ function ViveirosPage() {
                       className="text-left"
                       title="Clique pra editar a data de povoamento"
                     >
-                      <InfoBlock
-                        label="Dias de cultivo"
-                        value={v.data_povoamento ? `${diasDeCultivo(v.data_povoamento)}` : "—"}
-                        hint={v.data_povoamento ? formatDateBR(v.data_povoamento) : "Toque pra definir"}
-                        highlight
-                      />
+                      {(() => {
+                        const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
+                        return (
+                          <InfoBlock
+                            label="Dias de cultivo"
+                            value={base ? `${diasDeCultivo(base)}` : "—"}
+                            hint={
+                              v.data_povoamento
+                                ? formatDateBR(v.data_povoamento)
+                                : base
+                                ? `desde ${formatDateBR(base)}`
+                                : "Toque pra definir"
+                            }
+                            highlight
+                          />
+                        );
+                      })()}
                     </button>
                     <InfoBlock
                       label="Povoamento"
