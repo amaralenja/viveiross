@@ -52,7 +52,7 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, status, data_povoamento, qtd_povoada, fazendas(nome)")
+        .select("id, nome, status, data_povoamento, qtd_povoada, fornecedor, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Viveiro[];
