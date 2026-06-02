@@ -895,3 +895,131 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+function HistoricoModal({
+  viveiro,
+  baseDate,
+  onClose,
+}: {
+  viveiro: Viveiro;
+  baseDate: string | null;
+  onClose: () => void;
+}) {
+  const { data: lancamentos = [], isLoading } = useQuery({
+    queryKey: ["lancamentos", "viveiro", viveiro.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("id, data_lancamento, produto_nome, quantidade, unidade, tipo, custo_total")
+        .eq("viveiro_id", viveiro.id)
+        .order("data_lancamento", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const totalDias = baseDate ? diasDeCultivo(baseDate) : 0;
+
+  type Lanc = (typeof lancamentos)[number];
+  const porData = new Map<string, Lanc[]>();
+  for (const l of lancamentos) {
+    if (!l.data_lancamento) continue;
+    const arr = porData.get(l.data_lancamento) ?? [];
+    arr.push(l);
+    porData.set(l.data_lancamento, arr);
+  }
+  const datas = Array.from(porData.keys()).sort((a, b) => (a < b ? 1 : -1));
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <ModalStyle />
+      <div className="bg-card w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="min-w-0">
+            <h2 className="font-bold text-lg truncate">{viveiro.nome}</h2>
+            <p className="text-xs text-muted-foreground">
+              {totalDias > 0 ? `${totalDias} dias de cultivo` : "Sem cultivo iniciado"}
+              {baseDate && ` · desde ${formatDateBR(baseDate)}`}
+            </p>
+          </div>
+          <button onClick={onClose} className="size-10 rounded-lg hover:bg-muted flex items-center justify-center">
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-4 space-y-3">
+          {isLoading ? (
+            <p className="text-muted-foreground text-center py-8">Carregando...</p>
+          ) : datas.length === 0 ? (
+            <div className="text-center py-10">
+              <CalendarDays className="size-12 mx-auto text-muted-foreground" />
+              <p className="mt-3 font-semibold">Nenhum lançamento ainda</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Os dias com lançamento vão aparecer aqui.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+                {datas.length} {datas.length === 1 ? "dia com lançamento" : "dias com lançamento"}
+              </p>
+              <ul className="space-y-2">
+                {datas.map((d) => {
+                  const itens = porData.get(d)!;
+                  const totalKg = itens
+                    .filter((i) => i.tipo === "racao")
+                    .reduce((s, i) => s + Number(i.quantidade ?? 0), 0);
+                  const totalCusto = itens.reduce(
+                    (s, i) => s + Number(i.custo_total ?? 0),
+                    0,
+                  );
+                  const diaCultivo = baseDate ? diasDeCultivo(d) : null;
+                  return (
+                    <li key={d} className="p-3 rounded-xl border bg-muted/30">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="font-semibold">{formatDateBR(d)}</p>
+                          {diaCultivo !== null && (
+                            <p className="text-[11px] text-muted-foreground">DOC {diaCultivo}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {totalKg > 0 && (
+                            <p className="text-sm font-bold text-primary">
+                              {totalKg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg
+                            </p>
+                          )}
+                          {totalCusto > 0 && (
+                            <p className="text-[11px] text-muted-foreground">
+                              {totalCusto.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <ul className="mt-2 space-y-1">
+                        {itens.map((i) => (
+                          <li key={i.id} className="text-xs text-muted-foreground flex justify-between gap-2">
+                            <span className="truncate">{i.produto_nome}</span>
+                            <span className="shrink-0">
+                              {Number(i.quantidade ?? 0).toLocaleString("pt-BR", {
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              {i.unidade}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
