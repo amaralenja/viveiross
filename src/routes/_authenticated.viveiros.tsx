@@ -384,10 +384,15 @@ function LancarRacaoModal({
       if (!user_id) throw new Error("Sessão expirada.");
       if (!quantidade || Number(quantidade) <= 0) throw new Error("Informe a quantidade.");
 
-      let produto: { id: string; nome: string; categoria: string; unidade: string } | undefined;
+      let produto: ProdRacao | undefined;
 
       if (criandoProduto) {
         if (!novoProdutoNome.trim()) throw new Error("Informe o nome do produto.");
+        const precoNovo =
+          novoProdutoPreco.trim() === "" ? null : Number(novoProdutoPreco);
+        if (precoNovo != null && (isNaN(precoNovo) || precoNovo < 0)) {
+          throw new Error("Preço inválido.");
+        }
         const { data: novo, error: pErr } = await supabase
           .from("produtos")
           .insert({
@@ -395,17 +400,21 @@ function LancarRacaoModal({
             nome: novoProdutoNome.trim(),
             categoria: "racao",
             unidade: novoProdutoUnidade.trim() || "kg",
+            preco_unidade: precoNovo,
           })
-          .select()
+          .select("id, nome, categoria, unidade, preco_unidade")
           .single();
         if (pErr) throw pErr;
-        produto = novo;
+        produto = novo as ProdRacao;
         qc.invalidateQueries({ queryKey: ["produtos"] });
       } else {
         if (!produtoId) throw new Error("Escolha um produto.");
         produto = produtos.find((p) => p.id === produtoId);
         if (!produto) throw new Error("Produto inválido.");
       }
+
+      const preco_unidade = produto.preco_unidade != null ? Number(produto.preco_unidade) : null;
+      const custo_total = preco_unidade != null ? preco_unidade * Number(quantidade) : null;
 
       const { error } = await supabase.from("lancamentos").insert({
         user_id,
@@ -418,6 +427,8 @@ function LancarRacaoModal({
         data_lancamento: dataLancamento,
         vezes: vezes,
         observacao: vezes ? `${vezes}x` : null,
+        preco_unidade,
+        custo_total,
       });
       if (error) throw error;
     },
