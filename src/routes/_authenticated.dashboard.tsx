@@ -137,12 +137,12 @@ function Dashboard() {
             <Plus className="size-5 text-primary" />
           </Link>
           <Link
-            to="/lancamentos"
+            to="/viveiros"
             className="flex items-center justify-between p-5 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-md shadow-primary/20"
           >
             <div>
-              <p className="font-semibold">Lançar agora</p>
-              <p className="text-sm opacity-90">Ração, probiótico…</p>
+              <p className="font-semibold">Lançar ração</p>
+              <p className="text-sm opacity-90">Direto no viveiro</p>
             </div>
             <Plus className="size-5" />
           </Link>
