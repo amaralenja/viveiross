@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, Power } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
   head: () => ({ meta: [{ title: "Viveiros" }] }),
