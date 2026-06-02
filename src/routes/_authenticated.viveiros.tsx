@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils, Power } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
   head: () => ({ meta: [{ title: "Viveiros" }] }),
@@ -32,6 +32,7 @@ function ViveirosPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [racaoViveiro, setRacaoViveiro] = useState<Viveiro | null>(null);
+  const [historicoViveiro, setHistoricoViveiro] = useState<Viveiro | null>(null);
   const [editandoData, setEditandoData] = useState<string | null>(null);
   const [novaData, setNovaData] = useState("");
 
@@ -236,12 +237,9 @@ function ViveirosPage() {
                   <>
                     <button
                       type="button"
-                      onClick={() => {
-                        setNovaData(v.data_povoamento ?? todayLocal());
-                        setEditandoData(v.id);
-                      }}
-                      className="text-left"
-                      title="Clique pra editar a data de povoamento"
+                      onClick={() => setHistoricoViveiro(v)}
+                      className="text-left relative group"
+                      title="Ver dias de lançamento"
                     >
                       {(() => {
                         const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
@@ -260,6 +258,22 @@ function ViveirosPage() {
                           />
                         );
                       })()}
+                      <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
+                        Ver <ChevronRight className="size-3" />
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNovaData(v.data_povoamento ?? todayLocal());
+                          setEditandoData(v.id);
+                        }}
+                        className="absolute bottom-1.5 right-1.5 size-7 rounded-md bg-background/80 border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background cursor-pointer"
+                        title="Editar data de povoamento"
+                      >
+                        <Pencil className="size-3.5" />
+                      </span>
                     </button>
                     <InfoBlock
                       label="Povoamento"
@@ -327,6 +341,18 @@ function ViveirosPage() {
             qc.invalidateQueries({ queryKey: ["dashboard"] });
             setRacaoViveiro(null);
           }}
+        />
+      )}
+
+      {historicoViveiro && (
+        <HistoricoModal
+          viveiro={historicoViveiro}
+          baseDate={
+            historicoViveiro.data_povoamento ??
+            primeiraDataPorViveiro[historicoViveiro.id] ??
+            null
+          }
+          onClose={() => setHistoricoViveiro(null)}
         />
       )}
     </div>
@@ -866,6 +892,134 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="text-sm font-medium block mb-1.5">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function HistoricoModal({
+  viveiro,
+  baseDate,
+  onClose,
+}: {
+  viveiro: Viveiro;
+  baseDate: string | null;
+  onClose: () => void;
+}) {
+  const { data: lancamentos = [], isLoading } = useQuery({
+    queryKey: ["lancamentos", "viveiro", viveiro.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("id, data_lancamento, produto_nome, quantidade, unidade, tipo, custo_total")
+        .eq("viveiro_id", viveiro.id)
+        .order("data_lancamento", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const totalDias = baseDate ? diasDeCultivo(baseDate) : 0;
+
+  type Lanc = (typeof lancamentos)[number];
+  const porData = new Map<string, Lanc[]>();
+  for (const l of lancamentos) {
+    if (!l.data_lancamento) continue;
+    const arr = porData.get(l.data_lancamento) ?? [];
+    arr.push(l);
+    porData.set(l.data_lancamento, arr);
+  }
+  const datas = Array.from(porData.keys()).sort((a, b) => (a < b ? 1 : -1));
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <ModalStyle />
+      <div className="bg-card w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="min-w-0">
+            <h2 className="font-bold text-lg truncate">{viveiro.nome}</h2>
+            <p className="text-xs text-muted-foreground">
+              {totalDias > 0 ? `${totalDias} dias de cultivo` : "Sem cultivo iniciado"}
+              {baseDate && ` · desde ${formatDateBR(baseDate)}`}
+            </p>
+          </div>
+          <button onClick={onClose} className="size-10 rounded-lg hover:bg-muted flex items-center justify-center">
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-4 space-y-3">
+          {isLoading ? (
+            <p className="text-muted-foreground text-center py-8">Carregando...</p>
+          ) : datas.length === 0 ? (
+            <div className="text-center py-10">
+              <CalendarDays className="size-12 mx-auto text-muted-foreground" />
+              <p className="mt-3 font-semibold">Nenhum lançamento ainda</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Os dias com lançamento vão aparecer aqui.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+                {datas.length} {datas.length === 1 ? "dia com lançamento" : "dias com lançamento"}
+              </p>
+              <ul className="space-y-2">
+                {datas.map((d) => {
+                  const itens = porData.get(d)!;
+                  const totalKg = itens
+                    .filter((i) => i.tipo === "racao")
+                    .reduce((s, i) => s + Number(i.quantidade ?? 0), 0);
+                  const totalCusto = itens.reduce(
+                    (s, i) => s + Number(i.custo_total ?? 0),
+                    0,
+                  );
+                  const diaCultivo = baseDate ? diasDeCultivo(d) : null;
+                  return (
+                    <li key={d} className="p-3 rounded-xl border bg-muted/30">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="font-semibold">{formatDateBR(d)}</p>
+                          {diaCultivo !== null && (
+                            <p className="text-[11px] text-muted-foreground">DOC {diaCultivo}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {totalKg > 0 && (
+                            <p className="text-sm font-bold text-primary">
+                              {totalKg.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg
+                            </p>
+                          )}
+                          {totalCusto > 0 && (
+                            <p className="text-[11px] text-muted-foreground">
+                              {totalCusto.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <ul className="mt-2 space-y-1">
+                        {itens.map((i) => (
+                          <li key={i.id} className="text-xs text-muted-foreground flex justify-between gap-2">
+                            <span className="truncate">{i.produto_nome}</span>
+                            <span className="shrink-0">
+                              {Number(i.quantidade ?? 0).toLocaleString("pt-BR", {
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              {i.unidade}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
