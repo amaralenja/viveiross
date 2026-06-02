@@ -577,6 +577,35 @@ function LancarRacaoModal({
           )}
         </Field>
 
+        {(() => {
+          const prodSel = criandoProduto
+            ? null
+            : produtos.find((p) => p.id === produtoId);
+          const precoSel = criandoProduto
+            ? novoProdutoPreco.trim() === ""
+              ? null
+              : Number(novoProdutoPreco)
+            : prodSel?.preco_unidade != null
+            ? Number(prodSel.preco_unidade)
+            : null;
+          const qtd = Number(quantidade);
+          if (precoSel != null && !isNaN(precoSel) && qtd > 0) {
+            const total = precoSel * qtd;
+            return (
+              <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                <p className="text-xs text-muted-foreground">Custo deste lançamento</p>
+                <p className="text-xl font-bold text-primary">
+                  {total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {qtd} × {precoSel.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </p>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         <button
           type="submit"
           disabled={mut.isPending}
