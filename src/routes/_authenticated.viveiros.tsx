@@ -239,7 +239,7 @@ function LancarRacaoModal({
         user_id,
         viveiro_id: viveiro.id,
         produto_id: produto.id,
-        tipo: produto.categoria,
+        tipo: "racao",
         produto_nome: produto.nome,
         quantidade: Number(quantidade),
         unidade: produto.unidade,

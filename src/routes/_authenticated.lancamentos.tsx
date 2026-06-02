@@ -5,6 +5,14 @@ import { ClipboardList, Plus, Trash2, Utensils, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+function normalizeTipo(s: string | null | undefined): string {
+  return (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim() || "outro";
+}
+
 type FazendaOption = { id: string; nome: string };
 type ViveiroOption = {
   id: string;
@@ -108,7 +116,7 @@ function LancamentosPage() {
         user_id: userId,
         viveiro_id: viveiroId,
         produto_id: produto.id,
-        tipo: produto.categoria,
+        tipo: normalizeTipo(produto.categoria),
         produto_nome: produto.nome,
         quantidade: Number(quantidade),
         unidade: produto.unidade,
