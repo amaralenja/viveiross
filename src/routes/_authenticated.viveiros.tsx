@@ -187,7 +187,7 @@ function LancarRacaoModal({
   const qc = useQueryClient();
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("");
-  const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().slice(0, 10));
+  const [dataLancamento, setDataLancamento] = useState(todayLocal());
   const [observacao, setObservacao] = useState("");
   const [novoProdutoNome, setNovoProdutoNome] = useState("");
   const [novoProdutoUnidade, setNovoProdutoUnidade] = useState("kg");

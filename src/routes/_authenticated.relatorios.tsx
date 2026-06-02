@@ -164,7 +164,7 @@ function RelatoriosPage() {
       styles: { fontSize: 9 },
       headStyles: { fillColor: [13, 148, 136] },
     });
-    doc.save(`relatorio-viveiros-${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`relatorio-viveiros-${todayLocal()}.pdf`);
   }
 
   function imprimir() {

@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/biometrias")({
 function BiometriasPage() {
   const qc = useQueryClient();
   const [viveiroId, setViveiroId] = useState("");
-  const [dataBiometria, setDataBiometria] = useState(new Date().toISOString().slice(0, 10));
+  const [dataBiometria, setDataBiometria] = useState(todayLocal());
   const [pesoMedio, setPesoMedio] = useState("");
   const [sobrevivencia, setSobrevivencia] = useState("80");
   const [amostras, setAmostras] = useState("");
