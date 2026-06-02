@@ -59,21 +59,27 @@ function ViveirosPage() {
     },
   });
 
-  const { data: racaoPorViveiro = {} } = useQuery({
-    queryKey: ["viveiros", "racao-total"],
+  const { data: totaisPorViveiro = { racao: {}, custo: {} } } = useQuery({
+    queryKey: ["viveiros", "totais"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("viveiro_id, quantidade")
+        .select("viveiro_id, quantidade, custo_total")
         .eq("tipo", "racao");
       if (error) throw error;
-      const acc: Record<string, number> = {};
+      const racao: Record<string, number> = {};
+      const custo: Record<string, number> = {};
       for (const l of data ?? []) {
-        acc[l.viveiro_id] = (acc[l.viveiro_id] ?? 0) + Number(l.quantidade ?? 0);
+        racao[l.viveiro_id] = (racao[l.viveiro_id] ?? 0) + Number(l.quantidade ?? 0);
+        if (l.custo_total != null) {
+          custo[l.viveiro_id] = (custo[l.viveiro_id] ?? 0) + Number(l.custo_total);
+        }
       }
-      return acc;
+      return { racao, custo };
     },
   });
+  const racaoPorViveiro = totaisPorViveiro.racao;
+  const custoPorViveiro = totaisPorViveiro.custo;
 
   const delMut = useMutation({
     mutationFn: async (id: string) => {
@@ -230,6 +236,15 @@ function ViveirosPage() {
                       value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
                       hint="kg"
                     />
+                    <InfoBlock
+                      label="Gasto total"
+                      value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                      hint="ração"
+                      highlight
+                    />
                   </>
                 )}
               </div>
@@ -273,7 +288,7 @@ function ViveirosPage() {
           onClose={() => setRacaoViveiro(null)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["lancamentos"] });
-            qc.invalidateQueries({ queryKey: ["viveiros", "racao-total"] });
+            qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
             qc.invalidateQueries({ queryKey: ["dashboard"] });
             setRacaoViveiro(null);
           }}
