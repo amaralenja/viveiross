@@ -354,17 +354,26 @@ function LancarRacaoModal({
   const [vezes, setVezes] = useState<number | null>(null);
   const [novoProdutoNome, setNovoProdutoNome] = useState("");
   const [novoProdutoUnidade, setNovoProdutoUnidade] = useState("kg");
+  const [novoProdutoPreco, setNovoProdutoPreco] = useState("");
   const [criandoProduto, setCriandoProduto] = useState(false);
+
+  type ProdRacao = {
+    id: string;
+    nome: string;
+    categoria: string;
+    unidade: string;
+    preco_unidade: number | null;
+  };
 
   const { data: produtos = [] } = useQuery({
     queryKey: ["produtos", "racao"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, categoria, unidade")
+        .select("id, nome, categoria, unidade, preco_unidade")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; categoria: string; unidade: string }[];
+      return (data ?? []) as ProdRacao[];
     },
   });
 
@@ -375,10 +384,15 @@ function LancarRacaoModal({
       if (!user_id) throw new Error("Sessão expirada.");
       if (!quantidade || Number(quantidade) <= 0) throw new Error("Informe a quantidade.");
 
-      let produto: { id: string; nome: string; categoria: string; unidade: string } | undefined;
+      let produto: ProdRacao | undefined;
 
       if (criandoProduto) {
         if (!novoProdutoNome.trim()) throw new Error("Informe o nome do produto.");
+        const precoNovo =
+          novoProdutoPreco.trim() === "" ? null : Number(novoProdutoPreco);
+        if (precoNovo != null && (isNaN(precoNovo) || precoNovo < 0)) {
+          throw new Error("Preço inválido.");
+        }
         const { data: novo, error: pErr } = await supabase
           .from("produtos")
           .insert({
@@ -386,17 +400,21 @@ function LancarRacaoModal({
             nome: novoProdutoNome.trim(),
             categoria: "racao",
             unidade: novoProdutoUnidade.trim() || "kg",
+            preco_unidade: precoNovo,
           })
-          .select()
+          .select("id, nome, categoria, unidade, preco_unidade")
           .single();
         if (pErr) throw pErr;
-        produto = novo;
+        produto = novo as ProdRacao;
         qc.invalidateQueries({ queryKey: ["produtos"] });
       } else {
         if (!produtoId) throw new Error("Escolha um produto.");
         produto = produtos.find((p) => p.id === produtoId);
         if (!produto) throw new Error("Produto inválido.");
       }
+
+      const preco_unidade = produto.preco_unidade != null ? Number(produto.preco_unidade) : null;
+      const custo_total = preco_unidade != null ? preco_unidade * Number(quantidade) : null;
 
       const { error } = await supabase.from("lancamentos").insert({
         user_id,
@@ -409,6 +427,8 @@ function LancarRacaoModal({
         data_lancamento: dataLancamento,
         vezes: vezes,
         observacao: vezes ? `${vezes}x` : null,
+        preco_unidade,
+        custo_total,
       });
       if (error) throw error;
     },
@@ -474,15 +494,29 @@ function LancarRacaoModal({
                 className="input"
               />
             </Field>
-            <Field label="Unidade">
-              <input
-                required
-                value={novoProdutoUnidade}
-                onChange={(e) => setNovoProdutoUnidade(e.target.value)}
-                placeholder="kg"
-                className="input"
-              />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Unidade">
+                <input
+                  required
+                  value={novoProdutoUnidade}
+                  onChange={(e) => setNovoProdutoUnidade(e.target.value)}
+                  placeholder="kg"
+                  className="input"
+                />
+              </Field>
+              <Field label={`Preço/${novoProdutoUnidade || "un"} (R$)`}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={novoProdutoPreco}
+                  onChange={(e) => setNovoProdutoPreco(e.target.value)}
+                  placeholder="0,00"
+                  className="input"
+                />
+              </Field>
+            </div>
           </div>
         )}
 
@@ -542,6 +576,35 @@ function LancarRacaoModal({
             </p>
           )}
         </Field>
+
+        {(() => {
+          const prodSel = criandoProduto
+            ? null
+            : produtos.find((p) => p.id === produtoId);
+          const precoSel = criandoProduto
+            ? novoProdutoPreco.trim() === ""
+              ? null
+              : Number(novoProdutoPreco)
+            : prodSel?.preco_unidade != null
+            ? Number(prodSel.preco_unidade)
+            : null;
+          const qtd = Number(quantidade);
+          if (precoSel != null && !isNaN(precoSel) && qtd > 0) {
+            const total = precoSel * qtd;
+            return (
+              <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                <p className="text-xs text-muted-foreground">Custo deste lançamento</p>
+                <p className="text-xl font-bold text-primary">
+                  {total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {qtd} × {precoSel.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </p>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <button
           type="submit"

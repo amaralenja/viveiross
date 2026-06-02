@@ -15,24 +15,33 @@ type Produto = {
   nome: string;
   categoria: string;
   unidade: string;
+  preco_unidade: number | null;
 };
+
+function formatBRL(v: number | null | undefined) {
+  if (v == null) return null;
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 function ProdutosPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState<Produto | null>(null);
 
-  const { data: produtos = [], isLoading } = useQuery({
+  const produtosQuery = useQuery({
     queryKey: ["produtos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, categoria, unidade")
+        .select("id, nome, categoria, unidade, preco_unidade")
         .order("nome");
       if (error) throw error;
       return (data ?? []) as Produto[];
     },
   });
+
+  const produtos = produtosQuery.data ?? [];
+  const isLoading = produtosQuery.isLoading;
 
   const delMut = useMutation({
     mutationFn: async (id: string) => {
@@ -78,7 +87,10 @@ function ProdutosPage() {
       ) : (
         <ul className="space-y-3">
           {produtos.map((p) => (
-            <li key={p.id} className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3">
+            <li
+              key={p.id}
+              className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
+            >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <Package className="size-6" />
@@ -87,6 +99,14 @@ function ProdutosPage() {
                   <p className="font-semibold truncate">{p.nome}</p>
                   <p className="text-sm text-muted-foreground capitalize">
                     {p.categoria} · {p.unidade}
+                    {p.preco_unidade != null && (
+                      <>
+                        {" · "}
+                        <span className="text-primary font-semibold normal-case">
+                          {formatBRL(Number(p.preco_unidade))}/{p.unidade}
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -143,6 +163,9 @@ function ProdutoModal({
   const [nome, setNome] = useState(produto?.nome ?? "");
   const [categoria, setCategoria] = useState(produto?.categoria ?? "racao");
   const [unidade, setUnidade] = useState(produto?.unidade ?? "kg");
+  const [preco, setPreco] = useState(
+    produto?.preco_unidade != null ? String(produto.preco_unidade) : "",
+  );
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -153,10 +176,20 @@ function ProdutoModal({
       const user_id = userData.user?.id;
       if (!user_id) throw new Error("Sem sessão");
 
+      const preco_unidade = preco.trim() === "" ? null : Number(preco);
+      if (preco_unidade != null && (isNaN(preco_unidade) || preco_unidade < 0)) {
+        throw new Error("Preço inválido");
+      }
+
       if (produto) {
         const { error } = await supabase
           .from("produtos")
-          .update({ nome: nome.trim(), categoria, unidade: unidade.trim() || "kg" })
+          .update({
+            nome: nome.trim(),
+            categoria,
+            unidade: unidade.trim() || "kg",
+            preco_unidade,
+          })
           .eq("id", produto.id);
         if (error) throw error;
         toast.success("Produto atualizado!");
@@ -166,6 +199,7 @@ function ProdutoModal({
           nome: nome.trim(),
           categoria,
           unidade: unidade.trim() || "kg",
+          preco_unidade,
         });
         if (error) throw error;
         toast.success("Produto criado!");
@@ -226,15 +260,32 @@ function ProdutoModal({
             </select>
           </div>
 
-          <div>
-            <label className="text-sm font-medium block mb-1.5">Unidade</label>
-            <input
-              required
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value)}
-              placeholder="kg"
-              className="w-full h-12 px-4 rounded-xl border bg-background text-base"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium block mb-1.5">Unidade</label>
+              <input
+                required
+                value={unidade}
+                onChange={(e) => setUnidade(e.target.value)}
+                placeholder="kg"
+                className="w-full h-12 px-4 rounded-xl border bg-background text-base"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1.5">
+                Preço por {unidade || "un"} (R$)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={preco}
+                onChange={(e) => setPreco(e.target.value)}
+                placeholder="0,00"
+                className="w-full h-12 px-4 rounded-xl border bg-background text-base"
+              />
+            </div>
           </div>
 
           <button
