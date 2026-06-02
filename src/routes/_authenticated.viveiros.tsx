@@ -547,6 +547,7 @@ function NovoViveiroModal({
   const [novaCidade, setNovaCidade] = useState("");
   const [dataPovoamento, setDataPovoamento] = useState("");
   const [qtdPovoada, setQtdPovoada] = useState("");
+  const [fornecedor, setFornecedor] = useState("");
   const [loading, setLoading] = useState(false);
   const criandoFazenda = fazendas.length === 0 || fazendaId === "__new";
 
