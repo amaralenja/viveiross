@@ -657,6 +657,16 @@ function NovoViveiroModal({
           </Field>
         </div>
 
+        <Field label="Laboratório / Fornecedor">
+          <input
+            value={fornecedor}
+            onChange={(e) => setFornecedor(e.target.value)}
+            placeholder="Ex: Aquatec"
+            className="input"
+          />
+        </Field>
+
+
         <button
           type="submit"
           disabled={loading}
