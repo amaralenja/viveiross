@@ -54,7 +54,7 @@ function AuthLayout() {
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-5">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-4">
           {NAV.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
