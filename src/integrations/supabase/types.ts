@@ -228,6 +228,7 @@ export type Database = {
           created_at: string
           data_povoamento: string | null
           fazenda_id: string
+          fornecedor: string | null
           id: string
           nome: string
           qtd_povoada: number | null
@@ -239,6 +240,7 @@ export type Database = {
           created_at?: string
           data_povoamento?: string | null
           fazenda_id: string
+          fornecedor?: string | null
           id?: string
           nome: string
           qtd_povoada?: number | null
@@ -250,6 +252,7 @@ export type Database = {
           created_at?: string
           data_povoamento?: string | null
           fazenda_id?: string
+          fornecedor?: string | null
           id?: string
           nome?: string
           qtd_povoada?: number | null

@@ -18,6 +18,7 @@ type Viveiro = {
   status: string;
   data_povoamento: string | null;
   qtd_povoada: number | null;
+  fornecedor: string | null;
   fazendas: { nome: string } | { nome: string }[] | null;
 };
 
@@ -51,7 +52,7 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, status, data_povoamento, qtd_povoada, fazendas(nome)")
+        .select("id, nome, status, data_povoamento, qtd_povoada, fornecedor, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Viveiro[];
@@ -156,6 +157,11 @@ function ViveirosPage() {
                     <p className="text-sm text-muted-foreground truncate">
                       {relName(v.fazendas) || "Sem fazenda"}
                     </p>
+                    {v.fornecedor && (
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        Laboratório: <span className="font-medium text-foreground">{v.fornecedor}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button
@@ -541,6 +547,7 @@ function NovoViveiroModal({
   const [novaCidade, setNovaCidade] = useState("");
   const [dataPovoamento, setDataPovoamento] = useState("");
   const [qtdPovoada, setQtdPovoada] = useState("");
+  const [fornecedor, setFornecedor] = useState("");
   const [loading, setLoading] = useState(false);
   const criandoFazenda = fazendas.length === 0 || fazendaId === "__new";
 
@@ -569,6 +576,7 @@ function NovoViveiroModal({
         nome,
         data_povoamento: dataPovoamento || null,
         qtd_povoada: qtdPovoada ? Number(qtdPovoada) : null,
+        fornecedor: fornecedor.trim() || null,
       });
       if (error) throw error;
       toast.success("Viveiro criado!");
@@ -648,6 +656,16 @@ function NovoViveiroModal({
             />
           </Field>
         </div>
+
+        <Field label="Laboratório / Fornecedor">
+          <input
+            value={fornecedor}
+            onChange={(e) => setFornecedor(e.target.value)}
+            placeholder="Ex: Aquatec"
+            className="input"
+          />
+        </Field>
+
 
         <button
           type="submit"

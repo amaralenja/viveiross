@@ -1,0 +1,1 @@
+ALTER TABLE public.viveiros ADD COLUMN IF NOT EXISTS fornecedor text;
