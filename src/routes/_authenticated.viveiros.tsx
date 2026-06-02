@@ -139,7 +139,9 @@ function ViveirosPage() {
                       {v.data_povoamento
                         ? `${diasDeCultivo(v.data_povoamento)} dias`
                         : "Sem povoamento"}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">
+
                       <span className="font-semibold text-foreground">
                         {(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
                       </span>{" "}
