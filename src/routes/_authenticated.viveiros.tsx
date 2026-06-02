@@ -157,6 +157,11 @@ function ViveirosPage() {
                     <p className="text-sm text-muted-foreground truncate">
                       {relName(v.fazendas) || "Sem fazenda"}
                     </p>
+                    {v.fornecedor && (
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        Laboratório: <span className="font-medium text-foreground">{v.fornecedor}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button
