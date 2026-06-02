@@ -137,12 +137,12 @@ function Dashboard() {
             <Plus className="size-5 text-primary" />
           </Link>
           <Link
-            to="/lancamentos"
+            to="/viveiros"
             className="flex items-center justify-between p-5 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-md shadow-primary/20"
           >
             <div>
-              <p className="font-semibold">Lançar agora</p>
-              <p className="text-sm opacity-90">Ração, probiótico…</p>
+              <p className="font-semibold">Lançar ração</p>
+              <p className="text-sm opacity-90">Direto no viveiro</p>
             </div>
             <Plus className="size-5" />
           </Link>
@@ -154,7 +154,7 @@ function Dashboard() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Activity className="size-5 text-primary" /> Últimos lançamentos
           </h2>
-          <Link to="/lancamentos" className="text-sm text-primary font-medium">
+          <Link to="/viveiros" className="text-sm text-primary font-medium">
             Ver todos
           </Link>
         </div>
