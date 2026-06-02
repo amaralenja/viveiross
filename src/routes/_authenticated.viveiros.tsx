@@ -165,17 +165,6 @@ function ViveirosPage() {
                   label="Ração total"
                   value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
                   hint="kg"
-                />
-                </div>
-                <button
-                  onClick={() => {
-                    if (confirm(`Remover "${v.nome}"?`)) delMut.mutate(v.id);
-                  }}
-                  className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"
-                  aria-label="Remover viveiro"
-                >
-                  <Trash2 className="size-5" />
-                </button>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
