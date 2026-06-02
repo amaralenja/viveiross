@@ -1,7 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Warehouse, Scale, Utensils, Plus, AlertCircle } from "lucide-react";
+import {
+  Warehouse,
+  Scale,
+  Utensils,
+  Plus,
+  AlertCircle,
+  Activity,
+  FlaskConical,
+  ClipboardList,
+} from "lucide-react";
 import type { ComponentType } from "react";
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -10,6 +19,29 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Início — Viveiros" }] }),
   component: Dashboard,
 });
+
+type Lanc = {
+  id: string;
+  data_lancamento: string;
+  produto_nome: string;
+  quantidade: number;
+  unidade: string;
+  tipo: string;
+  viveiros: { nome: string } | { nome: string }[] | null;
+};
+
+type Bio = {
+  id: string;
+  data_biometria: string;
+  peso_medio_g: number;
+  viveiros: { nome: string } | { nome: string }[] | null;
+};
+
+function relName(rel: { nome: string } | { nome: string }[] | null | undefined): string {
+  if (!rel) return "";
+  if (Array.isArray(rel)) return rel[0]?.nome ?? "";
+  return rel.nome ?? "";
+}
 
 function Dashboard() {
   const { data, isLoading } = useQuery({
@@ -30,6 +62,32 @@ function Dashboard() {
         povoamento: viveiros?.reduce((s, v) => s + (v.qtd_povoada ?? 0), 0) ?? 0,
         racaoHoje: lancamentos?.reduce((s, l) => s + Number(l.quantidade ?? 0), 0) ?? 0,
       };
+    },
+  });
+
+  const { data: ultimosLanc = [] } = useQuery({
+    queryKey: ["dashboard", "ultimos-lancamentos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("id, data_lancamento, produto_nome, quantidade, unidade, tipo, viveiros(nome)")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []) as Lanc[];
+    },
+  });
+
+  const { data: ultimasBio = [] } = useQuery({
+    queryKey: ["dashboard", "ultimas-biometrias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("biometrias")
+        .select("id, data_biometria, peso_medio_g, viveiros(nome)")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []) as Bio[];
     },
   });
 
@@ -90,6 +148,86 @@ function Dashboard() {
           </Link>
         </div>
       </div>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Activity className="size-5 text-primary" /> Últimos lançamentos
+          </h2>
+          <Link to="/lancamentos" className="text-sm text-primary font-medium">
+            Ver todos
+          </Link>
+        </div>
+        {ultimosLanc.length === 0 ? (
+          <EmptyMini icon={ClipboardList} text="Sem lançamentos ainda." />
+        ) : (
+          <ul className="space-y-2">
+            {ultimosLanc.map((l) => (
+              <li
+                key={l.id}
+                className="flex items-center justify-between p-4 rounded-xl bg-card border"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{l.produto_nome}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {relName(l.viveiros) || "—"} · {formatDate(l.data_lancamento)}
+                  </p>
+                </div>
+                <span className="text-sm font-bold shrink-0 ml-3">
+                  {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                  {l.unidade}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <FlaskConical className="size-5 text-primary" /> Últimas biometrias
+          </h2>
+          <Link to="/biometrias" className="text-sm text-primary font-medium">
+            Ver todas
+          </Link>
+        </div>
+        {ultimasBio.length === 0 ? (
+          <EmptyMini icon={FlaskConical} text="Sem biometrias ainda." />
+        ) : (
+          <ul className="space-y-2">
+            {ultimasBio.map((b) => (
+              <li
+                key={b.id}
+                className="flex items-center justify-between p-4 rounded-xl bg-card border"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{relName(b.viveiros) || "Viveiro"}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {formatDate(b.data_biometria)}
+                  </p>
+                </div>
+                <span className="text-sm font-bold shrink-0 ml-3">
+                  {Number(b.peso_medio_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function formatDate(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+function EmptyMini({ icon: Icon, text }: { icon: IconComponent; text: string }) {
+  return (
+    <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+      <Icon className="size-4" /> {text}
     </div>
   );
 }
