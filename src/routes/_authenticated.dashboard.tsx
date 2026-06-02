@@ -45,6 +45,21 @@ function relName(rel: { nome: string } | { nome: string }[] | null | undefined):
 }
 
 function Dashboard() {
+  const qc = useQueryClient();
+  const delLanc = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["viveiros", "racao-total"] });
+      toast.success("Lançamento removido");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
