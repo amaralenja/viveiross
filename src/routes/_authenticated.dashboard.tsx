@@ -114,12 +114,7 @@ function Dashboard() {
         <p className="text-muted-foreground mt-1">Resumo de hoje</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <KpiCard
-          icon={Warehouse}
-          label="Viveiros ativos"
-          value={isLoading ? "—" : String(data?.ativos ?? 0)}
-        />
+      <div className="grid grid-cols-1 gap-4">
         <KpiCard
           icon={Utensils}
           label="Ração hoje"
@@ -130,32 +125,6 @@ function Dashboard() {
           }
           hint="kg"
         />
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Atalhos</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Link
-            to="/viveiros"
-            className="flex items-center justify-between p-5 rounded-2xl bg-card border hover:border-primary/40 transition"
-          >
-            <div>
-              <p className="font-semibold">Meus viveiros</p>
-              <p className="text-sm text-muted-foreground">Cadastrar e abrir</p>
-            </div>
-            <Plus className="size-5 text-primary" />
-          </Link>
-          <Link
-            to="/viveiros"
-            className="flex items-center justify-between p-5 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-md shadow-primary/20"
-          >
-            <div>
-              <p className="font-semibold">Lançar ração</p>
-              <p className="text-sm opacity-90">Direto no viveiro</p>
-            </div>
-            <Plus className="size-5" />
-          </Link>
-        </div>
       </div>
 
       <section className="space-y-3">
