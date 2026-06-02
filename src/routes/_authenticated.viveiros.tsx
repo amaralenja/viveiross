@@ -407,7 +407,8 @@ function LancarRacaoModal({
         quantidade: Number(quantidade),
         unidade: produto.unidade,
         data_lancamento: dataLancamento,
-        observacao: observacao.trim() || null,
+        vezes: vezes,
+        observacao: vezes ? `${vezes}x` : null,
       });
       if (error) throw error;
     },
