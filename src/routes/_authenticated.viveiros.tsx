@@ -384,7 +384,7 @@ function LancarRacaoModal({
           .insert({
             user_id,
             nome: novoProdutoNome.trim(),
-            categoria: "Ração",
+            categoria: "racao",
             unidade: novoProdutoUnidade.trim() || "kg",
           })
           .select()
