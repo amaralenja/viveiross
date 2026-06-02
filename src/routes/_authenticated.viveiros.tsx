@@ -237,12 +237,9 @@ function ViveirosPage() {
                   <>
                     <button
                       type="button"
-                      onClick={() => {
-                        setNovaData(v.data_povoamento ?? todayLocal());
-                        setEditandoData(v.id);
-                      }}
-                      className="text-left"
-                      title="Clique pra editar a data de povoamento"
+                      onClick={() => setHistoricoViveiro(v)}
+                      className="text-left relative group"
+                      title="Ver dias de lançamento"
                     >
                       {(() => {
                         const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
@@ -261,6 +258,22 @@ function ViveirosPage() {
                           />
                         );
                       })()}
+                      <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
+                        Ver <ChevronRight className="size-3" />
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNovaData(v.data_povoamento ?? todayLocal());
+                          setEditandoData(v.id);
+                        }}
+                        className="absolute bottom-1.5 right-1.5 size-7 rounded-md bg-background/80 border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background cursor-pointer"
+                        title="Editar data de povoamento"
+                      >
+                        <Pencil className="size-3.5" />
+                      </span>
                     </button>
                     <InfoBlock
                       label="Povoamento"
