@@ -288,7 +288,7 @@ function ViveirosPage() {
           onClose={() => setRacaoViveiro(null)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["lancamentos"] });
-            qc.invalidateQueries({ queryKey: ["viveiros", "racao-total"] });
+            qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
             qc.invalidateQueries({ queryKey: ["dashboard"] });
             setRacaoViveiro(null);
           }}

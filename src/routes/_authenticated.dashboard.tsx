@@ -54,7 +54,7 @@ function Dashboard() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
-      qc.invalidateQueries({ queryKey: ["viveiros", "racao-total"] });
+      qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
       toast.success("Lançamento removido");
     },
     onError: (err: Error) => toast.error(err.message),
