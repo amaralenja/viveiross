@@ -18,6 +18,7 @@ type Viveiro = {
   status: string;
   data_povoamento: string | null;
   qtd_povoada: number | null;
+  fornecedor: string | null;
   fazendas: { nome: string } | { nome: string }[] | null;
 };
 
