@@ -102,15 +102,22 @@ function ViveirosPage() {
         <EmptyState onAdd={() => setOpen(true)} />
       ) : (
         <ul className="space-y-3">
-          {viveiros.map((v) => (
+          {viveiros.map((v) => {
+            const ativo = v.status === "ativo";
+            return (
             <li key={v.id} className="p-4 sm:p-5 rounded-2xl bg-card border">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-12 rounded-xl bg-accent text-accent-foreground flex items-center justify-center shrink-0">
+                  <div className={`size-12 rounded-xl flex items-center justify-center shrink-0 ${ativo ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>
                     <Warehouse className="size-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-lg truncate">{v.nome}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-lg truncate">{v.nome}</p>
+                      <span className={`text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full ${ativo ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                        {ativo ? "Ativo" : "Inativo"}
+                      </span>
+                    </div>
                     <p className="text-sm text-muted-foreground truncate">
                       {relName(v.fazendas) || "Sem fazenda"} ·{" "}
                       {v.data_povoamento
@@ -129,14 +136,24 @@ function ViveirosPage() {
                   <Trash2 className="size-5" />
                 </button>
               </div>
-              <button
-                onClick={() => setRacaoViveiro(v)}
-                className="mt-3 w-full h-11 rounded-xl bg-primary/10 text-primary font-semibold flex items-center justify-center gap-2 hover:bg-primary/15"
-              >
-                <Utensils className="size-5" /> Lançar ração
-              </button>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setRacaoViveiro(v)}
+                  disabled={!ativo}
+                  className="h-11 rounded-xl bg-primary/10 text-primary font-semibold flex items-center justify-center gap-2 hover:bg-primary/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Utensils className="size-5" /> Lançar ração
+                </button>
+                <button
+                  onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })}
+                  className={`h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
+                >
+                  <Power className="size-5" /> {ativo ? "Desativar" : "Ativar"}
+                </button>
+              </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 
