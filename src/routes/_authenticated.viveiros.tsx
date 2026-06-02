@@ -576,6 +576,7 @@ function NovoViveiroModal({
         nome,
         data_povoamento: dataPovoamento || null,
         qtd_povoada: qtdPovoada ? Number(qtdPovoada) : null,
+        fornecedor: fornecedor.trim() || null,
       });
       if (error) throw error;
       toast.success("Viveiro criado!");
