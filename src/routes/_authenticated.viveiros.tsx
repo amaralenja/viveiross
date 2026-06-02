@@ -857,6 +857,90 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function EditarViveiroModal({
+  viveiro,
+  onClose,
+  onSaved,
+}: {
+  viveiro: Viveiro;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [dataPovoamento, setDataPovoamento] = useState(viveiro.data_povoamento ?? "");
+  const [qtdPovoada, setQtdPovoada] = useState(
+    viveiro.qtd_povoada != null ? String(viveiro.qtd_povoada) : "",
+  );
+  const [fornecedor, setFornecedor] = useState(viveiro.fornecedor ?? "");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const qtd = qtdPovoada.trim() === "" ? null : Number(qtdPovoada);
+      if (qtd != null && (isNaN(qtd) || qtd < 0)) throw new Error("Quantidade inválida.");
+      const { error } = await supabase
+        .from("viveiros")
+        .update({
+          data_povoamento: dataPovoamento || null,
+          qtd_povoada: qtd,
+          fornecedor: fornecedor.trim() || null,
+        })
+        .eq("id", viveiro.id);
+      if (error) throw error;
+      toast.success("Viveiro atualizado!");
+      onSaved();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro ao salvar";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Editar · ${viveiro.nome}`} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Data de povoamento">
+          <input
+            type="date"
+            value={dataPovoamento}
+            onChange={(e) => setDataPovoamento(e.target.value)}
+            className="input"
+          />
+        </Field>
+        <Field label="Quantidade de pós-larvas">
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={qtdPovoada}
+            onChange={(e) => setQtdPovoada(e.target.value)}
+            placeholder="0"
+            className="input"
+          />
+        </Field>
+        <Field label="Laboratório / Fornecedor">
+          <input
+            value={fornecedor}
+            onChange={(e) => setFornecedor(e.target.value)}
+            placeholder="Ex: Aquatec"
+            className="input"
+          />
+        </Field>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? "Salvando..." : "Salvar"}
+        </button>
+      </form>
+      <ModalStyle />
+    </ModalShell>
+  );
+}
+
 function HistoricoModal({
   viveiro,
   baseDate,
