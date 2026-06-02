@@ -125,6 +125,7 @@ export type Database = {
           unidade: string
           updated_at: string
           user_id: string
+          vezes: number | null
           viveiro_id: string
         }
         Insert: {
@@ -139,6 +140,7 @@ export type Database = {
           unidade?: string
           updated_at?: string
           user_id: string
+          vezes?: number | null
           viveiro_id: string
         }
         Update: {
@@ -153,6 +155,7 @@ export type Database = {
           unidade?: string
           updated_at?: string
           user_id?: string
+          vezes?: number | null
           viveiro_id?: string
         }
         Relationships: [

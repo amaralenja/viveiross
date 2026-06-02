@@ -351,7 +351,7 @@ function LancarRacaoModal({
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [dataLancamento, setDataLancamento] = useState(todayLocal());
-  const [observacao, setObservacao] = useState("");
+  const [vezes, setVezes] = useState<number | null>(null);
   const [novoProdutoNome, setNovoProdutoNome] = useState("");
   const [novoProdutoUnidade, setNovoProdutoUnidade] = useState("kg");
   const [criandoProduto, setCriandoProduto] = useState(false);
@@ -407,7 +407,8 @@ function LancarRacaoModal({
         quantidade: Number(quantidade),
         unidade: produto.unidade,
         data_lancamento: dataLancamento,
-        observacao: observacao.trim() || null,
+        vezes: vezes,
+        observacao: vezes ? `${vezes}x` : null,
       });
       if (error) throw error;
     },
@@ -510,13 +511,29 @@ function LancarRacaoModal({
           </Field>
         </div>
 
-        <Field label="Observação">
-          <input
-            value={observacao}
-            onChange={(e) => setObservacao(e.target.value)}
-            placeholder="Opcional"
-            className="input"
-          />
+        <Field label="Trato (opcional)">
+          <div className="flex gap-2">
+            {[1, 2, 3].map((n) => {
+              const ativo = vezes === n;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setVezes(ativo ? null : n)}
+                  className={`flex-1 h-12 rounded-xl font-semibold border ${
+                    ativo
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {n}x
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Quantas vezes alimentou nesse dia
+          </p>
         </Field>
 
         <button
