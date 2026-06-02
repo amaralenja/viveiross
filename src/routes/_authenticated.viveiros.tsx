@@ -188,7 +188,7 @@ function ViveirosPage() {
                   <Trash2 className="size-5" />
                 </button>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 min-w-0">
                 <button
                   type="button"
                   onClick={() => setHistoricoViveiro(v)}
@@ -349,12 +349,15 @@ function InfoBlock({
 }) {
   return (
     <div
-      className={`p-3 rounded-xl border ${
+      className={`p-3 rounded-xl border min-w-0 overflow-hidden ${
         highlight ? "bg-primary/10 border-primary/20" : "bg-muted/40"
       }`}
     >
-      <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">{label}</p>
-      <p className={`mt-0.5 text-xl font-bold leading-tight ${highlight ? "text-primary" : "text-foreground"}`}>
+      <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground truncate">{label}</p>
+      <p
+        className={`mt-0.5 font-bold leading-tight break-words text-base sm:text-xl ${highlight ? "text-primary" : "text-foreground"}`}
+        style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+      >
         {value}
       </p>
       {hint && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</p>}
