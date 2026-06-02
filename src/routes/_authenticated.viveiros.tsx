@@ -188,7 +188,7 @@ function ViveirosPage() {
                   <Trash2 className="size-5" />
                 </button>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 min-w-0">
                 <button
                   type="button"
                   onClick={() => setHistoricoViveiro(v)}
