@@ -130,22 +130,6 @@ function ViveirosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const dataMut = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: string | null }) => {
-      const { error } = await supabase
-        .from("viveiros")
-        .update({ data_povoamento: data })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["viveiros"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      setEditandoData(null);
-      toast.success("Data atualizada");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
 
   return (
     <div className="space-y-6">
