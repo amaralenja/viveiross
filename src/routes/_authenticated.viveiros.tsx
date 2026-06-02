@@ -165,6 +165,7 @@ function ViveirosPage() {
                   label="Ração total"
                   value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
                   hint="kg"
+                />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
