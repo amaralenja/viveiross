@@ -286,9 +286,12 @@ function ViveirosPage() {
 function diasDeCultivo(data: string) {
   const [y, m, d] = data.split("-").map(Number);
   const inicio = new Date(y, (m ?? 1) - 1, d ?? 1);
+  inicio.setHours(0, 0, 0, 0);
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  return Math.max(0, Math.floor((hoje.getTime() - inicio.getTime()) / 86400000));
+  const diff = Math.floor((hoje.getTime() - inicio.getTime()) / 86400000);
+  // Dia do povoamento = dia 1 (DOC convention)
+  return Math.max(1, diff + 1);
 }
 
 function formatDateBR(data: string) {
