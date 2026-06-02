@@ -3,38 +3,54 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
   head: () => ({ meta: [{ title: "Viveiros" }] }),
   component: ViveirosPage,
 });
 
+type Fazenda = { id: string; nome: string; cidade: string | null };
+type Viveiro = {
+  id: string;
+  nome: string;
+  data_povoamento: string | null;
+  qtd_povoada: number | null;
+  fazendas: { nome: string } | { nome: string }[] | null;
+};
+
+function relName(rel: { nome: string } | { nome: string }[] | null | undefined): string {
+  if (!rel) return "";
+  if (Array.isArray(rel)) return rel[0]?.nome ?? "";
+  return rel.nome ?? "";
+}
+
 function ViveirosPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [racaoViveiro, setRacaoViveiro] = useState<Viveiro | null>(null);
 
-  const { data: fazendas } = useQuery({
+  const { data: fazendas = [] } = useQuery({
     queryKey: ["fazendas"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fazendas")
-        .select("*")
+        .select("id, nome, cidade")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as Fazenda[];
     },
   });
 
-  const { data: viveiros, isLoading } = useQuery({
+  const { data: viveiros = [], isLoading } = useQuery({
     queryKey: ["viveiros"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("*, fazendas(nome)")
+        .select("id, nome, data_povoamento, qtd_povoada, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as Viveiro[];
     },
   });
 
@@ -52,14 +68,14 @@ function ViveirosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold">Viveiros</h1>
-          <p className="text-muted-foreground mt-1">{viveiros?.length ?? 0} cadastrados</p>
+          <p className="text-muted-foreground mt-1">{viveiros.length} cadastrados</p>
         </div>
         <button
           onClick={() => setOpen(true)}
-          className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90"
+          className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
         >
           <Plus className="size-5" /> Novo
         </button>
@@ -67,36 +83,42 @@ function ViveirosPage() {
 
       {isLoading ? (
         <p className="text-muted-foreground">Carregando...</p>
-      ) : viveiros?.length === 0 ? (
+      ) : viveiros.length === 0 ? (
         <EmptyState onAdd={() => setOpen(true)} />
       ) : (
         <ul className="space-y-3">
-          {viveiros?.map((v: any) => (
-            <li
-              key={v.id}
-              className="p-5 rounded-2xl bg-card border flex items-center justify-between"
-            >
-              <div className="flex items-center gap-4">
-                <div className="size-12 rounded-xl bg-accent text-accent-foreground flex items-center justify-center">
-                  <Warehouse className="size-6" />
+          {viveiros.map((v) => (
+            <li key={v.id} className="p-4 sm:p-5 rounded-2xl bg-card border">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-12 rounded-xl bg-accent text-accent-foreground flex items-center justify-center shrink-0">
+                    <Warehouse className="size-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-lg truncate">{v.nome}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {relName(v.fazendas) || "Sem fazenda"} ·{" "}
+                      {v.data_povoamento
+                        ? `${diasDeCultivo(v.data_povoamento)} dias`
+                        : "Sem povoamento"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-lg">{v.nome}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {v.fazendas?.nome ?? "Sem fazenda"} ·{" "}
-                    {v.data_povoamento
-                      ? `${diasDeCultivo(v.data_povoamento)} dias de cultivo`
-                      : "Sem povoamento"}
-                  </p>
-                </div>
+                <button
+                  onClick={() => {
+                    if (confirm(`Remover "${v.nome}"?`)) delMut.mutate(v.id);
+                  }}
+                  className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"
+                  aria-label="Remover viveiro"
+                >
+                  <Trash2 className="size-5" />
+                </button>
               </div>
               <button
-                onClick={() => {
-                  if (confirm(`Remover "${v.nome}"?`)) delMut.mutate(v.id);
-                }}
-                className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                onClick={() => setRacaoViveiro(v)}
+                className="mt-3 w-full h-11 rounded-xl bg-primary/10 text-primary font-semibold flex items-center justify-center gap-2 hover:bg-primary/15"
               >
-                <Trash2 className="size-5" />
+                <Utensils className="size-5" /> Lançar ração
               </button>
             </li>
           ))}
@@ -105,13 +127,25 @@ function ViveirosPage() {
 
       {open && (
         <NovoViveiroModal
-          fazendas={fazendas ?? []}
+          fazendas={fazendas}
           onClose={() => setOpen(false)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["viveiros"] });
             qc.invalidateQueries({ queryKey: ["fazendas"] });
             qc.invalidateQueries({ queryKey: ["dashboard"] });
             setOpen(false);
+          }}
+        />
+      )}
+
+      {racaoViveiro && (
+        <LancarRacaoModal
+          viveiro={racaoViveiro}
+          onClose={() => setRacaoViveiro(null)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["lancamentos"] });
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+            setRacaoViveiro(null);
           }}
         />
       )}
@@ -141,12 +175,206 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+function LancarRacaoModal({
+  viveiro,
+  onClose,
+  onSaved,
+}: {
+  viveiro: Viveiro;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const qc = useQueryClient();
+  const [produtoId, setProdutoId] = useState("");
+  const [quantidade, setQuantidade] = useState("");
+  const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().slice(0, 10));
+  const [observacao, setObservacao] = useState("");
+  const [novoProdutoNome, setNovoProdutoNome] = useState("");
+  const [novoProdutoUnidade, setNovoProdutoUnidade] = useState("kg");
+  const [criandoProduto, setCriandoProduto] = useState(false);
+
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["produtos", "racao"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, categoria, unidade")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as { id: string; nome: string; categoria: string; unidade: string }[];
+    },
+  });
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData.user?.id;
+      if (!user_id) throw new Error("Sessão expirada.");
+      if (!quantidade || Number(quantidade) <= 0) throw new Error("Informe a quantidade.");
+
+      let produto: { id: string; nome: string; categoria: string; unidade: string } | undefined;
+
+      if (criandoProduto) {
+        if (!novoProdutoNome.trim()) throw new Error("Informe o nome do produto.");
+        const { data: novo, error: pErr } = await supabase
+          .from("produtos")
+          .insert({
+            user_id,
+            nome: novoProdutoNome.trim(),
+            categoria: "Ração",
+            unidade: novoProdutoUnidade.trim() || "kg",
+          })
+          .select()
+          .single();
+        if (pErr) throw pErr;
+        produto = novo;
+        qc.invalidateQueries({ queryKey: ["produtos"] });
+      } else {
+        if (!produtoId) throw new Error("Escolha um produto.");
+        produto = produtos.find((p) => p.id === produtoId);
+        if (!produto) throw new Error("Produto inválido.");
+      }
+
+      const { error } = await supabase.from("lancamentos").insert({
+        user_id,
+        viveiro_id: viveiro.id,
+        produto_id: produto.id,
+        tipo: produto.categoria,
+        produto_nome: produto.nome,
+        quantidade: Number(quantidade),
+        unidade: produto.unidade,
+        data_lancamento: dataLancamento,
+        observacao: observacao.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Ração lançada!");
+      onSaved();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <ModalShell title={`Lançar ração · ${viveiro.nome}`} onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          mut.mutate();
+        }}
+        className="space-y-4"
+      >
+        {!criandoProduto ? (
+          <Field label="Produto">
+            <div className="flex gap-2">
+              <select
+                required
+                value={produtoId}
+                onChange={(e) => setProdutoId(e.target.value)}
+                className="input flex-1"
+              >
+                <option value="">{produtos.length ? "Escolha" : "Nenhum produto"}</option>
+                {produtos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} ({p.unidade})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setCriandoProduto(true)}
+                className="h-12 px-3 rounded-xl bg-primary/10 text-primary font-semibold"
+              >
+                + Novo
+              </button>
+            </div>
+          </Field>
+        ) : (
+          <div className="space-y-3 p-3 rounded-xl bg-muted/40 border">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">Novo produto</span>
+              <button
+                type="button"
+                onClick={() => setCriandoProduto(false)}
+                className="text-xs text-muted-foreground"
+              >
+                Cancelar
+              </button>
+            </div>
+            <Field label="Nome">
+              <input
+                required
+                value={novoProdutoNome}
+                onChange={(e) => setNovoProdutoNome(e.target.value)}
+                placeholder="Ex: Ração 35%"
+                className="input"
+              />
+            </Field>
+            <Field label="Unidade">
+              <input
+                required
+                value={novoProdutoUnidade}
+                onChange={(e) => setNovoProdutoUnidade(e.target.value)}
+                placeholder="kg"
+                className="input"
+              />
+            </Field>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quantidade">
+            <input
+              required
+              type="number"
+              min="0.001"
+              step="0.001"
+              inputMode="decimal"
+              value={quantidade}
+              onChange={(e) => setQuantidade(e.target.value)}
+              placeholder="0"
+              className="input"
+            />
+          </Field>
+          <Field label="Data">
+            <input
+              required
+              type="date"
+              value={dataLancamento}
+              onChange={(e) => setDataLancamento(e.target.value)}
+              className="input"
+            />
+          </Field>
+        </div>
+
+        <Field label="Observação">
+          <input
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            placeholder="Opcional"
+            className="input"
+          />
+        </Field>
+
+        <button
+          type="submit"
+          disabled={mut.isPending}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {mut.isPending ? "Salvando..." : "Lançar ração"}
+        </button>
+      </form>
+      <ModalStyle />
+    </ModalShell>
+  );
+}
+
 function NovoViveiroModal({
   fazendas,
   onClose,
   onSaved,
 }: {
-  fazendas: any[];
+  fazendas: Fazenda[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -188,102 +416,133 @@ function NovoViveiroModal({
       if (error) throw error;
       toast.success("Viveiro criado!");
       onSaved();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro ao salvar";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6">
-      <div className="bg-card w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold">Novo viveiro</h2>
-          <button onClick={onClose} className="size-9 rounded-lg hover:bg-muted flex items-center justify-center">
-            <X className="size-5" />
-          </button>
-        </div>
+    <ModalShell title="Novo viveiro" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Nome do viveiro">
+          <input
+            required
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Ex: Viveiro 1"
+            className="input"
+          />
+        </Field>
 
-        <form onSubmit={submit} className="space-y-4">
-          <Field label="Nome do viveiro">
+        <Field label="Fazenda">
+          {fazendas.length > 0 && (
+            <select
+              value={fazendaId}
+              onChange={(e) => setFazendaId(e.target.value)}
+              className="input"
+            >
+              {fazendas.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
+              ))}
+              <option value="__new">+ Nova fazenda</option>
+            </select>
+          )}
+          {criandoFazenda && (
+            <div className="space-y-2 mt-2">
+              <input
+                required
+                value={novaFazenda}
+                onChange={(e) => setNovaFazenda(e.target.value)}
+                placeholder="Nome da fazenda"
+                className="input"
+              />
+              <input
+                value={novaCidade}
+                onChange={(e) => setNovaCidade(e.target.value)}
+                placeholder="Cidade (opcional)"
+                className="input"
+              />
+            </div>
+          )}
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Povoamento">
             <input
-              required
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Ex: Viveiro 1"
+              type="date"
+              value={dataPovoamento}
+              onChange={(e) => setDataPovoamento(e.target.value)}
               className="input"
             />
           </Field>
-
-          <Field label="Fazenda">
-            {fazendas.length > 0 && (
-              <select
-                value={fazendaId}
-                onChange={(e) => setFazendaId(e.target.value)}
-                className="input"
-              >
-                {fazendas.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.nome}
-                  </option>
-                ))}
-                <option value="__new">+ Nova fazenda</option>
-              </select>
-            )}
-            {criandoFazenda && (
-              <div className="space-y-2 mt-2">
-                <input
-                  required
-                  value={novaFazenda}
-                  onChange={(e) => setNovaFazenda(e.target.value)}
-                  placeholder="Nome da fazenda"
-                  className="input"
-                />
-                <input
-                  value={novaCidade}
-                  onChange={(e) => setNovaCidade(e.target.value)}
-                  placeholder="Cidade (opcional)"
-                  className="input"
-                />
-              </div>
-            )}
+          <Field label="Quantidade">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={qtdPovoada}
+              onChange={(e) => setQtdPovoada(e.target.value)}
+              placeholder="0"
+              className="input"
+            />
           </Field>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Povoamento">
-              <input
-                type="date"
-                value={dataPovoamento}
-                onChange={(e) => setDataPovoamento(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Quantidade">
-              <input
-                type="number"
-                inputMode="numeric"
-                value={qtdPovoada}
-                onChange={(e) => setQtdPovoada(e.target.value)}
-                placeholder="0"
-                className="input"
-              />
-            </Field>
-          </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? "Salvando..." : "Salvar"}
+        </button>
+      </form>
+      <ModalStyle />
+    </ModalShell>
+  );
+}
 
+function ModalShell({
+  title,
+  children,
+  onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold truncate pr-2">{title}</h2>
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+            onClick={onClose}
+            className="size-9 rounded-lg hover:bg-muted flex items-center justify-center shrink-0"
+            aria-label="Fechar"
           >
-            {loading ? "Salvando..." : "Salvar"}
+            <X className="size-5" />
           </button>
-        </form>
-
-        <style>{`.input { width:100%; height:48px; padding: 0 16px; border-radius: 12px; border:1px solid var(--color-border); background: var(--color-background); font-size:16px; outline:none; }
-        .input:focus { box-shadow: 0 0 0 2px var(--color-ring); }`}</style>
+        </div>
+        {children}
       </div>
     </div>
+  );
+}
+
+function ModalStyle() {
+  return (
+    <style>{`.input { width:100%; height:48px; padding: 0 16px; border-radius: 12px; border:1px solid var(--color-border); background: var(--color-background); font-size:16px; outline:none; }
+    .input:focus { box-shadow: 0 0 0 2px var(--color-ring); }`}</style>
   );
 }
 
