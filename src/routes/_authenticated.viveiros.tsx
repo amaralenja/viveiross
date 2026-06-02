@@ -33,8 +33,7 @@ function ViveirosPage() {
   const [open, setOpen] = useState(false);
   const [racaoViveiro, setRacaoViveiro] = useState<Viveiro | null>(null);
   const [historicoViveiro, setHistoricoViveiro] = useState<Viveiro | null>(null);
-  const [editandoData, setEditandoData] = useState<string | null>(null);
-  const [novaData, setNovaData] = useState("");
+  const [editarViveiro, setEditarViveiro] = useState<Viveiro | null>(null);
 
   const { data: fazendas = [] } = useQuery({
     queryKey: ["fazendas"],
@@ -131,22 +130,6 @@ function ViveirosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const dataMut = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: string | null }) => {
-      const { error } = await supabase
-        .from("viveiros")
-        .update({ data_povoamento: data })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["viveiros"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      setEditandoData(null);
-      toast.success("Data atualizada");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
 
   return (
     <div className="space-y-6">
@@ -206,96 +189,62 @@ function ViveirosPage() {
                 </button>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2">
-                {editandoData === v.id ? (
-                  <div className="col-span-3 p-3 rounded-xl border bg-primary/5 space-y-2">
-                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
-                      Data de povoamento
-                    </p>
-                    <input
-                      type="date"
-                      value={novaData}
-                      onChange={(e) => setNovaData(e.target.value)}
-                      className="w-full h-11 px-3 rounded-lg border bg-background text-base"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => dataMut.mutate({ id: v.id, data: novaData || null })}
-                        disabled={dataMut.isPending}
-                        className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground font-semibold disabled:opacity-50"
-                      >
-                        Salvar
-                      </button>
-                      <button
-                        onClick={() => setEditandoData(null)}
-                        className="flex-1 h-10 rounded-lg bg-muted font-semibold"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setHistoricoViveiro(v)}
-                      className="text-left relative group"
-                      title="Ver dias de lançamento"
-                    >
-                      {(() => {
-                        const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
-                        return (
-                          <InfoBlock
-                            label="Dias de cultivo"
-                            value={base ? `${diasDeCultivo(base)}` : "—"}
-                            hint={
-                              v.data_povoamento
-                                ? formatDateBR(v.data_povoamento)
-                                : base
-                                ? `desde ${formatDateBR(base)}`
-                                : "Toque pra definir"
-                            }
-                            highlight
-                          />
-                        );
-                      })()}
-                      <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
-                        Ver <ChevronRight className="size-3" />
-                      </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setNovaData(v.data_povoamento ?? todayLocal());
-                          setEditandoData(v.id);
-                        }}
-                        className="absolute bottom-1.5 right-1.5 size-7 rounded-md bg-background/80 border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background cursor-pointer"
-                        title="Editar data de povoamento"
-                      >
-                        <Pencil className="size-3.5" />
-                      </span>
-                    </button>
-                    <InfoBlock
-                      label="Povoamento"
-                      value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
-                      hint="pós-larvas"
-                    />
-                    <InfoBlock
-                      label="Ração total"
-                      value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
-                      hint="kg"
-                    />
-                    <InfoBlock
-                      label="Gasto total"
-                      value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                      hint="ração"
-                      highlight
-                    />
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setHistoricoViveiro(v)}
+                  className="text-left relative group"
+                  title="Ver dias de lançamento"
+                >
+                  {(() => {
+                    const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
+                    return (
+                      <InfoBlock
+                        label="Dias de cultivo"
+                        value={base ? `${diasDeCultivo(base)}` : "—"}
+                        hint={
+                          v.data_povoamento
+                            ? formatDateBR(v.data_povoamento)
+                            : base
+                            ? `desde ${formatDateBR(base)}`
+                            : "Toque pra definir"
+                        }
+                        highlight
+                      />
+                    );
+                  })()}
+                  <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
+                    Ver <ChevronRight className="size-3" />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditarViveiro(v)}
+                  className="text-left relative"
+                  title="Editar viveiro"
+                >
+                  <InfoBlock
+                    label="Povoamento"
+                    value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
+                    hint={v.fornecedor ? v.fornecedor : "pós-larvas"}
+                  />
+                  <span className="absolute bottom-1.5 right-1.5 size-7 rounded-md bg-background/80 border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background">
+                    <Pencil className="size-3.5" />
+                  </span>
+                </button>
+                <InfoBlock
+                  label="Ração total"
+                  value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
+                  hint="kg"
+                />
+                <InfoBlock
+                  label="Gasto total"
+                  value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                  hint="ração"
+                  highlight
+                />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -353,6 +302,18 @@ function ViveirosPage() {
             null
           }
           onClose={() => setHistoricoViveiro(null)}
+        />
+      )}
+
+      {editarViveiro && (
+        <EditarViveiroModal
+          viveiro={editarViveiro}
+          onClose={() => setEditarViveiro(null)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["viveiros"] });
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+            setEditarViveiro(null);
+          }}
         />
       )}
     </div>
@@ -893,6 +854,90 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="text-sm font-medium block mb-1.5">{label}</label>
       {children}
     </div>
+  );
+}
+
+function EditarViveiroModal({
+  viveiro,
+  onClose,
+  onSaved,
+}: {
+  viveiro: Viveiro;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [dataPovoamento, setDataPovoamento] = useState(viveiro.data_povoamento ?? "");
+  const [qtdPovoada, setQtdPovoada] = useState(
+    viveiro.qtd_povoada != null ? String(viveiro.qtd_povoada) : "",
+  );
+  const [fornecedor, setFornecedor] = useState(viveiro.fornecedor ?? "");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const qtd = qtdPovoada.trim() === "" ? null : Number(qtdPovoada);
+      if (qtd != null && (isNaN(qtd) || qtd < 0)) throw new Error("Quantidade inválida.");
+      const { error } = await supabase
+        .from("viveiros")
+        .update({
+          data_povoamento: dataPovoamento || null,
+          qtd_povoada: qtd,
+          fornecedor: fornecedor.trim() || null,
+        })
+        .eq("id", viveiro.id);
+      if (error) throw error;
+      toast.success("Viveiro atualizado!");
+      onSaved();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro ao salvar";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Editar · ${viveiro.nome}`} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Data de povoamento">
+          <input
+            type="date"
+            value={dataPovoamento}
+            onChange={(e) => setDataPovoamento(e.target.value)}
+            className="input"
+          />
+        </Field>
+        <Field label="Quantidade de pós-larvas">
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={qtdPovoada}
+            onChange={(e) => setQtdPovoada(e.target.value)}
+            placeholder="0"
+            className="input"
+          />
+        </Field>
+        <Field label="Laboratório / Fornecedor">
+          <input
+            value={fornecedor}
+            onChange={(e) => setFornecedor(e.target.value)}
+            placeholder="Ex: Aquatec"
+            className="input"
+          />
+        </Field>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? "Salvando..." : "Salvar"}
+        </button>
+      </form>
+      <ModalStyle />
+    </ModalShell>
   );
 }
 
