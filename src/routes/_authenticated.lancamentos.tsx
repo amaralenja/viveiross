@@ -477,9 +477,23 @@ function NovoProdutoModal({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
+  const qc = useQueryClient();
   const [nome, setNome] = useState("");
-  const [categoria, setCategoria] = useState("racao");
+  const [categoria, setCategoria] = useState("");
+  const [novaCategoria, setNovaCategoria] = useState("");
   const [unidade, setUnidade] = useState("kg");
+
+  const { data: categorias = [] } = useQuery({
+    queryKey: ["categorias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categorias")
+        .select("id, nome")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as { id: string; nome: string }[];
+    },
+  });
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -487,12 +501,26 @@ function NovoProdutoModal({
       const userId = userData.user?.id;
       if (!userId) throw new Error("Sessão expirada.");
       if (!nome.trim()) throw new Error("Informe o nome do produto.");
+
+      let finalCategoria = categoria;
+      if (categoria === "__new") {
+        const nomeCat = novaCategoria.trim();
+        if (!nomeCat) throw new Error("Informe o nome da categoria.");
+        const { error: catErr } = await supabase
+          .from("categorias")
+          .insert({ user_id: userId, nome: nomeCat });
+        if (catErr && !String(catErr.message).includes("duplicate")) throw catErr;
+        finalCategoria = nomeCat;
+        qc.invalidateQueries({ queryKey: ["categorias"] });
+      }
+      if (!finalCategoria) throw new Error("Escolha uma categoria.");
+
       const { data, error } = await supabase
         .from("produtos")
         .insert({
           user_id: userId,
           nome: nome.trim(),
-          categoria,
+          categoria: finalCategoria,
           unidade: unidade.trim() || "kg",
         })
         .select()
@@ -526,30 +554,47 @@ function NovoProdutoModal({
             placeholder="Ex: Ração 35%"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Categoria">
-            <select
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              className="app-input"
-            >
-              {CATEGORIAS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Unidade">
+        <Field label="Categoria">
+          <select
+            required
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            className="app-input"
+          >
+            <option value="">Escolha</option>
+            {CATEGORIAS.map((c) => (
+              <option key={c.value} value={c.label}>
+                {c.label}
+              </option>
+            ))}
+            {categorias.map((c) => (
+              <option key={c.id} value={c.nome}>
+                {c.nome}
+              </option>
+            ))}
+            <option value="__new">+ Nova categoria</option>
+          </select>
+        </Field>
+        {categoria === "__new" && (
+          <Field label="Nome da nova categoria">
             <input
               required
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value)}
+              value={novaCategoria}
+              onChange={(e) => setNovaCategoria(e.target.value)}
               className="app-input"
-              placeholder="kg"
+              placeholder="Ex: Suplemento, Cal..."
             />
           </Field>
-        </div>
+        )}
+        <Field label="Unidade">
+          <input
+            required
+            value={unidade}
+            onChange={(e) => setUnidade(e.target.value)}
+            className="app-input"
+            placeholder="kg, L, un..."
+          />
+        </Field>
         <button
           disabled={mut.isPending}
           className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
