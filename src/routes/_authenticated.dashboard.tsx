@@ -106,12 +106,6 @@ function Dashboard() {
           value={isLoading ? "—" : String(data?.ativos ?? 0)}
         />
         <KpiCard
-          icon={Scale}
-          label="Povoados"
-          value={isLoading ? "—" : (data?.povoamento ?? 0).toLocaleString("pt-BR")}
-          hint="camarões"
-        />
-        <KpiCard
           icon={Utensils}
           label="Ração hoje"
           value={
@@ -121,7 +115,6 @@ function Dashboard() {
           }
           hint="kg"
         />
-        <KpiCard icon={AlertCircle} label="Alertas" value="0" />
       </div>
 
       <div className="space-y-3">
