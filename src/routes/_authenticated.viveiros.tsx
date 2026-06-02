@@ -494,15 +494,29 @@ function LancarRacaoModal({
                 className="input"
               />
             </Field>
-            <Field label="Unidade">
-              <input
-                required
-                value={novoProdutoUnidade}
-                onChange={(e) => setNovoProdutoUnidade(e.target.value)}
-                placeholder="kg"
-                className="input"
-              />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Unidade">
+                <input
+                  required
+                  value={novoProdutoUnidade}
+                  onChange={(e) => setNovoProdutoUnidade(e.target.value)}
+                  placeholder="kg"
+                  className="input"
+                />
+              </Field>
+              <Field label={`Preço/${novoProdutoUnidade || "un"} (R$)`}>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={novoProdutoPreco}
+                  onChange={(e) => setNovoProdutoPreco(e.target.value)}
+                  placeholder="0,00"
+                  className="input"
+                />
+              </Field>
+            </div>
           </div>
         )}
 
