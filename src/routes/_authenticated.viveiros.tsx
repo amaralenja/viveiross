@@ -343,6 +343,18 @@ function ViveirosPage() {
           }}
         />
       )}
+
+      {historicoViveiro && (
+        <HistoricoModal
+          viveiro={historicoViveiro}
+          baseDate={
+            historicoViveiro.data_povoamento ??
+            primeiraDataPorViveiro[historicoViveiro.id] ??
+            null
+          }
+          onClose={() => setHistoricoViveiro(null)}
+        />
+      )}
     </div>
   );
 }
