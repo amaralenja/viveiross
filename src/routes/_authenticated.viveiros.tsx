@@ -236,6 +236,15 @@ function ViveirosPage() {
                       value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
                       hint="kg"
                     />
+                    <InfoBlock
+                      label="Gasto total"
+                      value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                      hint="ração"
+                      highlight
+                    />
                   </>
                 )}
               </div>
