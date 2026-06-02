@@ -64,15 +64,31 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("viveiro_id, quantidade, custo_total")
+        .select("viveiro_id, quantidade, custo_total, preco_unidade, produto_id, produtos(preco_unidade)")
         .eq("tipo", "racao");
       if (error) throw error;
       const racao: Record<string, number> = {};
       const custo: Record<string, number> = {};
-      for (const l of data ?? []) {
-        racao[l.viveiro_id] = (racao[l.viveiro_id] ?? 0) + Number(l.quantidade ?? 0);
+      for (const l of (data ?? []) as Array<{
+        viveiro_id: string;
+        quantidade: number | null;
+        custo_total: number | null;
+        preco_unidade: number | null;
+        produtos: { preco_unidade: number | null } | { preco_unidade: number | null }[] | null;
+      }>) {
+        const qtd = Number(l.quantidade ?? 0);
+        racao[l.viveiro_id] = (racao[l.viveiro_id] ?? 0) + qtd;
+        let valor: number | null = null;
         if (l.custo_total != null) {
-          custo[l.viveiro_id] = (custo[l.viveiro_id] ?? 0) + Number(l.custo_total);
+          valor = Number(l.custo_total);
+        } else {
+          // fallback: usa preço atual do produto se o lançamento não tem custo salvo
+          const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
+          const preco = l.preco_unidade ?? prod?.preco_unidade ?? null;
+          if (preco != null) valor = Number(preco) * qtd;
+        }
+        if (valor != null) {
+          custo[l.viveiro_id] = (custo[l.viveiro_id] ?? 0) + valor;
         }
       }
       return { racao, custo };

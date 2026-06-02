@@ -142,6 +142,7 @@ function ProdutosPage() {
           }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["produtos"] });
+            qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
             setOpen(false);
             setEditando(null);
           }}
