@@ -15,6 +15,7 @@ type Fazenda = { id: string; nome: string; cidade: string | null };
 type Viveiro = {
   id: string;
   nome: string;
+  status: string;
   data_povoamento: string | null;
   qtd_povoada: number | null;
   fazendas: { nome: string } | { nome: string }[] | null;
