@@ -354,17 +354,26 @@ function LancarRacaoModal({
   const [vezes, setVezes] = useState<number | null>(null);
   const [novoProdutoNome, setNovoProdutoNome] = useState("");
   const [novoProdutoUnidade, setNovoProdutoUnidade] = useState("kg");
+  const [novoProdutoPreco, setNovoProdutoPreco] = useState("");
   const [criandoProduto, setCriandoProduto] = useState(false);
+
+  type ProdRacao = {
+    id: string;
+    nome: string;
+    categoria: string;
+    unidade: string;
+    preco_unidade: number | null;
+  };
 
   const { data: produtos = [] } = useQuery({
     queryKey: ["produtos", "racao"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, categoria, unidade")
+        .select("id, nome, categoria, unidade, preco_unidade")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; categoria: string; unidade: string }[];
+      return (data ?? []) as ProdRacao[];
     },
   });
 
