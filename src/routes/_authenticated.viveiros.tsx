@@ -135,19 +135,37 @@ function ViveirosPage() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground truncate">
-                      {relName(v.fazendas) || "Sem fazenda"} ·{" "}
-                      {v.data_povoamento
-                        ? `${diasDeCultivo(v.data_povoamento)} dias`
-                        : "Sem povoamento"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-
-                      <span className="font-semibold text-foreground">
-                        {(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
-                      </span>{" "}
-                      de ração já lançados
+                      {relName(v.fazendas) || "Sem fazenda"}
                     </p>
                   </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm(`Remover "${v.nome}"?`)) delMut.mutate(v.id);
+                  }}
+                  className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"
+                  aria-label="Remover viveiro"
+                >
+                  <Trash2 className="size-5" />
+                </button>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <InfoBlock
+                  label="Dias de cultivo"
+                  value={v.data_povoamento ? `${diasDeCultivo(v.data_povoamento)}` : "—"}
+                  hint={v.data_povoamento ? formatDateBR(v.data_povoamento) : "Sem povoamento"}
+                  highlight
+                />
+                <InfoBlock
+                  label="Povoamento"
+                  value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
+                  hint="pós-larvas"
+                />
+                <InfoBlock
+                  label="Ração total"
+                  value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
+                  hint="kg"
+                />
                 </div>
                 <button
                   onClick={() => {
