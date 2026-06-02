@@ -1,7 +1,8 @@
 import { todayLocal } from "@/lib/date";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Warehouse,
   Utensils,
@@ -9,6 +10,7 @@ import {
   Activity,
   FlaskConical,
   ClipboardList,
+  Trash2,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -43,6 +45,21 @@ function relName(rel: { nome: string } | { nome: string }[] | null | undefined):
 }
 
 function Dashboard() {
+  const qc = useQueryClient();
+  const delLanc = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["viveiros", "racao-total"] });
+      toast.success("Lançamento removido");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
@@ -165,10 +182,22 @@ function Dashboard() {
                     {relName(l.viveiros) || "—"} · {formatDate(l.data_lancamento)}
                   </p>
                 </div>
-                <span className="text-sm font-bold shrink-0 ml-3">
-                  {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
-                  {l.unidade}
-                </span>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <span className="text-sm font-bold">
+                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                    {l.unidade}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Apagar o lançamento de ${l.produto_nome}?`))
+                        delLanc.mutate(l.id);
+                    }}
+                    className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                    aria-label="Apagar lançamento"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
