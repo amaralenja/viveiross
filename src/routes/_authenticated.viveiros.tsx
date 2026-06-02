@@ -243,13 +243,23 @@ function ViveirosPage() {
                       className="text-left"
                       title="Clique pra editar a data de povoamento"
                     >
-                      <InfoBlock
-                        label="Dias de cultivo"
-                        value={v.data_povoamento ? `${diasDeCultivo(v.data_povoamento)}` : "—"}
-                        hint={v.data_povoamento ? formatDateBR(v.data_povoamento) : "Toque pra definir"}
-                        highlight
-                      />
-                    </button>
+                      {(() => {
+                        const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
+                        return (
+                          <InfoBlock
+                            label="Dias de cultivo"
+                            value={base ? `${diasDeCultivo(base)}` : "—"}
+                            hint={
+                              v.data_povoamento
+                                ? formatDateBR(v.data_povoamento)
+                                : base
+                                ? `desde ${formatDateBR(base)}`
+                                : "Toque pra definir"
+                            }
+                            highlight
+                          />
+                        );
+                      })()}
                     <InfoBlock
                       label="Povoamento"
                       value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
