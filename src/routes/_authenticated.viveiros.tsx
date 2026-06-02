@@ -531,9 +531,16 @@ function LancarRacaoModal({
               );
             })}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Quantas vezes alimentou nesse dia
-          </p>
+          {vezes && Number(quantidade) > 0 ? (
+            <p className="text-sm font-semibold text-primary mt-2">
+              {(Number(quantidade) / vezes).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+              por trato ({vezes}x)
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-1">
+              Quantas vezes alimentou nesse dia
+            </p>
+          )}
         </Field>
 
         <button
