@@ -304,6 +304,18 @@ function ViveirosPage() {
           onClose={() => setHistoricoViveiro(null)}
         />
       )}
+
+      {editarViveiro && (
+        <EditarViveiroModal
+          viveiro={editarViveiro}
+          onClose={() => setEditarViveiro(null)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["viveiros"] });
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+            setEditarViveiro(null);
+          }}
+        />
+      )}
     </div>
   );
 }
