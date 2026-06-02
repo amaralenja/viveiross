@@ -49,7 +49,7 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, data_povoamento, qtd_povoada, fazendas(nome)")
+        .select("id, nome, status, data_povoamento, qtd_povoada, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Viveiro[];
@@ -66,6 +66,19 @@ function ViveirosPage() {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Viveiro removido");
     },
+  });
+
+  const statusMut = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase.from("viveiros").update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["viveiros"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(v.status === "ativo" ? "Viveiro ativado" : "Viveiro desativado");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   return (
