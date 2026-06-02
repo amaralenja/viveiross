@@ -351,7 +351,7 @@ function LancarRacaoModal({
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [dataLancamento, setDataLancamento] = useState(todayLocal());
-  const [observacao, setObservacao] = useState("");
+  const [vezes, setVezes] = useState<number | null>(null);
   const [novoProdutoNome, setNovoProdutoNome] = useState("");
   const [novoProdutoUnidade, setNovoProdutoUnidade] = useState("kg");
   const [criandoProduto, setCriandoProduto] = useState(false);
