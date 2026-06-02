@@ -154,7 +154,7 @@ function Dashboard() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Activity className="size-5 text-primary" /> Últimos lançamentos
           </h2>
-          <Link to="/lancamentos" className="text-sm text-primary font-medium">
+          <Link to="/viveiros" className="text-sm text-primary font-medium">
             Ver todos
           </Link>
         </div>
