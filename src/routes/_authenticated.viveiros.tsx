@@ -33,8 +33,7 @@ function ViveirosPage() {
   const [open, setOpen] = useState(false);
   const [racaoViveiro, setRacaoViveiro] = useState<Viveiro | null>(null);
   const [historicoViveiro, setHistoricoViveiro] = useState<Viveiro | null>(null);
-  const [editandoData, setEditandoData] = useState<string | null>(null);
-  const [novaData, setNovaData] = useState("");
+  const [editarViveiro, setEditarViveiro] = useState<Viveiro | null>(null);
 
   const { data: fazendas = [] } = useQuery({
     queryKey: ["fazendas"],
