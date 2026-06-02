@@ -115,9 +115,11 @@ export type Database = {
       lancamentos: {
         Row: {
           created_at: string
+          custo_total: number | null
           data_lancamento: string
           id: string
           observacao: string | null
+          preco_unidade: number | null
           produto_id: string | null
           produto_nome: string
           quantidade: number
@@ -130,9 +132,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custo_total?: number | null
           data_lancamento?: string
           id?: string
           observacao?: string | null
+          preco_unidade?: number | null
           produto_id?: string | null
           produto_nome: string
           quantidade: number
@@ -145,9 +149,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custo_total?: number | null
           data_lancamento?: string
           id?: string
           observacao?: string | null
+          preco_unidade?: number | null
           produto_id?: string | null
           produto_nome?: string
           quantidade?: number
@@ -181,6 +187,7 @@ export type Database = {
           created_at: string
           id: string
           nome: string
+          preco_unidade: number | null
           unidade: string
           updated_at: string
           user_id: string
@@ -190,6 +197,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome: string
+          preco_unidade?: number | null
           unidade?: string
           updated_at?: string
           user_id: string
@@ -199,6 +207,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome?: string
+          preco_unidade?: number | null
           unidade?: string
           updated_at?: string
           user_id?: string
