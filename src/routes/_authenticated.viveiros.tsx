@@ -115,12 +115,6 @@ function ViveirosPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
-      qc.invalidateQueries({ queryKey: ["viveiros"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success(v.status === "ativo" ? "Viveiro ativado" : "Viveiro desativado");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
 
   return (
     <div className="space-y-6">
