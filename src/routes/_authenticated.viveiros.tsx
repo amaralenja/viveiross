@@ -169,22 +169,63 @@ function ViveirosPage() {
                 </button>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <InfoBlock
-                  label="Dias de cultivo"
-                  value={v.data_povoamento ? `${diasDeCultivo(v.data_povoamento)}` : "—"}
-                  hint={v.data_povoamento ? formatDateBR(v.data_povoamento) : "Sem povoamento"}
-                  highlight
-                />
-                <InfoBlock
-                  label="Povoamento"
-                  value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
-                  hint="pós-larvas"
-                />
-                <InfoBlock
-                  label="Ração total"
-                  value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
-                  hint="kg"
-                />
+                {editandoData === v.id ? (
+                  <div className="col-span-3 p-3 rounded-xl border bg-primary/5 space-y-2">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+                      Data de povoamento
+                    </p>
+                    <input
+                      type="date"
+                      value={novaData}
+                      onChange={(e) => setNovaData(e.target.value)}
+                      className="w-full h-11 px-3 rounded-lg border bg-background text-base"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => dataMut.mutate({ id: v.id, data: novaData || null })}
+                        disabled={dataMut.isPending}
+                        className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+                      >
+                        Salvar
+                      </button>
+                      <button
+                        onClick={() => setEditandoData(null)}
+                        className="flex-1 h-10 rounded-lg bg-muted font-semibold"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNovaData(v.data_povoamento ?? todayLocal());
+                        setEditandoData(v.id);
+                      }}
+                      className="text-left"
+                      title="Clique pra editar a data de povoamento"
+                    >
+                      <InfoBlock
+                        label="Dias de cultivo"
+                        value={v.data_povoamento ? `${diasDeCultivo(v.data_povoamento)}` : "—"}
+                        hint={v.data_povoamento ? formatDateBR(v.data_povoamento) : "Toque pra definir"}
+                        highlight
+                      />
+                    </button>
+                    <InfoBlock
+                      label="Povoamento"
+                      value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
+                      hint="pós-larvas"
+                    />
+                    <InfoBlock
+                      label="Ração total"
+                      value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
+                      hint="kg"
+                    />
+                  </>
+                )}
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
