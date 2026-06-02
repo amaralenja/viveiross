@@ -1,3 +1,4 @@
+import { todayLocal } from "@/lib/date";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,7 +52,7 @@ function Dashboard() {
         .from("viveiros")
         .select("id, status, qtd_povoada")
         .eq("status", "ativo");
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = todayLocal();
       const { data: lancamentos } = await supabase
         .from("lancamentos")
         .select("quantidade")

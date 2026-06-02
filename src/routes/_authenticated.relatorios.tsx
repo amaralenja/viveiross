@@ -1,3 +1,4 @@
+import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, type ComponentType } from "react";
@@ -164,7 +165,7 @@ function RelatoriosPage() {
       styles: { fontSize: 9 },
       headStyles: { fillColor: [13, 148, 136] },
     });
-    doc.save(`relatorio-viveiros-${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`relatorio-viveiros-${todayLocal()}.pdf`);
   }
 
   function imprimir() {
