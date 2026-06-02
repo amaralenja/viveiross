@@ -182,10 +182,22 @@ function Dashboard() {
                     {relName(l.viveiros) || "—"} · {formatDate(l.data_lancamento)}
                   </p>
                 </div>
-                <span className="text-sm font-bold shrink-0 ml-3">
-                  {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
-                  {l.unidade}
-                </span>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <span className="text-sm font-bold">
+                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                    {l.unidade}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Apagar o lançamento de ${l.produto_nome}?`))
+                        delLanc.mutate(l.id);
+                    }}
+                    className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                    aria-label="Apagar lançamento"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
