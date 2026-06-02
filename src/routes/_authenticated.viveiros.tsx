@@ -56,6 +56,22 @@ function ViveirosPage() {
     },
   });
 
+  const { data: racaoPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "racao-total"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("viveiro_id, quantidade")
+        .eq("tipo", "racao");
+      if (error) throw error;
+      const acc: Record<string, number> = {};
+      for (const l of data ?? []) {
+        acc[l.viveiro_id] = (acc[l.viveiro_id] ?? 0) + Number(l.quantidade ?? 0);
+      }
+      return acc;
+    },
+  });
+
   const delMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("viveiros").delete().eq("id", id);
