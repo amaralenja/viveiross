@@ -189,96 +189,62 @@ function ViveirosPage() {
                 </button>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2">
-                {editandoData === v.id ? (
-                  <div className="col-span-3 p-3 rounded-xl border bg-primary/5 space-y-2">
-                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
-                      Data de povoamento
-                    </p>
-                    <input
-                      type="date"
-                      value={novaData}
-                      onChange={(e) => setNovaData(e.target.value)}
-                      className="w-full h-11 px-3 rounded-lg border bg-background text-base"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => dataMut.mutate({ id: v.id, data: novaData || null })}
-                        disabled={dataMut.isPending}
-                        className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground font-semibold disabled:opacity-50"
-                      >
-                        Salvar
-                      </button>
-                      <button
-                        onClick={() => setEditandoData(null)}
-                        className="flex-1 h-10 rounded-lg bg-muted font-semibold"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setHistoricoViveiro(v)}
-                      className="text-left relative group"
-                      title="Ver dias de lançamento"
-                    >
-                      {(() => {
-                        const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
-                        return (
-                          <InfoBlock
-                            label="Dias de cultivo"
-                            value={base ? `${diasDeCultivo(base)}` : "—"}
-                            hint={
-                              v.data_povoamento
-                                ? formatDateBR(v.data_povoamento)
-                                : base
-                                ? `desde ${formatDateBR(base)}`
-                                : "Toque pra definir"
-                            }
-                            highlight
-                          />
-                        );
-                      })()}
-                      <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
-                        Ver <ChevronRight className="size-3" />
-                      </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setNovaData(v.data_povoamento ?? todayLocal());
-                          setEditandoData(v.id);
-                        }}
-                        className="absolute bottom-1.5 right-1.5 size-7 rounded-md bg-background/80 border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background cursor-pointer"
-                        title="Editar data de povoamento"
-                      >
-                        <Pencil className="size-3.5" />
-                      </span>
-                    </button>
-                    <InfoBlock
-                      label="Povoamento"
-                      value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
-                      hint="pós-larvas"
-                    />
-                    <InfoBlock
-                      label="Ração total"
-                      value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
-                      hint="kg"
-                    />
-                    <InfoBlock
-                      label="Gasto total"
-                      value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                      hint="ração"
-                      highlight
-                    />
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setHistoricoViveiro(v)}
+                  className="text-left relative group"
+                  title="Ver dias de lançamento"
+                >
+                  {(() => {
+                    const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
+                    return (
+                      <InfoBlock
+                        label="Dias de cultivo"
+                        value={base ? `${diasDeCultivo(base)}` : "—"}
+                        hint={
+                          v.data_povoamento
+                            ? formatDateBR(v.data_povoamento)
+                            : base
+                            ? `desde ${formatDateBR(base)}`
+                            : "Toque pra definir"
+                        }
+                        highlight
+                      />
+                    );
+                  })()}
+                  <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
+                    Ver <ChevronRight className="size-3" />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditarViveiro(v)}
+                  className="text-left relative"
+                  title="Editar viveiro"
+                >
+                  <InfoBlock
+                    label="Povoamento"
+                    value={v.qtd_povoada ? v.qtd_povoada.toLocaleString("pt-BR") : "—"}
+                    hint={v.fornecedor ? v.fornecedor : "pós-larvas"}
+                  />
+                  <span className="absolute bottom-1.5 right-1.5 size-7 rounded-md bg-background/80 border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background">
+                    <Pencil className="size-3.5" />
+                  </span>
+                </button>
+                <InfoBlock
+                  label="Ração total"
+                  value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
+                  hint="kg"
+                />
+                <InfoBlock
+                  label="Gasto total"
+                  value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                  hint="ração"
+                  highlight
+                />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
