@@ -425,47 +425,236 @@ function BiometriasPage() {
         </form>
       )}
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Últimas biometrias</h2>
-        {isLoading ? (
-          <p className="text-muted-foreground">Carregando...</p>
-        ) : biometrias.length === 0 ? (
-          <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">
-            Nenhuma biometria ainda.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {biometrias.map((b) => {
-              const povoada = b.viveiros?.qtd_povoada ?? 0;
-              const biomassa =
-                (povoada * ((b.sobrevivencia_percent ?? 0) / 100) * Number(b.peso_medio_g ?? 0)) /
-                1000;
-              return (
-                <li
-                  key={b.id}
-                  className="rounded-2xl bg-card border p-4 flex items-center justify-between gap-4"
-                >
-                  <div>
-                    <p className="font-semibold">
-                      {b.viveiros?.nome ?? "Viveiro"} · {formatNumber(b.peso_medio_g)} g
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(b.data_biometria)} · biomassa {formatNumber(biomassa)} kg
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => delMut.mutate(b.id)}
-                    className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                    aria-label="Remover biometria"
-                  >
-                    <Trash2 className="size-5" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <HistoricoBiometrias
+        biometrias={biometrias}
+        isLoading={isLoading}
+        onDelete={(id) => delMut.mutate(id)}
+      />
+    </div>
+  );
+}
+
+type PeriodoKey = "hoje" | "ontem" | "7d" | "10d" | "30d" | "tudo" | "custom";
+
+function HistoricoBiometrias({
+  biometrias,
+  isLoading,
+  onDelete,
+}: {
+  biometrias: BiometriaRow[];
+  isLoading: boolean;
+  onDelete: (id: string) => void;
+}) {
+  const [periodo, setPeriodo] = useState<PeriodoKey>("7d");
+  const [de, setDe] = useState(todayLocal());
+  const [ate, setAte] = useState(todayLocal());
+
+  const filtradas = useMemo(() => {
+    const hoje = todayLocal();
+    const ontemDate = new Date();
+    ontemDate.setDate(ontemDate.getDate() - 1);
+    const ontem = ontemDate.toISOString().slice(0, 10);
+
+    let inicio = "0000-01-01";
+    let fim = "9999-12-31";
+
+    if (periodo === "hoje") {
+      inicio = hoje;
+      fim = hoje;
+    } else if (periodo === "ontem") {
+      inicio = ontem;
+      fim = ontem;
+    } else if (periodo === "7d" || periodo === "10d" || periodo === "30d") {
+      const dias = periodo === "7d" ? 7 : periodo === "10d" ? 10 : 30;
+      const d = new Date();
+      d.setDate(d.getDate() - (dias - 1));
+      inicio = d.toISOString().slice(0, 10);
+      fim = hoje;
+    } else if (periodo === "custom") {
+      inicio = de;
+      fim = ate;
+    }
+
+    return biometrias.filter((b) => b.data_biometria >= inicio && b.data_biometria <= fim);
+  }, [biometrias, periodo, de, ate]);
+
+  const porViveiro = useMemo(() => {
+    const map = new Map<string, { nome: string; qtd_povoada: number; rows: BiometriaRow[] }>();
+    for (const b of filtradas) {
+      const key = b.viveiro_id;
+      const prev = map.get(key);
+      if (prev) prev.rows.push(b);
+      else
+        map.set(key, {
+          nome: b.viveiros?.nome ?? "Viveiro",
+          qtd_povoada: b.viveiros?.qtd_povoada ?? 0,
+          rows: [b],
+        });
+    }
+    return Array.from(map.values()).map((g) => ({
+      ...g,
+      rows: g.rows.sort((a, b) => (a.data_biometria < b.data_biometria ? 1 : -1)),
+    }));
+  }, [filtradas]);
+
+  const periodos: { key: PeriodoKey; label: string }[] = [
+    { key: "hoje", label: "Hoje" },
+    { key: "ontem", label: "Ontem" },
+    { key: "7d", label: "7 dias" },
+    { key: "10d", label: "10 dias" },
+    { key: "30d", label: "30 dias" },
+    { key: "tudo", label: "Tudo" },
+    { key: "custom", label: "Personalizado" },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="text-lg font-semibold">Histórico por viveiro</h2>
+        <span className="text-sm text-muted-foreground">{filtradas.length} biometrias</span>
       </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {periodos.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setPeriodo(p.key)}
+            className={`shrink-0 h-9 px-3 rounded-lg text-sm font-medium border transition ${
+              periodo === p.key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card hover:bg-muted"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {periodo === "custom" && (
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-3">
+          <label className="text-xs font-medium">
+            De
+            <input
+              type="date"
+              value={de}
+              onChange={(e) => setDe(e.target.value)}
+              className="app-input mt-1"
+            />
+          </label>
+          <label className="text-xs font-medium">
+            Até
+            <input
+              type="date"
+              value={ate}
+              onChange={(e) => setAte(e.target.value)}
+              className="app-input mt-1"
+            />
+          </label>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-muted-foreground">Carregando...</p>
+      ) : porViveiro.length === 0 ? (
+        <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">
+          Nenhuma biometria neste período.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {porViveiro.map((grupo) => {
+            const ult = grupo.rows[0];
+            const ant = grupo.rows[1];
+            let cresc = 0;
+            if (ant) {
+              const dias = Math.max(
+                1,
+                Math.round(
+                  (new Date(`${ult.data_biometria}T00:00:00`).getTime() -
+                    new Date(`${ant.data_biometria}T00:00:00`).getTime()) /
+                    86400000,
+                ),
+              );
+              cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
+            }
+            const ultBiomassa =
+              (grupo.qtd_povoada *
+                ((ult.sobrevivencia_percent ?? 0) / 100) *
+                Number(ult.peso_medio_g ?? 0)) /
+              1000;
+
+            return (
+              <div key={grupo.nome} className="rounded-2xl bg-card border overflow-hidden">
+                <div className="p-4 border-b bg-muted/30 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="col-span-2 sm:col-span-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Viveiro</p>
+                    <p className="font-bold truncate">{grupo.nome}</p>
+                  </div>
+                  <MiniInfo
+                    icon={<Activity className="size-3.5" />}
+                    label="Último peso"
+                    value={`${formatNumber(ult.peso_medio_g)} g`}
+                  />
+                  <MiniInfo
+                    icon={<TrendingUp className="size-3.5" />}
+                    label="Cresc. semanal"
+                    value={ant ? `${formatNumber(cresc)} g` : "—"}
+                  />
+                  <MiniInfo
+                    icon={<FlaskConical className="size-3.5" />}
+                    label="Biomassa"
+                    value={`${formatNumber(ultBiomassa)} kg`}
+                  />
+                </div>
+
+                <ul className="divide-y">
+                  {grupo.rows.map((b) => {
+                    const biomassa =
+                      (grupo.qtd_povoada *
+                        ((b.sobrevivencia_percent ?? 0) / 100) *
+                        Number(b.peso_medio_g ?? 0)) /
+                      1000;
+                    return (
+                      <li
+                        key={b.id}
+                        className="p-3 flex items-center justify-between gap-3 text-sm"
+                      >
+                        <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <span className="font-medium">{formatDate(b.data_biometria)}</span>
+                          <span>
+                            <span className="text-muted-foreground">Peso: </span>
+                            <span className="font-semibold">
+                              {formatNumber(b.peso_medio_g)} g
+                            </span>
+                          </span>
+                          <span>
+                            <span className="text-muted-foreground">Sobrev: </span>
+                            <span className="font-semibold">
+                              {b.sobrevivencia_percent
+                                ? `${formatNumber(b.sobrevivencia_percent)}%`
+                                : "—"}
+                            </span>
+                          </span>
+                          <span>
+                            <span className="text-muted-foreground">Biomassa: </span>
+                            <span className="font-semibold">{formatNumber(biomassa)} kg</span>
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => onDelete(b.id)}
+                          className="size-9 shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                          aria-label="Remover biometria"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
