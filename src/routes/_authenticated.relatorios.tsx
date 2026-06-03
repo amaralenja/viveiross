@@ -1,7 +1,7 @@
 import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FileDown, FileText, Printer, Scale, Utensils, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,6 +37,8 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 });
 
 function RelatoriosPage() {
+  const [printOnlyId, setPrintOnlyId] = useState<string | null>(null);
+
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "relatorio"],
     queryFn: async () => {
@@ -45,7 +47,7 @@ function RelatoriosPage() {
         .select("id, nome, qtd_povoada, data_povoamento, status, fornecedor, fazendas(nome)")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as ViveiroRelatorio[];
+      return (data ?? []) as unknown as ViveiroRelatorio[];
     },
   });
 
@@ -118,6 +120,8 @@ function RelatoriosPage() {
         ultimaBioData: ultimaBio?.data_biometria ?? null,
         nLancamentos: lancs.length,
         nBiometrias: bios.length,
+        lancs,
+        bios,
       };
     });
   }, [biometrias, lancamentos, viveiros]);
@@ -134,46 +138,6 @@ function RelatoriosPage() {
     );
   }, [linhas]);
 
-  const header = [
-    "Viveiro",
-    "Fazenda",
-    "Status",
-    "Fornecedor",
-    "Povoamento",
-    "Dias",
-    "Povoados",
-    "Ração kg",
-    "Custo ração R$",
-    "Custo outros R$",
-    "Custo total R$",
-    "Peso médio g",
-    "Sobrev. %",
-    "Biomassa kg",
-    "FCA",
-    "R$/kg",
-  ];
-
-  function buildRows() {
-    return linhas.map((l) => [
-      l.viveiro,
-      l.fazenda,
-      l.status,
-      l.fornecedor,
-      l.dataPovoamento ? formatDate(l.dataPovoamento) : "—",
-      String(l.dias ?? "—"),
-      l.qtdPovoada.toLocaleString("pt-BR"),
-      formatNumber(l.racaoKg),
-      formatBRL(l.custoRacao),
-      formatBRL(l.custoOutros),
-      formatBRL(l.custoTotal),
-      l.pesoMedio ? formatNumber(l.pesoMedio) : "—",
-      l.sobrevivencia ? formatNumber(l.sobrevivencia) : "—",
-      l.biomassa ? formatNumber(l.biomassa) : "—",
-      l.fca ? formatNumber(l.fca) : "—",
-      l.custoPorKg ? formatBRL(l.custoPorKg) : "—",
-    ]);
-  }
-
   async function exportPdf() {
     const [pdfModule, tableModule] = await Promise.all([
       import("jspdf"),
@@ -181,10 +145,7 @@ function RelatoriosPage() {
     ]);
     const jsPDF = pdfModule.default;
     const autoTable = (tableModule as { default?: unknown; autoTable?: unknown }).default ?? (tableModule as { autoTable?: unknown }).autoTable;
-
-    if (typeof autoTable !== "function") {
-      throw new Error("Gerador de tabela do PDF não carregou corretamente.");
-    }
+    if (typeof autoTable !== "function") throw new Error("PDF generator falhou.");
 
     const doc = new jsPDF({ orientation: "landscape" });
     const hoje = new Date().toLocaleDateString("pt-BR");
@@ -193,55 +154,78 @@ function RelatoriosPage() {
     doc.setFontSize(10);
     doc.text(`Gerado em ${hoje}`, 14, 22);
     doc.text(
-      `Viveiros: ${totais.viveiros}  |  Ração: ${formatNumber(totais.racaoKg)} kg  |  Biomassa: ${formatNumber(totais.biomassa)} kg  |  Custo total: ${formatBRL(totais.custoTotal)}`,
+      `Viveiros: ${totais.viveiros} | Ração: ${formatNumber(totais.racaoKg)} kg | Biomassa: ${formatNumber(totais.biomassa)} kg | Custo: ${formatBRL(totais.custoTotal)}`,
       14,
       28,
     );
-    (autoTable as (doc: unknown, opts: unknown) => void)(doc, {
-      head: [header],
-      body: buildRows(),
-      startY: 34,
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [13, 148, 136] },
+    const header = ["Viveiro","Fazenda","Povoamento","Dias","Povoados","Ração kg","Custo total","Peso g","Sobrev.","Biomassa","FCA","R$/kg"];
+    const rows = linhas.map((l) => [
+      l.viveiro, l.fazenda,
+      l.dataPovoamento ? formatDate(l.dataPovoamento) : "—",
+      String(l.dias ?? "—"),
+      l.qtdPovoada.toLocaleString("pt-BR"),
+      formatNumber(l.racaoKg),
+      formatBRL(l.custoTotal),
+      l.pesoMedio ? formatNumber(l.pesoMedio) : "—",
+      l.sobrevivencia ? formatNumber(l.sobrevivencia) : "—",
+      l.biomassa ? formatNumber(l.biomassa) : "—",
+      l.fca ? formatNumber(l.fca) : "—",
+      l.custoPorKg ? formatBRL(l.custoPorKg) : "—",
+    ]);
+    (autoTable as (d: unknown, o: unknown) => void)(doc, {
+      head: [header], body: rows, startY: 34,
+      styles: { fontSize: 8 }, headStyles: { fillColor: [13, 148, 136] },
     });
     doc.save(`relatorio-viveiros-${todayLocal()}.pdf`);
   }
 
-  function imprimir() {
-    window.print();
+  function imprimirTudo() {
+    setPrintOnlyId(null);
+    setTimeout(() => window.print(), 50);
+  }
+
+  function imprimirViveiro(id: string) {
+    setPrintOnlyId(id);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintOnlyId(null), 200);
+    }, 50);
   }
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
-      <div className="flex min-w-0 flex-col gap-4 print:hidden sm:flex-row sm:items-start sm:justify-between">
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          .print-only-target { display: block !important; }
+          ${printOnlyId ? `.viveiro-card:not([data-vid="${printOnlyId}"]) { display: none !important; }` : ""}
+        }
+      `}</style>
+
+      <div className="no-print flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold">Relatórios</h1>
-          <p className="mt-1 text-muted-foreground break-words">Extrato completo por viveiro</p>
+          <p className="mt-1 text-muted-foreground break-words">Extrato por viveiro</p>
         </div>
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
           <button
-            onClick={imprimir}
+            onClick={imprimirTudo}
             disabled={linhas.length === 0}
-            className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
           >
-            <Printer className="size-5" /> Imprimir
+            <Printer className="size-5" /> Imprimir tudo
           </button>
           <button
             onClick={exportPdf}
             disabled={linhas.length === 0}
-            className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-primary px-3 font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50 sm:px-4"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-3 font-semibold text-primary-foreground shadow-md hover:bg-primary/90 disabled:opacity-50 sm:px-4"
           >
             <FileDown className="size-5" /> PDF
           </button>
         </div>
       </div>
 
-      <div className="hidden print:block">
-        <h1 className="text-2xl font-bold">Relatório de Viveiros</h1>
-        <p className="text-sm">Gerado em {new Date().toLocaleDateString("pt-BR")}</p>
-      </div>
-
-      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
         <ResumoCard Icon={FileText} label="Viveiros" value={String(totais.viveiros)} />
         <ResumoCard Icon={Utensils} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
         <ResumoCard Icon={Scale} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
@@ -253,87 +237,104 @@ function RelatoriosPage() {
           Sem dados ainda para relatório.
         </p>
       ) : (
-        <>
-          {/* Mobile / detalhado: cards com tudo */}
-          <div className="grid min-w-0 gap-3 lg:hidden">
-            {linhas.map((l) => (
-              <div key={l.id} className="min-w-0 rounded-2xl border bg-card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="break-words font-semibold">{l.viveiro}</p>
-                    <p className="break-words text-xs text-muted-foreground">{l.fazenda} • {l.status}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs">
-                    {l.dias != null ? `${l.dias}d` : "—"}
-                  </span>
+        <div className="grid min-w-0 gap-4">
+          {linhas.map((l) => (
+            <div
+              key={l.id}
+              data-vid={l.id}
+              className="viveiro-card min-w-0 rounded-2xl border bg-card p-5 print:border-black"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="break-words text-xl font-bold">{l.viveiro}</h2>
+                  <p className="break-words text-xs text-muted-foreground">
+                    {l.fazenda} • {l.status} • {l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}
+                  </p>
                 </div>
-                <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 text-sm">
-                  <Info label="Fornecedor" value={l.fornecedor} />
-                  <Info label="Povoamento" value={l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"} />
-                  <Info label="Pós-larvas" value={l.qtdPovoada.toLocaleString("pt-BR")} />
-                  <Info label="Ração" value={`${formatNumber(l.racaoKg)} kg`} />
-                  <Info label="Custo ração" value={formatBRL(l.custoRacao)} />
-                  <Info label="Custo outros" value={formatBRL(l.custoOutros)} />
-                  <Info label="Custo total" value={formatBRL(l.custoTotal)} />
-                  <Info label="R$/kg" value={l.custoPorKg ? formatBRL(l.custoPorKg) : "—"} />
-                  <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
-                  <Info label="Sobrev." value={l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"} />
-                  <Info label="Biomassa" value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"} />
-                  <Info label="FCA" value={l.fca ? formatNumber(l.fca) : "—"} />
-                  <Info label="Lançamentos" value={String(l.nLancamentos)} />
-                  <Info label="Biometrias" value={String(l.nBiometrias)} />
-                </div>
+                <button
+                  onClick={() => imprimirViveiro(l.id)}
+                  className="no-print inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-secondary px-3 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
+                >
+                  <Printer className="size-4" /> Imprimir
+                </button>
               </div>
-            ))}
-          </div>
 
-          {/* Desktop: tabela completa */}
-          <div className="hidden lg:block overflow-x-auto rounded-2xl border bg-card">
-            <table className="w-full text-xs">
-              <thead className="bg-muted text-muted-foreground">
-                <tr>
-                  <th className="text-left p-3 font-semibold">Viveiro</th>
-                  <th className="text-left p-3 font-semibold">Fornecedor</th>
-                  <th className="text-left p-3 font-semibold">Povoamento</th>
-                  <th className="text-right p-3 font-semibold">Dias</th>
-                  <th className="text-right p-3 font-semibold">Povoados</th>
-                  <th className="text-right p-3 font-semibold">Ração kg</th>
-                  <th className="text-right p-3 font-semibold">Custo ração</th>
-                  <th className="text-right p-3 font-semibold">Custo outros</th>
-                  <th className="text-right p-3 font-semibold">Custo total</th>
-                  <th className="text-right p-3 font-semibold">Peso g</th>
-                  <th className="text-right p-3 font-semibold">Sobrev.</th>
-                  <th className="text-right p-3 font-semibold">Biomassa</th>
-                  <th className="text-right p-3 font-semibold">FCA</th>
-                  <th className="text-right p-3 font-semibold">R$/kg</th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((l) => (
-                  <tr key={l.id} className="border-t">
-                    <td className="p-3">
-                      <p className="font-semibold">{l.viveiro}</p>
-                      <p className="text-[10px] text-muted-foreground">{l.fazenda} • {l.status}</p>
-                    </td>
-                    <td className="p-3">{l.fornecedor}</td>
-                    <td className="p-3">{l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"}</td>
-                    <td className="p-3 text-right">{l.dias ?? "—"}</td>
-                    <td className="p-3 text-right">{l.qtdPovoada.toLocaleString("pt-BR")}</td>
-                    <td className="p-3 text-right">{formatNumber(l.racaoKg)}</td>
-                    <td className="p-3 text-right">{formatBRL(l.custoRacao)}</td>
-                    <td className="p-3 text-right">{formatBRL(l.custoOutros)}</td>
-                    <td className="p-3 text-right font-semibold">{formatBRL(l.custoTotal)}</td>
-                    <td className="p-3 text-right">{l.pesoMedio ? formatNumber(l.pesoMedio) : "—"}</td>
-                    <td className="p-3 text-right">{l.sobrevivencia ? `${formatNumber(l.sobrevivencia)}%` : "—"}</td>
-                    <td className="p-3 text-right">{l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"}</td>
-                    <td className="p-3 text-right font-semibold">{l.fca ? formatNumber(l.fca) : "—"}</td>
-                    <td className="p-3 text-right">{l.custoPorKg ? formatBRL(l.custoPorKg) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 md:grid-cols-4">
+                <Info label="Fornecedor" value={l.fornecedor} />
+                <Info label="Povoamento" value={l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"} />
+                <Info label="Pós-larvas" value={l.qtdPovoada.toLocaleString("pt-BR")} />
+                <Info label="Ração total" value={`${formatNumber(l.racaoKg)} kg`} />
+                <Info label="Custo ração" value={formatBRL(l.custoRacao)} />
+                <Info label="Custo outros" value={formatBRL(l.custoOutros)} />
+                <Info label="Custo total" value={formatBRL(l.custoTotal)} />
+                <Info label="R$/kg" value={l.custoPorKg ? formatBRL(l.custoPorKg) : "—"} />
+                <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
+                <Info label="Sobrev." value={l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"} />
+                <Info label="Biomassa" value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"} />
+                <Info label="FCA" value={l.fca ? formatNumber(l.fca) : "—"} />
+                <Info label="Lançamentos" value={String(l.nLancamentos)} />
+                <Info label="Biometrias" value={String(l.nBiometrias)} />
+                <Info label="Última biometria" value={l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"} />
+              </div>
+
+              {l.bios.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Biometrias</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-right">Peso médio (g)</th>
+                          <th className="p-2 text-right">Sobrev. (%)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.bios.map((b, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-2">{formatDate(b.data_biometria)}</td>
+                            <td className="p-2 text-right">{formatNumber(Number(b.peso_medio_g ?? 0))}</td>
+                            <td className="p-2 text-right">{b.sobrevivencia_percent != null ? formatNumber(Number(b.sobrevivencia_percent)) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {l.lancs.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lançamentos</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-left">Produto</th>
+                          <th className="p-2 text-left">Tipo</th>
+                          <th className="p-2 text-right">Qtd</th>
+                          <th className="p-2 text-right">Custo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.lancs.map((x, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-2">{formatDate(x.data_lancamento)}</td>
+                            <td className="p-2">{x.produto_nome}</td>
+                            <td className="p-2">{x.tipo}</td>
+                            <td className="p-2 text-right">{formatNumber(Number(x.quantidade ?? 0))} {x.unidade}</td>
+                            <td className="p-2 text-right">{formatBRL(Number(x.custo_total ?? 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
