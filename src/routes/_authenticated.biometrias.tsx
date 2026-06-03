@@ -2,7 +2,7 @@ import { todayLocal } from "@/lib/date";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
-import { Activity, FlaskConical, Trash2, Calculator, TrendingUp, Calendar, Utensils } from "lucide-react";
+import { Activity, Trash2, TrendingUp, Calendar, Utensils, Users, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,16 +11,14 @@ type ViveiroOption = {
   nome: string;
   qtd_povoada: number | null;
   data_povoamento: string | null;
-  fazendas: { nome: string } | null;
 };
 type BiometriaRow = {
   id: string;
   viveiro_id: string;
   data_biometria: string;
   peso_medio_g: number;
-  sobrevivencia_percent: number | null;
   amostras: number | null;
-  viveiros: { nome: string; qtd_povoada: number | null } | null;
+  viveiros: { nome: string; qtd_povoada: number | null; data_povoamento: string | null } | null;
 };
 type RacaoRow = { viveiro_id: string; quantidade: number; tipo: string; data_lancamento: string };
 
@@ -33,20 +31,15 @@ function BiometriasPage() {
   const qc = useQueryClient();
   const [viveiroId, setViveiroId] = useState("");
   const [dataBiometria, setDataBiometria] = useState(todayLocal());
-  const [modo, setModo] = useState<"direto" | "calcular">("direto");
-  const [pesoMedio, setPesoMedio] = useState("");
   const [pesoTotal, setPesoTotal] = useState("");
   const [qtdCamaroes, setQtdCamaroes] = useState("");
-  const [sobrevivencia, setSobrevivencia] = useState("80");
-  const [amostras, setAmostras] = useState("");
-  const [observacao, setObservacao] = useState("");
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, qtd_povoada, data_povoamento, status, fazendas(nome)")
+        .select("id, nome, qtd_povoada, data_povoamento, status")
         .eq("status", "ativo")
         .order("nome");
       if (error) throw error;
@@ -59,11 +52,13 @@ function BiometriasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("biometrias")
-        .select("id, viveiro_id, data_biometria, peso_medio_g, sobrevivencia_percent, amostras, viveiros(nome, qtd_povoada)")
+        .select(
+          "id, viveiro_id, data_biometria, peso_medio_g, amostras, viveiros(nome, qtd_povoada, data_povoamento)",
+        )
         .order("data_biometria", { ascending: false })
-        .limit(30);
+        .limit(60);
       if (error) throw error;
-      return (data ?? []) as BiometriaRow[];
+      return (data ?? []) as unknown as BiometriaRow[];
     },
   });
 
@@ -79,15 +74,11 @@ function BiometriasPage() {
     },
   });
 
-  // Auto-calc peso médio quando estiver no modo "calcular"
-  const pesoCalculado = useMemo(() => {
-    const total = Number(pesoTotal || 0);
-    const qtd = Number(qtdCamaroes || 0);
-    if (total > 0 && qtd > 0) return total / qtd;
-    return 0;
+  const pesoMedio = useMemo(() => {
+    const t = Number(pesoTotal || 0);
+    const q = Number(qtdCamaroes || 0);
+    return t > 0 && q > 0 ? t / q : 0;
   }, [pesoTotal, qtdCamaroes]);
-
-  const pesoFinal = modo === "calcular" ? pesoCalculado : Number(pesoMedio || 0);
 
   const selectedViveiro = viveiros.find((v) => v.id === viveiroId);
 
@@ -116,7 +107,7 @@ function BiometriasPage() {
   }, [biometrias, viveiroId, dataBiometria]);
 
   const crescimentoSemanal = useMemo(() => {
-    if (!ultimaBiometria || pesoFinal <= 0) return 0;
+    if (!ultimaBiometria || pesoMedio <= 0) return 0;
     const dias = Math.max(
       1,
       Math.round(
@@ -125,21 +116,8 @@ function BiometriasPage() {
           86400000,
       ),
     );
-    return ((pesoFinal - Number(ultimaBiometria.peso_medio_g)) / dias) * 7;
-  }, [ultimaBiometria, pesoFinal, dataBiometria]);
-
-  const biomassaPreview = useMemo(() => {
-    const povoada = selectedViveiro?.qtd_povoada ?? 0;
-    const sobreviventes = Number(sobrevivencia || 0) / 100;
-    return (povoada * sobreviventes * pesoFinal) / 1000;
-  }, [pesoFinal, selectedViveiro?.qtd_povoada, sobrevivencia]);
-
-  const fcaPreview = useMemo(() => {
-    const racao = lancamentos
-      .filter((l) => l.viveiro_id === viveiroId)
-      .reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
-    return biomassaPreview > 0 ? racao / biomassaPreview : 0;
-  }, [biomassaPreview, lancamentos, viveiroId]);
+    return ((pesoMedio - Number(ultimaBiometria.peso_medio_g)) / dias) * 7;
+  }, [ultimaBiometria, pesoMedio, dataBiometria]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -147,27 +125,20 @@ function BiometriasPage() {
       const userId = userData.user?.id;
       if (!userId) throw new Error("Sessão expirada. Entre novamente.");
       if (!viveiroId) throw new Error("Escolha um viveiro.");
-      if (pesoFinal <= 0) throw new Error("Informe o peso médio.");
-      const amostrasFinal =
-        modo === "calcular" && qtdCamaroes ? Number(qtdCamaroes) : amostras ? Number(amostras) : null;
+      if (pesoMedio <= 0) throw new Error("Informe peso total e quantidade.");
       const { error } = await supabase.from("biometrias").insert({
         user_id: userId,
         viveiro_id: viveiroId,
         data_biometria: dataBiometria,
-        peso_medio_g: pesoFinal,
-        sobrevivencia_percent: sobrevivencia ? Number(sobrevivencia) : null,
-        amostras: amostrasFinal,
-        observacao: observacao.trim() || null,
+        peso_medio_g: pesoMedio,
+        amostras: Number(qtdCamaroes),
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Biometria salva");
-      setPesoMedio("");
       setPesoTotal("");
       setQtdCamaroes("");
-      setAmostras("");
-      setObservacao("");
       qc.invalidateQueries({ queryKey: ["biometrias"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -190,15 +161,12 @@ function BiometriasPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Biometrias</h1>
-        <p className="text-muted-foreground mt-1">Peso médio, biomassa e FCA estimado</p>
+        <p className="text-muted-foreground mt-1">Peso médio e crescimento por viveiro</p>
       </div>
 
       {viveiros.length === 0 ? (
         <div className="p-8 rounded-2xl border-2 border-dashed text-center">
           <p className="font-semibold">Cadastre um viveiro primeiro</p>
-          <p className="text-muted-foreground mt-1">
-            A biometria precisa estar ligada a um viveiro.
-          </p>
           <Link
             to="/viveiros"
             className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground"
@@ -225,7 +193,7 @@ function BiometriasPage() {
                 <option value="">Escolha</option>
                 {viveiros.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.nome} · {v.fazendas?.nome ?? "Fazenda"}
+                    {v.nome}
                   </option>
                 ))}
               </select>
@@ -244,21 +212,12 @@ function BiometriasPage() {
           {selectedViveiro && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl bg-muted/40 p-3">
               <MiniInfo
-                icon={<Calendar className="size-3.5" />}
+                icon={<Users className="size-3.5" />}
                 label="Povoamento"
-                value={
-                  selectedViveiro.data_povoamento
-                    ? formatDate(selectedViveiro.data_povoamento)
-                    : "—"
-                }
-              />
-              <MiniInfo
-                icon={<Activity className="size-3.5" />}
-                label="Pós-larvas"
                 value={formatNumber(selectedViveiro.qtd_povoada ?? 0)}
               />
               <MiniInfo
-                icon={<TrendingUp className="size-3.5" />}
+                icon={<Calendar className="size-3.5" />}
                 label="Dias povoado"
                 value={`${diasPovoado}`}
               />
@@ -267,151 +226,59 @@ function BiometriasPage() {
                 label="Ração/dia (7d)"
                 value={`${formatNumber(racaoDiariaMedia)} kg`}
               />
+              <MiniInfo
+                icon={<Activity className="size-3.5" />}
+                label="Último peso"
+                value={
+                  ultimaBiometria ? `${formatNumber(ultimaBiometria.peso_medio_g)} g` : "—"
+                }
+              />
             </div>
           )}
 
-          <div className="flex gap-2 rounded-xl bg-muted p-1">
-            <button
-              type="button"
-              onClick={() => setModo("direto")}
-              className={`flex-1 h-9 rounded-lg text-sm font-medium transition ${
-                modo === "direto" ? "bg-background shadow-sm" : "text-muted-foreground"
-              }`}
-            >
-              Peso médio direto
-            </button>
-            <button
-              type="button"
-              onClick={() => setModo("calcular")}
-              className={`flex-1 h-9 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 ${
-                modo === "calcular" ? "bg-background shadow-sm" : "text-muted-foreground"
-              }`}
-            >
-              <Calculator className="size-4" /> Calcular (total ÷ qtd)
-            </button>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Qtd camarões (un)">
+              <input
+                required
+                min="1"
+                type="number"
+                inputMode="numeric"
+                value={qtdCamaroes}
+                onChange={(e) => setQtdCamaroes(e.target.value)}
+                className="app-input"
+                placeholder="Ex: 40"
+              />
+            </Field>
+            <Field label="Peso total (g)">
+              <input
+                required
+                min="0.01"
+                step="0.01"
+                type="number"
+                inputMode="decimal"
+                value={pesoTotal}
+                onChange={(e) => setPesoTotal(e.target.value)}
+                className="app-input"
+                placeholder="Ex: 464"
+              />
+            </Field>
           </div>
 
-          {modo === "direto" ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <Field label="Peso médio (g)">
-                <input
-                  required
-                  min="0.01"
-                  step="0.01"
-                  type="number"
-                  inputMode="decimal"
-                  value={pesoMedio}
-                  onChange={(e) => setPesoMedio(e.target.value)}
-                  className="app-input"
-                  placeholder="Ex: 11.6"
-                />
-              </Field>
-              <Field label="Sobrevivência (%)">
-                <input
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  type="number"
-                  inputMode="decimal"
-                  value={sobrevivencia}
-                  onChange={(e) => setSobrevivencia(e.target.value)}
-                  className="app-input"
-                  placeholder="80"
-                />
-              </Field>
-              <Field label="Amostras">
-                <input
-                  min="1"
-                  type="number"
-                  inputMode="numeric"
-                  value={amostras}
-                  onChange={(e) => setAmostras(e.target.value)}
-                  className="app-input"
-                  placeholder="Opcional"
-                />
-              </Field>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <Field label="Peso total (g)">
-                  <input
-                    required
-                    min="0.01"
-                    step="0.01"
-                    type="number"
-                    inputMode="decimal"
-                    value={pesoTotal}
-                    onChange={(e) => setPesoTotal(e.target.value)}
-                    className="app-input"
-                    placeholder="Ex: 464"
-                  />
-                </Field>
-                <Field label="Qtd camarões">
-                  <input
-                    required
-                    min="1"
-                    type="number"
-                    inputMode="numeric"
-                    value={qtdCamaroes}
-                    onChange={(e) => setQtdCamaroes(e.target.value)}
-                    className="app-input"
-                    placeholder="Ex: 40"
-                  />
-                </Field>
-                <Field label="Sobrevivência (%)">
-                  <input
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    type="number"
-                    inputMode="decimal"
-                    value={sobrevivencia}
-                    onChange={(e) => setSobrevivencia(e.target.value)}
-                    className="app-input"
-                    placeholder="80"
-                  />
-                </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-primary/10 border border-primary/20 p-4">
+              <div className="flex items-center gap-2 text-sm text-primary/80">
+                <Scale className="size-4" /> Peso médio
               </div>
-              <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 flex items-center justify-between">
-                <span className="text-sm font-medium">Peso médio calculado</span>
-                <span className="text-xl font-bold text-primary">
-                  {pesoCalculado ? `${formatNumber(pesoCalculado)} g` : "—"}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <Field label="Observação">
-            <input
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-              className="app-input"
-              placeholder="Opcional"
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl bg-accent p-4">
-              <div className="flex items-center gap-2 text-sm text-accent-foreground/80">
-                <Activity className="size-4" /> Biomassa
-              </div>
-              <p className="mt-1 text-2xl font-bold">{formatNumber(biomassaPreview)} kg</p>
-            </div>
-            <div className="rounded-xl bg-muted p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FlaskConical className="size-4" /> FCA estimado
-              </div>
-              <p className="mt-1 text-2xl font-bold">
-                {fcaPreview ? formatNumber(fcaPreview) : "—"}
+              <p className="mt-1 text-2xl font-bold text-primary">
+                {pesoMedio ? `${formatNumber(pesoMedio)} g` : "—"}
               </p>
             </div>
-            <div className="rounded-xl bg-muted p-4 col-span-2 sm:col-span-1">
+            <div className="rounded-xl bg-muted p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <TrendingUp className="size-4" /> Cresc. semanal
               </div>
               <p className="mt-1 text-2xl font-bold">
-                {ultimaBiometria ? `${formatNumber(crescimentoSemanal)} g` : "—"}
+                {ultimaBiometria && pesoMedio > 0 ? `${formatNumber(crescimentoSemanal)} g` : "—"}
               </p>
             </div>
           </div>
@@ -427,6 +294,7 @@ function BiometriasPage() {
 
       <HistoricoBiometrias
         biometrias={biometrias}
+        lancamentos={lancamentos}
         isLoading={isLoading}
         onDelete={(id) => delMut.mutate(id)}
       />
@@ -438,10 +306,12 @@ type PeriodoKey = "hoje" | "ontem" | "7d" | "10d" | "30d" | "tudo" | "custom";
 
 function HistoricoBiometrias({
   biometrias,
+  lancamentos,
   isLoading,
   onDelete,
 }: {
   biometrias: BiometriaRow[];
+  lancamentos: RacaoRow[];
   isLoading: boolean;
   onDelete: (id: string) => void;
 }) {
@@ -479,7 +349,10 @@ function HistoricoBiometrias({
   }, [biometrias, periodo, de, ate]);
 
   const porViveiro = useMemo(() => {
-    const map = new Map<string, { nome: string; qtd_povoada: number; rows: BiometriaRow[] }>();
+    const map = new Map<
+      string,
+      { nome: string; qtd_povoada: number; data_povoamento: string | null; rows: BiometriaRow[] }
+    >();
     for (const b of filtradas) {
       const key = b.viveiro_id;
       const prev = map.get(key);
@@ -488,6 +361,7 @@ function HistoricoBiometrias({
         map.set(key, {
           nome: b.viveiros?.nome ?? "Viveiro",
           qtd_povoada: b.viveiros?.qtd_povoada ?? 0,
+          data_povoamento: b.viveiros?.data_povoamento ?? null,
           rows: [b],
         });
     }
@@ -496,6 +370,17 @@ function HistoricoBiometrias({
       rows: g.rows.sort((a, b) => (a.data_biometria < b.data_biometria ? 1 : -1)),
     }));
   }, [filtradas]);
+
+  const racaoDiariaPorViveiro = useMemo(() => {
+    const map = new Map<string, number>();
+    const seteDias = new Date();
+    seteDias.setDate(seteDias.getDate() - 7);
+    for (const l of lancamentos) {
+      if (new Date(`${l.data_lancamento}T00:00:00`) < seteDias) continue;
+      map.set(l.viveiro_id, (map.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0));
+    }
+    return map;
+  }, [lancamentos]);
 
   const periodos: { key: PeriodoKey; label: string }[] = [
     { key: "hoje", label: "Hoje" },
@@ -576,43 +461,50 @@ function HistoricoBiometrias({
               );
               cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
             }
-            const ultBiomassa =
-              (grupo.qtd_povoada *
-                ((ult.sobrevivencia_percent ?? 0) / 100) *
-                Number(ult.peso_medio_g ?? 0)) /
-              1000;
+            const viveiroId = grupo.rows[0].viveiro_id;
+            const racaoDia = (racaoDiariaPorViveiro.get(viveiroId) ?? 0) / 7;
+            const diasPov = grupo.data_povoamento
+              ? Math.max(
+                  0,
+                  Math.round(
+                    (Date.now() - new Date(`${grupo.data_povoamento}T00:00:00`).getTime()) /
+                      86400000,
+                  ),
+                )
+              : 0;
 
             return (
-              <div key={grupo.nome} className="rounded-2xl bg-card border overflow-hidden">
-                <div className="p-4 border-b bg-muted/30 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="col-span-2 sm:col-span-1">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Viveiro</p>
-                    <p className="font-bold truncate">{grupo.nome}</p>
+              <div key={viveiroId} className="rounded-2xl bg-card border overflow-hidden">
+                <div className="p-4 border-b bg-muted/30 space-y-3">
+                  <p className="font-bold truncate">{grupo.nome}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <MiniInfo
+                      icon={<Users className="size-3.5" />}
+                      label="Povoamento"
+                      value={formatNumber(grupo.qtd_povoada)}
+                    />
+                    <MiniInfo
+                      icon={<Utensils className="size-3.5" />}
+                      label="Ração/dia"
+                      value={`${formatNumber(racaoDia)} kg`}
+                    />
+                    <MiniInfo
+                      icon={<Calendar className="size-3.5" />}
+                      label="Dias povoado"
+                      value={`${diasPov}`}
+                    />
+                    <MiniInfo
+                      icon={<TrendingUp className="size-3.5" />}
+                      label="Cresc. semanal"
+                      value={ant ? `${formatNumber(cresc)} g` : "—"}
+                    />
                   </div>
-                  <MiniInfo
-                    icon={<Activity className="size-3.5" />}
-                    label="Último peso"
-                    value={`${formatNumber(ult.peso_medio_g)} g`}
-                  />
-                  <MiniInfo
-                    icon={<TrendingUp className="size-3.5" />}
-                    label="Cresc. semanal"
-                    value={ant ? `${formatNumber(cresc)} g` : "—"}
-                  />
-                  <MiniInfo
-                    icon={<FlaskConical className="size-3.5" />}
-                    label="Biomassa"
-                    value={`${formatNumber(ultBiomassa)} kg`}
-                  />
                 </div>
 
                 <ul className="divide-y">
                   {grupo.rows.map((b) => {
-                    const biomassa =
-                      (grupo.qtd_povoada *
-                        ((b.sobrevivencia_percent ?? 0) / 100) *
-                        Number(b.peso_medio_g ?? 0)) /
-                      1000;
+                    const qtd = b.amostras ?? 0;
+                    const pesoTotal = qtd * Number(b.peso_medio_g ?? 0);
                     return (
                       <li
                         key={b.id}
@@ -627,16 +519,12 @@ function HistoricoBiometrias({
                             </span>
                           </span>
                           <span>
-                            <span className="text-muted-foreground">Sobrev: </span>
-                            <span className="font-semibold">
-                              {b.sobrevivencia_percent
-                                ? `${formatNumber(b.sobrevivencia_percent)}%`
-                                : "—"}
-                            </span>
+                            <span className="text-muted-foreground">Qtd: </span>
+                            <span className="font-semibold">{formatNumber(qtd)} un</span>
                           </span>
                           <span>
-                            <span className="text-muted-foreground">Biomassa: </span>
-                            <span className="font-semibold">{formatNumber(biomassa)} kg</span>
+                            <span className="text-muted-foreground">Total: </span>
+                            <span className="font-semibold">{formatNumber(pesoTotal)} g</span>
                           </span>
                         </div>
                         <button
