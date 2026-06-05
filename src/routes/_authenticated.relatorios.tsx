@@ -99,6 +99,18 @@ function RelatoriosPage() {
       const base = v.data_povoamento ?? primeiraData ?? null;
       const dias = base ? diasDeCultivo(base) : null;
 
+      // Ração dia a dia
+      const mapaRacao = new Map<string, { kg: number; custo: number }>();
+      for (const l of lancsRacao) {
+        const cur = mapaRacao.get(l.data_lancamento) ?? { kg: 0, custo: 0 };
+        cur.kg += Number(l.quantidade ?? 0);
+        cur.custo += Number(l.custo_total ?? 0);
+        mapaRacao.set(l.data_lancamento, cur);
+      }
+      const racaoDiaria = Array.from(mapaRacao.entries())
+        .map(([data, r]) => ({ data, kg: r.kg, custo: r.custo }))
+        .sort((a, b) => (a.data < b.data ? 1 : -1));
+
       return {
         id: v.id,
         viveiro: v.nome,
@@ -122,6 +134,7 @@ function RelatoriosPage() {
         nBiometrias: bios.length,
         lancs,
         bios,
+        racaoDiaria,
       };
     });
   }, [biometrias, lancamentos, viveiros]);
@@ -298,6 +311,39 @@ function RelatoriosPage() {
                           </tr>
                         ))}
                       </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {l.racaoDiaria.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ração dia a dia</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-right">Ração (kg)</th>
+                          <th className="p-2 text-right">Custo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.racaoDiaria.map((r, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-2">{formatDate(r.data)}</td>
+                            <td className="p-2 text-right">{formatNumber(r.kg)}</td>
+                            <td className="p-2 text-right">{formatBRL(r.custo)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2">Total</td>
+                          <td className="p-2 text-right">{formatNumber(l.racaoKg)}</td>
+                          <td className="p-2 text-right">{formatBRL(l.custoRacao)}</td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 </div>
