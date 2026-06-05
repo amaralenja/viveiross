@@ -99,6 +99,18 @@ function RelatoriosPage() {
       const base = v.data_povoamento ?? primeiraData ?? null;
       const dias = base ? diasDeCultivo(base) : null;
 
+      // Ração dia a dia
+      const mapaRacao = new Map<string, { kg: number; custo: number }>();
+      for (const l of lancsRacao) {
+        const cur = mapaRacao.get(l.data_lancamento) ?? { kg: 0, custo: 0 };
+        cur.kg += Number(l.quantidade ?? 0);
+        cur.custo += Number(l.custo_total ?? 0);
+        mapaRacao.set(l.data_lancamento, cur);
+      }
+      const racaoDiaria = Array.from(mapaRacao.entries())
+        .map(([data, r]) => ({ data, kg: r.kg, custo: r.custo }))
+        .sort((a, b) => (a.data < b.data ? 1 : -1));
+
       return {
         id: v.id,
         viveiro: v.nome,
@@ -122,6 +134,7 @@ function RelatoriosPage() {
         nBiometrias: bios.length,
         lancs,
         bios,
+        racaoDiaria,
       };
     });
   }, [biometrias, lancamentos, viveiros]);
