@@ -299,7 +299,149 @@ function BiometriasPage() {
         lancamentos={lancamentos}
         isLoading={isLoading}
         onDelete={(id) => delMut.mutate(id)}
+        onEdit={(b) => setEditing(b)}
       />
+
+      {editing && (
+        <EditBiometriaModal
+          biometria={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            qc.invalidateQueries({ queryKey: ["biometrias"] });
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditBiometriaModal({
+  biometria,
+  onClose,
+  onSaved,
+}: {
+  biometria: BiometriaRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [data, setData] = useState(biometria.data_biometria);
+  const [qtd, setQtd] = useState(String(biometria.amostras ?? ""));
+  const [pesoTotal, setPesoTotal] = useState(
+    biometria.amostras && biometria.peso_medio_g
+      ? String(Number(biometria.amostras) * Number(biometria.peso_medio_g))
+      : "",
+  );
+
+  const pesoMedio = useMemo(() => {
+    const t = Number(pesoTotal || 0);
+    const q = Number(qtd || 0);
+    return t > 0 && q > 0 ? t / q : 0;
+  }, [pesoTotal, qtd]);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (pesoMedio <= 0) throw new Error("Informe peso total e quantidade.");
+      const { error } = await supabase
+        .from("biometrias")
+        .update({
+          data_biometria: data,
+          peso_medio_g: pesoMedio,
+          amostras: Number(qtd),
+        })
+        .eq("id", biometria.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Biometria atualizada");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl border shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-bold">Editar biometria</h3>
+          <button
+            onClick={onClose}
+            className="size-8 rounded-lg hover:bg-muted flex items-center justify-center"
+            aria-label="Fechar"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="p-4 space-y-4"
+        >
+          <Field label="Data">
+            <input
+              required
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Qtd camarões (un)">
+              <input
+                required
+                min="1"
+                type="number"
+                value={qtd}
+                onChange={(e) => setQtd(e.target.value)}
+                className="app-input"
+              />
+            </Field>
+            <Field label="Peso total (g)">
+              <input
+                required
+                min="0.01"
+                step="0.01"
+                type="number"
+                value={pesoTotal}
+                onChange={(e) => setPesoTotal(e.target.value)}
+                className="app-input"
+              />
+            </Field>
+          </div>
+          <div className="rounded-xl bg-primary/10 border border-primary/20 p-3">
+            <p className="text-xs text-primary/80">Peso médio</p>
+            <p className="text-xl font-bold text-primary">
+              {pesoMedio ? `${formatNumber(pesoMedio)} g` : "—"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-11 rounded-xl border font-semibold"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={mut.isPending}
+              className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+            >
+              {mut.isPending ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
