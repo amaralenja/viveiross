@@ -2,7 +2,7 @@ import { todayLocal } from "@/lib/date";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
-import { Activity, Trash2, TrendingUp, Calendar, Utensils, Users, Scale } from "lucide-react";
+import { Activity, Trash2, TrendingUp, Calendar, Utensils, Users, Scale, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
