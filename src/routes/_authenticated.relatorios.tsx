@@ -299,7 +299,6 @@ function RelatoriosPage() {
                         <tr>
                           <th className="p-2 text-left">Data</th>
                           <th className="p-2 text-right">Peso médio (g)</th>
-                          <th className="p-2 text-right">Sobrev. (%)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -307,7 +306,6 @@ function RelatoriosPage() {
                           <tr key={i} className="border-t">
                             <td className="p-2">{formatDate(b.data_biometria)}</td>
                             <td className="p-2 text-right">{formatNumber(Number(b.peso_medio_g ?? 0))}</td>
-                            <td className="p-2 text-right">{b.sobrevivencia_percent != null ? formatNumber(Number(b.sobrevivencia_percent)) : "—"}</td>
                           </tr>
                         ))}
                       </tbody>
