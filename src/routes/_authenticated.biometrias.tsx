@@ -439,6 +439,16 @@ function EditBiometriaModal({
               />
             </Field>
           </div>
+          <Field label="Crescimento semanal (g) — opcional">
+            <input
+              type="number"
+              step="0.01"
+              value={cresc}
+              onChange={(e) => setCresc(e.target.value)}
+              placeholder="Deixe vazio para calcular automático"
+              className="app-input"
+            />
+          </Field>
           <div className="rounded-xl bg-primary/10 border border-primary/20 p-3">
             <p className="text-xs text-primary/80">Peso médio</p>
             <p className="text-xl font-bold text-primary">
