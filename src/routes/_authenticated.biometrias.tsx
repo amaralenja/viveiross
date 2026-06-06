@@ -705,6 +705,14 @@ function HistoricoBiometrias({
                             <span className="text-muted-foreground">Total: </span>
                             <span className="font-semibold">{formatNumber(pesoTotal)} g</span>
                           </span>
+                          {b.crescimento_semanal_g != null && (
+                            <span>
+                              <span className="text-muted-foreground">Cresc: </span>
+                              <span className="font-semibold">
+                                {formatNumber(b.crescimento_semanal_g)} g/sem
+                              </span>
+                            </span>
+                          )}
                         </div>
                         <div className="flex shrink-0 gap-1">
                           <button
