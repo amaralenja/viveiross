@@ -350,6 +350,9 @@ function EditBiometriaModal({
       ? String(Number(biometria.amostras) * Number(biometria.peso_medio_g))
       : "",
   );
+  const [cresc, setCresc] = useState(
+    biometria.crescimento_semanal_g != null ? String(biometria.crescimento_semanal_g) : "",
+  );
 
   const pesoMedio = useMemo(() => {
     const t = Number(pesoTotal || 0);
@@ -366,6 +369,7 @@ function EditBiometriaModal({
           data_biometria: data,
           peso_medio_g: pesoMedio,
           amostras: Number(qtd),
+          crescimento_semanal_g: cresc ? Number(cresc) : null,
         })
         .eq("id", biometria.id);
       if (error) throw error;
