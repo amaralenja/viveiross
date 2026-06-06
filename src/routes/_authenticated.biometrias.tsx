@@ -55,7 +55,7 @@ function BiometriasPage() {
       const { data, error } = await supabase
         .from("biometrias")
         .select(
-          "id, viveiro_id, data_biometria, peso_medio_g, amostras, viveiros(nome, qtd_povoada, data_povoamento)",
+          "id, viveiro_id, data_biometria, peso_medio_g, amostras, crescimento_semanal_g, viveiros(nome, qtd_povoada, data_povoamento)",
         )
         .order("data_biometria", { ascending: false })
         .limit(60);
