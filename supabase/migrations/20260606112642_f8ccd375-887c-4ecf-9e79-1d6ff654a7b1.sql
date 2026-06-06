@@ -1,0 +1,1 @@
+ALTER TABLE public.biometrias ADD COLUMN IF NOT EXISTS crescimento_semanal_g numeric;

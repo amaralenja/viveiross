@@ -18,6 +18,7 @@ type BiometriaRow = {
   data_biometria: string;
   peso_medio_g: number;
   amostras: number | null;
+  crescimento_semanal_g: number | null;
   viveiros: { nome: string; qtd_povoada: number | null; data_povoamento: string | null } | null;
 };
 type RacaoRow = { viveiro_id: string; quantidade: number; tipo: string; data_lancamento: string };
@@ -33,6 +34,7 @@ function BiometriasPage() {
   const [dataBiometria, setDataBiometria] = useState(todayLocal());
   const [pesoTotal, setPesoTotal] = useState("");
   const [qtdCamaroes, setQtdCamaroes] = useState("");
+  const [crescimentoManual, setCrescimentoManual] = useState("");
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos"],
@@ -53,7 +55,7 @@ function BiometriasPage() {
       const { data, error } = await supabase
         .from("biometrias")
         .select(
-          "id, viveiro_id, data_biometria, peso_medio_g, amostras, viveiros(nome, qtd_povoada, data_povoamento)",
+          "id, viveiro_id, data_biometria, peso_medio_g, amostras, crescimento_semanal_g, viveiros(nome, qtd_povoada, data_povoamento)",
         )
         .order("data_biometria", { ascending: false })
         .limit(60);
@@ -132,6 +134,7 @@ function BiometriasPage() {
         data_biometria: dataBiometria,
         peso_medio_g: pesoMedio,
         amostras: Number(qtdCamaroes),
+        crescimento_semanal_g: crescimentoManual ? Number(crescimentoManual) : null,
       });
       if (error) throw error;
     },
@@ -139,6 +142,7 @@ function BiometriasPage() {
       toast.success("Biometria salva");
       setPesoTotal("");
       setQtdCamaroes("");
+      setCrescimentoManual("");
       qc.invalidateQueries({ queryKey: ["biometrias"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -279,8 +283,21 @@ function BiometriasPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <TrendingUp className="size-4" /> Cresc. semanal
               </div>
-              <p className="mt-1 text-2xl font-bold">
-                {ultimaBiometria && pesoMedio > 0 ? `${formatNumber(crescimentoSemanal)} g` : "—"}
+              <input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={crescimentoManual}
+                onChange={(e) => setCrescimentoManual(e.target.value)}
+                placeholder={
+                  ultimaBiometria && pesoMedio > 0
+                    ? `Auto: ${formatNumber(crescimentoSemanal)} g`
+                    : "Ex: 1.8"
+                }
+                className="mt-1 w-full bg-transparent text-2xl font-bold outline-none placeholder:text-muted-foreground/60"
+              />
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {crescimentoManual ? "Manual (g)" : "Deixe vazio para calcular automático"}
               </p>
             </div>
           </div>
@@ -333,6 +350,9 @@ function EditBiometriaModal({
       ? String(Number(biometria.amostras) * Number(biometria.peso_medio_g))
       : "",
   );
+  const [cresc, setCresc] = useState(
+    biometria.crescimento_semanal_g != null ? String(biometria.crescimento_semanal_g) : "",
+  );
 
   const pesoMedio = useMemo(() => {
     const t = Number(pesoTotal || 0);
@@ -349,6 +369,7 @@ function EditBiometriaModal({
           data_biometria: data,
           peso_medio_g: pesoMedio,
           amostras: Number(qtd),
+          crescimento_semanal_g: cresc ? Number(cresc) : null,
         })
         .eq("id", biometria.id);
       if (error) throw error;
@@ -418,6 +439,16 @@ function EditBiometriaModal({
               />
             </Field>
           </div>
+          <Field label="Crescimento semanal (g) — opcional">
+            <input
+              type="number"
+              step="0.01"
+              value={cresc}
+              onChange={(e) => setCresc(e.target.value)}
+              placeholder="Deixe vazio para calcular automático"
+              className="app-input"
+            />
+          </Field>
           <div className="rounded-xl bg-primary/10 border border-primary/20 p-3">
             <p className="text-xs text-primary/80">Peso médio</p>
             <p className="text-xl font-bold text-primary">
@@ -596,7 +627,9 @@ function HistoricoBiometrias({
             const ult = grupo.rows[0];
             const ant = grupo.rows[1];
             let cresc = 0;
-            if (ant) {
+            if (ult?.crescimento_semanal_g != null) {
+              cresc = Number(ult.crescimento_semanal_g);
+            } else if (ant) {
               const dias = Math.max(
                 1,
                 Math.round(
@@ -672,6 +705,14 @@ function HistoricoBiometrias({
                             <span className="text-muted-foreground">Total: </span>
                             <span className="font-semibold">{formatNumber(pesoTotal)} g</span>
                           </span>
+                          {b.crescimento_semanal_g != null && (
+                            <span>
+                              <span className="text-muted-foreground">Cresc: </span>
+                              <span className="font-semibold">
+                                {formatNumber(b.crescimento_semanal_g)} g/sem
+                              </span>
+                            </span>
+                          )}
                         </div>
                         <div className="flex shrink-0 gap-1">
                           <button
