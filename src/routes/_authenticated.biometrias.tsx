@@ -134,6 +134,7 @@ function BiometriasPage() {
         data_biometria: dataBiometria,
         peso_medio_g: pesoMedio,
         amostras: Number(qtdCamaroes),
+        crescimento_semanal_g: crescimentoManual ? Number(crescimentoManual) : null,
       });
       if (error) throw error;
     },
@@ -141,6 +142,7 @@ function BiometriasPage() {
       toast.success("Biometria salva");
       setPesoTotal("");
       setQtdCamaroes("");
+      setCrescimentoManual("");
       qc.invalidateQueries({ queryKey: ["biometrias"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
