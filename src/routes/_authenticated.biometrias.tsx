@@ -34,6 +34,7 @@ function BiometriasPage() {
   const [dataBiometria, setDataBiometria] = useState(todayLocal());
   const [pesoTotal, setPesoTotal] = useState("");
   const [qtdCamaroes, setQtdCamaroes] = useState("");
+  const [crescimentoManual, setCrescimentoManual] = useState("");
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos"],
