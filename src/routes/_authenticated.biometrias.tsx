@@ -18,6 +18,7 @@ type BiometriaRow = {
   data_biometria: string;
   peso_medio_g: number;
   amostras: number | null;
+  crescimento_semanal_g: number | null;
   viveiros: { nome: string; qtd_povoada: number | null; data_povoamento: string | null } | null;
 };
 type RacaoRow = { viveiro_id: string; quantidade: number; tipo: string; data_lancamento: string };
