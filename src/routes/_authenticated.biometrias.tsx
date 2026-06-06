@@ -627,7 +627,9 @@ function HistoricoBiometrias({
             const ult = grupo.rows[0];
             const ant = grupo.rows[1];
             let cresc = 0;
-            if (ant) {
+            if (ult?.crescimento_semanal_g != null) {
+              cresc = Number(ult.crescimento_semanal_g);
+            } else if (ant) {
               const dias = Math.max(
                 1,
                 Math.round(
