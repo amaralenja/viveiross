@@ -453,11 +453,13 @@ function HistoricoBiometrias({
   lancamentos,
   isLoading,
   onDelete,
+  onEdit,
 }: {
   biometrias: BiometriaRow[];
   lancamentos: RacaoRow[];
   isLoading: boolean;
   onDelete: (id: string) => void;
+  onEdit: (b: BiometriaRow) => void;
 }) {
   const [periodo, setPeriodo] = useState<PeriodoKey>("7d");
   const [de, setDe] = useState(todayLocal());
