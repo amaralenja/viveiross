@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           amostras: number | null
           created_at: string
+          crescimento_semanal_g: number | null
           data_biometria: string
           id: string
           observacao: string | null
@@ -30,6 +31,7 @@ export type Database = {
         Insert: {
           amostras?: number | null
           created_at?: string
+          crescimento_semanal_g?: number | null
           data_biometria?: string
           id?: string
           observacao?: string | null
@@ -42,6 +44,7 @@ export type Database = {
         Update: {
           amostras?: number | null
           created_at?: string
+          crescimento_semanal_g?: number | null
           data_biometria?: string
           id?: string
           observacao?: string | null
