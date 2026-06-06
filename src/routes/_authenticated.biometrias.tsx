@@ -283,8 +283,21 @@ function BiometriasPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <TrendingUp className="size-4" /> Cresc. semanal
               </div>
-              <p className="mt-1 text-2xl font-bold">
-                {ultimaBiometria && pesoMedio > 0 ? `${formatNumber(crescimentoSemanal)} g` : "—"}
+              <input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={crescimentoManual}
+                onChange={(e) => setCrescimentoManual(e.target.value)}
+                placeholder={
+                  ultimaBiometria && pesoMedio > 0
+                    ? `Auto: ${formatNumber(crescimentoSemanal)} g`
+                    : "Ex: 1.8"
+                }
+                className="mt-1 w-full bg-transparent text-2xl font-bold outline-none placeholder:text-muted-foreground/60"
+              />
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {crescimentoManual ? "Manual (g)" : "Deixe vazio para calcular automático"}
               </p>
             </div>
           </div>
