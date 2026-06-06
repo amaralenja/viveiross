@@ -673,13 +673,22 @@ function HistoricoBiometrias({
                             <span className="font-semibold">{formatNumber(pesoTotal)} g</span>
                           </span>
                         </div>
-                        <button
-                          onClick={() => onDelete(b.id)}
-                          className="size-9 shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                          aria-label="Remover biometria"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            onClick={() => onEdit(b)}
+                            className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                            aria-label="Editar biometria"
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => onDelete(b.id)}
+                            className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                            aria-label="Remover biometria"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
                       </li>
                     );
                   })}
