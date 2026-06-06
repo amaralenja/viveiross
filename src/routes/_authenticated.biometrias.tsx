@@ -157,6 +157,8 @@ function BiometriasPage() {
     },
   });
 
+  const [editing, setEditing] = useState<BiometriaRow | null>(null);
+
   return (
     <div className="space-y-6">
       <div>
