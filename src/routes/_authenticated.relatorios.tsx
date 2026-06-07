@@ -16,6 +16,7 @@ type ViveiroRelatorio = {
   fazendas: { nome: string } | null;
 };
 type LancamentoRelatorio = {
+  id: string;
   viveiro_id: string;
   produto_nome: string;
   quantidade: number;
@@ -26,9 +27,11 @@ type LancamentoRelatorio = {
   data_lancamento: string;
 };
 type BiometriaRelatorio = {
+  id: string;
   viveiro_id: string;
   data_biometria: string;
   peso_medio_g: number;
+  amostras: number | null;
   sobrevivencia_percent: number | null;
 };
 
