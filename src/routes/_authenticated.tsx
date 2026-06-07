@@ -26,11 +26,25 @@ function AuthLayout() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [unlocked, setUnlocked] = useState(() => isUnlocked());
+  const [pending, setPending] = useState<string | null>(null);
+
+  const needsLock = location.pathname !== "/dashboard" && !unlocked;
 
   async function handleLogout() {
+    lockApp();
+    setUnlocked(false);
     await supabase.auth.signOut();
     navigate({ to: "/login" });
   }
+
+  function handleNav(to: string, e: React.MouseEvent) {
+    if (to !== "/dashboard" && !unlocked) {
+      e.preventDefault();
+      setPending(to);
+    }
+  }
+
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background pb-24">
