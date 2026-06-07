@@ -41,7 +41,10 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 });
 
 function RelatoriosPage() {
+  const qc = useQueryClient();
   const [printOnlyId, setPrintOnlyId] = useState<string | null>(null);
+  const [editLanc, setEditLanc] = useState<LancamentoRelatorio | null>(null);
+  const [editBio, setEditBio] = useState<BiometriaRelatorio | null>(null);
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "relatorio"],
