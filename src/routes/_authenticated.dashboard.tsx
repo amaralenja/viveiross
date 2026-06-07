@@ -97,11 +97,19 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("biometrias")
-        .select("id, data_biometria, peso_medio_g, viveiros(nome)")
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .select("id, viveiro_id, data_biometria, peso_medio_g, viveiros(nome)")
+        .order("data_biometria", { ascending: false })
+        .limit(200);
       if (error) throw error;
-      return (data ?? []) as Bio[];
+      const seen = new Set<string>();
+      const latestPerViveiro: Bio[] = [];
+      for (const b of (data ?? []) as (Bio & { viveiro_id: string })[]) {
+        if (seen.has(b.viveiro_id)) continue;
+        seen.add(b.viveiro_id);
+        latestPerViveiro.push(b);
+        if (latestPerViveiro.length >= 10) break;
+      }
+      return latestPerViveiro;
     },
   });
 
