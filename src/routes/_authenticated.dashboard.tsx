@@ -108,6 +108,7 @@ function Dashboard() {
     },
     onSuccess: () => {
       toast.success("Lançamento salvo");
+      setProdutoId("");
       setProduto("");
       setQuantidade("");
       setValor("");
