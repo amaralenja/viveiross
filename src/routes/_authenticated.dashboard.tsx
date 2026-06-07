@@ -3,36 +3,26 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  Utensils,
-  Activity,
-  FlaskConical,
-  ClipboardList,
-  Trash2,
-} from "lucide-react";
-import type { ComponentType } from "react";
-
-type IconComponent = ComponentType<{ className?: string }>;
+import { Trash2, Pencil, X, ClipboardList } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Início — Viveiros" }] }),
   component: Dashboard,
 });
 
+type ViveiroOpt = { id: string; nome: string };
+
 type Lanc = {
   id: string;
+  viveiro_id: string;
   data_lancamento: string;
   produto_nome: string;
   quantidade: number;
   unidade: string;
   tipo: string;
-  viveiros: { nome: string } | { nome: string }[] | null;
-};
-
-type Bio = {
-  id: string;
-  data_biometria: string;
-  peso_medio_g: number;
+  preco_unidade: number | null;
+  custo_total: number | null;
   viveiros: { nome: string } | { nome: string }[] | null;
 };
 
@@ -44,131 +34,244 @@ function relName(rel: { nome: string } | { nome: string }[] | null | undefined):
 
 function Dashboard() {
   const qc = useQueryClient();
-  const delLanc = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("lancamentos").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["lancamentos"] });
-      qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
-      toast.success("Lançamento removido");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["dashboard"],
+  const [viveiroId, setViveiroId] = useState("");
+  const [data, setData] = useState(todayLocal());
+  const [produto, setProduto] = useState("");
+  const [quantidade, setQuantidade] = useState("");
+  const [valor, setValor] = useState("");
+  const [editing, setEditing] = useState<Lanc | null>(null);
+
+  const { data: viveiros = [] } = useQuery({
+    queryKey: ["viveiros", "ativos"],
     queryFn: async () => {
-      const { data: viveiros } = await supabase
+      const { data, error } = await supabase
         .from("viveiros")
-        .select("id, status, qtd_povoada")
-        .eq("status", "ativo");
-      const hoje = todayLocal();
-      const { data: lancamentos } = await supabase
-        .from("lancamentos")
-        .select("quantidade")
-        .eq("tipo", "racao")
-        .eq("data_lancamento", hoje);
-      return {
-        ativos: viveiros?.length ?? 0,
-        povoamento: viveiros?.reduce((s, v) => s + (v.qtd_povoada ?? 0), 0) ?? 0,
-        racaoHoje: lancamentos?.reduce((s, l) => s + Number(l.quantidade ?? 0), 0) ?? 0,
-      };
+        .select("id, nome, status")
+        .eq("status", "ativo")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as ViveiroOpt[];
     },
   });
 
-  const { data: ultimosLanc = [] } = useQuery({
+  const { data: ultimos = [], isLoading } = useQuery({
     queryKey: ["dashboard", "ultimos-lancamentos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("id, data_lancamento, produto_nome, quantidade, unidade, tipo, viveiros(nome)")
+        .select(
+          "id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, tipo, preco_unidade, custo_total, viveiros(nome)",
+        )
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(20);
       if (error) throw error;
       return (data ?? []) as Lanc[];
     },
   });
 
-  const { data: ultimasBio = [] } = useQuery({
-    queryKey: ["dashboard", "ultimas-biometrias"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("biometrias")
-        .select("id, viveiro_id, data_biometria, peso_medio_g, viveiros(nome)")
-        .order("data_biometria", { ascending: false })
-        .limit(200);
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("Sessão expirada.");
+      if (!viveiroId) throw new Error("Escolha um viveiro.");
+      if (!produto.trim()) throw new Error("Informe o nome da ração.");
+      const q = Number(quantidade);
+      if (!q || q <= 0) throw new Error("Informe a quantidade.");
+      const v = valor ? Number(valor) : null;
+      const { error } = await supabase.from("lancamentos").insert({
+        user_id: userId,
+        viveiro_id: viveiroId,
+        data_lancamento: data,
+        produto_nome: produto.trim(),
+        quantidade: q,
+        unidade: "kg",
+        tipo: "racao",
+        preco_unidade: null,
+        custo_total: v,
+      });
       if (error) throw error;
-      const seen = new Set<string>();
-      const latestPerViveiro: Bio[] = [];
-      for (const b of (data ?? []) as (Bio & { viveiro_id: string })[]) {
-        if (seen.has(b.viveiro_id)) continue;
-        seen.add(b.viveiro_id);
-        latestPerViveiro.push(b);
-        if (latestPerViveiro.length >= 10) break;
-      }
-      return latestPerViveiro;
     },
+    onSuccess: () => {
+      toast.success("Lançamento salvo");
+      setProduto("");
+      setQuantidade("");
+      setValor("");
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["lancamentos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
+
+  const delMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Removido");
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["lancamentos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const totalHoje = useMemo(() => {
+    const hoje = todayLocal();
+    return ultimos
+      .filter((l) => l.tipo === "racao" && l.data_lancamento === hoje)
+      .reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
+  }, [ultimos]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Olá 👋</h1>
-        <p className="text-muted-foreground mt-1">Resumo de hoje</p>
+        <p className="text-muted-foreground mt-1">
+          Ração hoje: <span className="font-semibold text-foreground">{totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg</span>
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        <KpiCard
-          icon={Utensils}
-          label="Ração hoje"
-          value={
-            isLoading
-              ? "—"
-              : (data?.racaoHoje ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })
-          }
-          hint="kg"
-        />
-      </div>
+      {viveiros.length === 0 ? (
+        <div className="p-8 rounded-2xl border-2 border-dashed text-center">
+          <p className="font-semibold">Cadastre um viveiro primeiro</p>
+          <Link
+            to="/viveiros"
+            className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground"
+          >
+            Abrir viveiros
+          </Link>
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveMut.mutate();
+          }}
+          className="space-y-4 rounded-2xl bg-card border p-5"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Viveiro">
+              <select
+                required
+                value={viveiroId}
+                onChange={(e) => setViveiroId(e.target.value)}
+                className="app-input"
+              >
+                <option value="">Escolha</option>
+                {viveiros.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nome}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Data">
+              <input
+                required
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                className="app-input"
+              />
+            </Field>
+          </div>
+          <Field label="Ração (nome)">
+            <input
+              required
+              value={produto}
+              onChange={(e) => setProduto(e.target.value)}
+              className="app-input"
+              placeholder="Ex: Ração 40%"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Quantidade (kg)">
+              <input
+                required
+                min="0.01"
+                step="0.01"
+                type="number"
+                inputMode="decimal"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                className="app-input"
+                placeholder="Ex: 55"
+              />
+            </Field>
+            <Field label="Valor (R$)">
+              <input
+                min="0"
+                step="0.01"
+                type="number"
+                inputMode="decimal"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                className="app-input"
+                placeholder="Opcional"
+              />
+            </Field>
+          </div>
+          <button
+            disabled={saveMut.isPending}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+          >
+            {saveMut.isPending ? "Salvando..." : "Salvar lançamento"}
+          </button>
+        </form>
+      )}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Activity className="size-5 text-primary" /> Últimos lançamentos
-          </h2>
-          <Link to="/viveiros" className="text-sm text-primary font-medium">
-            Ver todos
+          <h2 className="text-lg font-semibold">Histórico</h2>
+          <Link to="/relatorios" className="text-sm text-primary font-medium">
+            Ver relatório
           </Link>
         </div>
-        {ultimosLanc.length === 0 ? (
-          <EmptyMini icon={ClipboardList} text="Sem lançamentos ainda." />
+        {isLoading ? (
+          <p className="text-muted-foreground">Carregando...</p>
+        ) : ultimos.length === 0 ? (
+          <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+            <ClipboardList className="size-4" /> Sem lançamentos ainda.
+          </div>
         ) : (
           <ul className="space-y-2">
-            {ultimosLanc.map((l) => (
+            {ultimos.map((l) => (
               <li
                 key={l.id}
-                className="flex items-center justify-between p-4 rounded-xl bg-card border"
+                className="flex items-center justify-between p-4 rounded-xl bg-card border gap-3"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-semibold truncate">{l.produto_nome}</p>
                   <p className="text-xs text-muted-foreground truncate">
                     {relName(l.viveiros) || "—"} · {formatDate(l.data_lancamento)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  <span className="text-sm font-bold">
-                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
-                    {l.unidade}
-                  </span>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold">
+                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {l.unidade}
+                  </p>
+                  {l.custo_total != null && (
+                    <p className="text-xs text-muted-foreground">
+                      {Number(l.custo_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    onClick={() => setEditing(l)}
+                    className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                    aria-label="Editar"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
                   <button
                     onClick={() => {
-                      if (confirm(`Apagar o lançamento de ${l.produto_nome}?`))
-                        delLanc.mutate(l.id);
+                      if (confirm(`Apagar "${l.produto_nome}"?`)) delMut.mutate(l.id);
                     }}
                     className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                    aria-label="Apagar lançamento"
+                    aria-label="Apagar"
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -179,76 +282,159 @@ function Dashboard() {
         )}
       </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <FlaskConical className="size-5 text-primary" /> Últimas biometrias
-          </h2>
-          <Link to="/biometrias" className="text-sm text-primary font-medium">
-            Ver todas
-          </Link>
-        </div>
-        {ultimasBio.length === 0 ? (
-          <EmptyMini icon={FlaskConical} text="Sem biometrias ainda." />
-        ) : (
-          <ul className="space-y-2">
-            {ultimasBio.map((b) => (
-              <li
-                key={b.id}
-                className="flex items-center justify-between p-4 rounded-xl bg-card border"
-              >
-                <div className="min-w-0">
-                  <p className="font-semibold truncate">{relName(b.viveiros) || "Viveiro"}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {formatDate(b.data_biometria)}
-                  </p>
-                </div>
-                <span className="text-sm font-bold shrink-0 ml-3">
-                  {Number(b.peso_medio_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {editing && (
+        <EditLancModal
+          lanc={editing}
+          viveiros={viveiros}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+            qc.invalidateQueries({ queryKey: ["lancamentos"] });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function EditLancModal({
+  lanc,
+  viveiros,
+  onClose,
+  onSaved,
+}: {
+  lanc: Lanc;
+  viveiros: ViveiroOpt[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [viveiroId, setViveiroId] = useState(lanc.viveiro_id);
+  const [data, setData] = useState(lanc.data_lancamento);
+  const [produto, setProduto] = useState(lanc.produto_nome);
+  const [quantidade, setQuantidade] = useState(String(lanc.quantidade ?? ""));
+  const [valor, setValor] = useState(lanc.custo_total != null ? String(lanc.custo_total) : "");
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const q = Number(quantidade);
+      if (!produto.trim() || q <= 0) throw new Error("Preencha produto e quantidade.");
+      const { error } = await supabase
+        .from("lancamentos")
+        .update({
+          viveiro_id: viveiroId,
+          data_lancamento: data,
+          produto_nome: produto.trim(),
+          quantidade: q,
+          custo_total: valor ? Number(valor) : null,
+        })
+        .eq("id", lanc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Atualizado");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl border shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-bold">Editar lançamento</h3>
+          <button
+            onClick={onClose}
+            className="size-8 rounded-lg hover:bg-muted flex items-center justify-center"
+            aria-label="Fechar"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="p-4 space-y-3"
+        >
+          <Field label="Viveiro">
+            <select
+              required
+              value={viveiroId}
+              onChange={(e) => setViveiroId(e.target.value)}
+              className="app-input"
+            >
+              {viveiros.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.nome}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Data">
+            <input required type="date" value={data} onChange={(e) => setData(e.target.value)} className="app-input" />
+          </Field>
+          <Field label="Ração">
+            <input required value={produto} onChange={(e) => setProduto(e.target.value)} className="app-input" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Quantidade (kg)">
+              <input
+                required
+                min="0.01"
+                step="0.01"
+                type="number"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                className="app-input"
+              />
+            </Field>
+            <Field label="Valor (R$)">
+              <input
+                min="0"
+                step="0.01"
+                type="number"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                className="app-input"
+              />
+            </Field>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border font-semibold">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={mut.isPending}
+              className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+            >
+              {mut.isPending ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium block mb-1.5">{label}</span>
+      {children}
+    </label>
   );
 }
 
 function formatDate(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y.slice(2)}`;
-}
-
-function EmptyMini({ icon: Icon, text }: { icon: IconComponent; text: string }) {
-  return (
-    <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-      <Icon className="size-4" /> {text}
-    </div>
-  );
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: IconComponent;
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="p-5 rounded-2xl bg-card border">
-      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-        <Icon className="size-4" />
-        <span>{label}</span>
-      </div>
-      <div className="mt-2 flex items-baseline gap-1">
-        <span className="text-3xl font-bold tracking-tight">{value}</span>
-        {hint && <span className="text-sm text-muted-foreground">{hint}</span>}
-      </div>
-    </div>
-  );
 }
