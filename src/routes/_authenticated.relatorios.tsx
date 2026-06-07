@@ -458,7 +458,274 @@ function RelatoriosPage() {
           ))}
         </div>
       )}
+
+      {editBio && (
+        <EditBioModal
+          bio={editBio}
+          onClose={() => setEditBio(null)}
+          onSaved={() => {
+            setEditBio(null);
+            qc.invalidateQueries({ queryKey: ["biometrias"] });
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+          }}
+        />
+      )}
+      {editLanc && (
+        <EditLancModal
+          lanc={editLanc}
+          onClose={() => setEditLanc(null)}
+          onSaved={() => {
+            setEditLanc(null);
+            qc.invalidateQueries({ queryKey: ["lancamentos"] });
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl border shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-bold">{title}</h3>
+          <button
+            onClick={onClose}
+            className="size-8 rounded-lg hover:bg-muted flex items-center justify-center"
+            aria-label="Fechar"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FieldRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium block mb-1.5">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function EditBioModal({
+  bio,
+  onClose,
+  onSaved,
+}: {
+  bio: BiometriaRelatorio;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [data, setData] = useState(bio.data_biometria);
+  const [qtd, setQtd] = useState(String(bio.amostras ?? ""));
+  const [pesoTotal, setPesoTotal] = useState(
+    bio.amostras && bio.peso_medio_g
+      ? String(Number(bio.amostras) * Number(bio.peso_medio_g))
+      : "",
+  );
+  const pesoMedio = useMemo(() => {
+    const t = Number(pesoTotal || 0);
+    const q = Number(qtd || 0);
+    return t > 0 && q > 0 ? t / q : 0;
+  }, [pesoTotal, qtd]);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (pesoMedio <= 0) throw new Error("Informe peso total e quantidade.");
+      const { error } = await supabase
+        .from("biometrias")
+        .update({
+          data_biometria: data,
+          peso_medio_g: pesoMedio,
+          amostras: Number(qtd),
+        })
+        .eq("id", bio.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Biometria atualizada");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <ModalShell title="Editar biometria" onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          mut.mutate();
+        }}
+        className="p-4 space-y-4"
+      >
+        <FieldRow label="Data">
+          <input
+            required
+            type="date"
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="app-input"
+          />
+        </FieldRow>
+        <div className="grid grid-cols-2 gap-3">
+          <FieldRow label="Qtd camarões">
+            <input
+              required
+              min="1"
+              type="number"
+              value={qtd}
+              onChange={(e) => setQtd(e.target.value)}
+              className="app-input"
+            />
+          </FieldRow>
+          <FieldRow label="Peso total (g)">
+            <input
+              required
+              min="0.01"
+              step="0.01"
+              type="number"
+              value={pesoTotal}
+              onChange={(e) => setPesoTotal(e.target.value)}
+              className="app-input"
+            />
+          </FieldRow>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Peso médio: <span className="font-bold text-foreground">{pesoMedio ? `${pesoMedio.toFixed(2)} g` : "—"}</span>
+        </p>
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border font-semibold">
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={mut.isPending}
+            className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+          >
+            {mut.isPending ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function EditLancModal({
+  lanc,
+  onClose,
+  onSaved,
+}: {
+  lanc: LancamentoRelatorio;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [data, setData] = useState(lanc.data_lancamento);
+  const [produto, setProduto] = useState(lanc.produto_nome);
+  const [quantidade, setQuantidade] = useState(String(lanc.quantidade ?? ""));
+  const [unidade, setUnidade] = useState(lanc.unidade);
+  const [tipo, setTipo] = useState(lanc.tipo);
+  const [preco, setPreco] = useState(String(lanc.preco_unidade ?? ""));
+  const [custo, setCusto] = useState(String(lanc.custo_total ?? ""));
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const q = Number(quantidade);
+      if (!produto.trim() || q <= 0) throw new Error("Preencha produto e quantidade.");
+      const { error } = await supabase
+        .from("lancamentos")
+        .update({
+          data_lancamento: data,
+          produto_nome: produto,
+          quantidade: q,
+          unidade,
+          tipo,
+          preco_unidade: preco ? Number(preco) : null,
+          custo_total: custo ? Number(custo) : null,
+        })
+        .eq("id", lanc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Lançamento atualizado");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <ModalShell title="Editar lançamento" onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          mut.mutate();
+        }}
+        className="p-4 space-y-3 max-h-[70vh] overflow-y-auto"
+      >
+        <FieldRow label="Data">
+          <input required type="date" value={data} onChange={(e) => setData(e.target.value)} className="app-input" />
+        </FieldRow>
+        <FieldRow label="Produto">
+          <input required value={produto} onChange={(e) => setProduto(e.target.value)} className="app-input" />
+        </FieldRow>
+        <div className="grid grid-cols-2 gap-3">
+          <FieldRow label="Quantidade">
+            <input required min="0" step="0.01" type="number" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} className="app-input" />
+          </FieldRow>
+          <FieldRow label="Unidade">
+            <input value={unidade} onChange={(e) => setUnidade(e.target.value)} className="app-input" />
+          </FieldRow>
+        </div>
+        <FieldRow label="Tipo">
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="app-input">
+            <option value="racao">Ração</option>
+            <option value="insumo">Insumo</option>
+            <option value="medicamento">Medicamento</option>
+            <option value="outro">Outro</option>
+          </select>
+        </FieldRow>
+        <div className="grid grid-cols-2 gap-3">
+          <FieldRow label="Preço unidade (R$)">
+            <input min="0" step="0.01" type="number" value={preco} onChange={(e) => setPreco(e.target.value)} className="app-input" />
+          </FieldRow>
+          <FieldRow label="Custo total (R$)">
+            <input min="0" step="0.01" type="number" value={custo} onChange={(e) => setCusto(e.target.value)} className="app-input" />
+          </FieldRow>
+        </div>
+        <div className="flex gap-2 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border font-semibold">
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={mut.isPending}
+            className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+          >
+            {mut.isPending ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }
 
