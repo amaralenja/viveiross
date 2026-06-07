@@ -191,13 +191,37 @@ function Dashboard() {
               />
             </Field>
           </div>
+          {produtosList.length > 0 && (
+            <Field label="Produto cadastrado">
+              <select
+                value={produtoId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setProdutoId(id);
+                  const p = produtosList.find((x) => x.id === id);
+                  if (p) setProduto(p.nome);
+                }}
+                className="app-input"
+              >
+                <option value="">— Selecionar produto cadastrado —</option>
+                {produtosList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Ração (nome)">
             <input
               required
               value={produto}
-              onChange={(e) => setProduto(e.target.value)}
+              onChange={(e) => {
+                setProduto(e.target.value);
+                setProdutoId("");
+              }}
               className="app-input"
-              placeholder="Ex: Ração 40%"
+              placeholder="Ex: Ração 40% — ou escolha acima"
             />
           </Field>
           <div className="grid grid-cols-2 gap-4">
