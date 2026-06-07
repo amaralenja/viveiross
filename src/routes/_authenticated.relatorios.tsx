@@ -418,16 +418,35 @@ function RelatoriosPage() {
                           <th className="p-2 text-left">Tipo</th>
                           <th className="p-2 text-right">Qtd</th>
                           <th className="p-2 text-right">Custo</th>
+                          <th className="no-print p-2 text-right w-24">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {l.lancs.map((x, i) => (
-                          <tr key={i} className="border-t">
+                        {l.lancs.map((x) => (
+                          <tr key={x.id} className="border-t">
                             <td className="p-2">{formatDate(x.data_lancamento)}</td>
                             <td className="p-2">{x.produto_nome}</td>
                             <td className="p-2">{x.tipo}</td>
                             <td className="p-2 text-right">{formatNumber(Number(x.quantidade ?? 0))} {x.unidade}</td>
                             <td className="p-2 text-right">{formatBRL(Number(x.custo_total ?? 0))}</td>
+                            <td className="no-print p-2 text-right">
+                              <div className="inline-flex gap-1">
+                                <button
+                                  onClick={() => setEditLanc(x)}
+                                  className="size-7 rounded hover:bg-primary/10 hover:text-primary inline-flex items-center justify-center"
+                                  aria-label="Editar"
+                                >
+                                  <Pencil className="size-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => confirmDelLanc(x.id)}
+                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
+                                  aria-label="Apagar"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
