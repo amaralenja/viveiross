@@ -68,7 +68,11 @@ function AuthLayout() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 overflow-x-hidden px-5 py-6">
-        <Outlet />
+        {needsLock ? (
+          <PasswordLock onUnlock={() => setUnlocked(true)} />
+        ) : (
+          <Outlet />
+        )}
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
@@ -80,6 +84,7 @@ function AuthLayout() {
               <Link
                 key={item.to}
                 to={item.to}
+                onClick={(e) => handleNav(item.to, e)}
                 className={`flex flex-col items-center gap-1 py-3 text-xs font-medium transition ${
                   active ? "text-primary" : "text-muted-foreground"
                 } min-w-0`}
@@ -91,6 +96,18 @@ function AuthLayout() {
           })}
         </div>
       </nav>
+
+      {pending && (
+        <PasswordLock
+          onUnlock={() => {
+            setUnlocked(true);
+            const to = pending;
+            setPending(null);
+            navigate({ to });
+          }}
+        />
+      )}
     </div>
   );
 }
+
