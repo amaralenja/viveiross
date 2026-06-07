@@ -2,6 +2,9 @@ import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } fro
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useState } from "react";
+import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
+
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
@@ -23,11 +26,25 @@ function AuthLayout() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [unlocked, setUnlocked] = useState(() => isUnlocked());
+  const [pending, setPending] = useState<string | null>(null);
+
+  const needsLock = location.pathname !== "/dashboard" && !unlocked;
 
   async function handleLogout() {
+    lockApp();
+    setUnlocked(false);
     await supabase.auth.signOut();
     navigate({ to: "/login" });
   }
+
+  function handleNav(to: string, e: React.MouseEvent) {
+    if (to !== "/dashboard" && !unlocked) {
+      e.preventDefault();
+      setPending(to);
+    }
+  }
+
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background pb-24">
@@ -51,7 +68,11 @@ function AuthLayout() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 overflow-x-hidden px-5 py-6">
-        <Outlet />
+        {needsLock ? (
+          <PasswordLock onUnlock={() => setUnlocked(true)} />
+        ) : (
+          <Outlet />
+        )}
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
@@ -63,6 +84,7 @@ function AuthLayout() {
               <Link
                 key={item.to}
                 to={item.to}
+                onClick={(e) => handleNav(item.to, e)}
                 className={`flex flex-col items-center gap-1 py-3 text-xs font-medium transition ${
                   active ? "text-primary" : "text-muted-foreground"
                 } min-w-0`}
@@ -74,6 +96,18 @@ function AuthLayout() {
           })}
         </div>
       </nav>
+
+      {pending && (
+        <PasswordLock
+          onUnlock={() => {
+            setUnlocked(true);
+            const to = pending;
+            setPending(null);
+            navigate({ to });
+          }}
+        />
+      )}
     </div>
   );
 }
+
