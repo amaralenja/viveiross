@@ -492,7 +492,7 @@ function HistoricoBiometrias({
   onDelete: (id: string) => void;
   onEdit: (b: BiometriaRow) => void;
 }) {
-  const [periodo, setPeriodo] = useState<PeriodoKey>("7d");
+  const [periodo, setPeriodo] = useState<PeriodoKey>("tudo");
   const [de, setDe] = useState(todayLocal());
   const [ate, setAte] = useState(todayLocal());
 
