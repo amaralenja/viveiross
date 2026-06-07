@@ -339,13 +339,32 @@ function RelatoriosPage() {
                         <tr>
                           <th className="p-2 text-left">Data</th>
                           <th className="p-2 text-right">Peso médio (g)</th>
+                          <th className="no-print p-2 text-right w-24">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {l.bios.map((b, i) => (
-                          <tr key={i} className="border-t">
+                        {l.bios.map((b) => (
+                          <tr key={b.id} className="border-t">
                             <td className="p-2">{formatDate(b.data_biometria)}</td>
                             <td className="p-2 text-right">{formatNumber(Number(b.peso_medio_g ?? 0))}</td>
+                            <td className="no-print p-2 text-right">
+                              <div className="inline-flex gap-1">
+                                <button
+                                  onClick={() => setEditBio(b)}
+                                  className="size-7 rounded hover:bg-primary/10 hover:text-primary inline-flex items-center justify-center"
+                                  aria-label="Editar"
+                                >
+                                  <Pencil className="size-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => confirmDelBio(b.id)}
+                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
+                                  aria-label="Apagar"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
