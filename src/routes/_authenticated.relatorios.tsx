@@ -75,7 +75,7 @@ function RelatoriosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("biometrias")
-        .select("viveiro_id, data_biometria, peso_medio_g, sobrevivencia_percent")
+        .select("id, viveiro_id, data_biometria, peso_medio_g, amostras, sobrevivencia_percent")
         .order("data_biometria", { ascending: false });
       if (error) throw error;
       return (data ?? []) as BiometriaRelatorio[];
