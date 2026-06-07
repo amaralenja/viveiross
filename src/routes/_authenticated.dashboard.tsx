@@ -37,6 +37,7 @@ function Dashboard() {
 
   const [viveiroId, setViveiroId] = useState("");
   const [data, setData] = useState(todayLocal());
+  const [produtoId, setProdutoId] = useState("");
   const [produto, setProduto] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
@@ -52,6 +53,18 @@ function Dashboard() {
         .order("nome");
       if (error) throw error;
       return (data ?? []) as ViveiroOpt[];
+    },
+  });
+
+  const { data: produtosList = [] } = useQuery({
+    queryKey: ["produtos", "racao"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, unidade, preco_unidade")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
     },
   });
 
