@@ -37,6 +37,7 @@ function Dashboard() {
 
   const [viveiroId, setViveiroId] = useState("");
   const [data, setData] = useState(todayLocal());
+  const [produtoId, setProdutoId] = useState("");
   const [produto, setProduto] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
@@ -52,6 +53,18 @@ function Dashboard() {
         .order("nome");
       if (error) throw error;
       return (data ?? []) as ViveiroOpt[];
+    },
+  });
+
+  const { data: produtosList = [] } = useQuery({
+    queryKey: ["produtos", "racao"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, unidade, preco_unidade")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
     },
   });
 
@@ -95,6 +108,7 @@ function Dashboard() {
     },
     onSuccess: () => {
       toast.success("Lançamento salvo");
+      setProdutoId("");
       setProduto("");
       setQuantidade("");
       setValor("");
@@ -177,13 +191,37 @@ function Dashboard() {
               />
             </Field>
           </div>
+          {produtosList.length > 0 && (
+            <Field label="Produto cadastrado">
+              <select
+                value={produtoId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setProdutoId(id);
+                  const p = produtosList.find((x) => x.id === id);
+                  if (p) setProduto(p.nome);
+                }}
+                className="app-input"
+              >
+                <option value="">— Selecionar produto cadastrado —</option>
+                {produtosList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Ração (nome)">
             <input
               required
               value={produto}
-              onChange={(e) => setProduto(e.target.value)}
+              onChange={(e) => {
+                setProduto(e.target.value);
+                setProdutoId("");
+              }}
               className="app-input"
-              placeholder="Ex: Ração 40%"
+              placeholder="Ex: Ração 40% — ou escolha acima"
             />
           </Field>
           <div className="grid grid-cols-2 gap-4">
