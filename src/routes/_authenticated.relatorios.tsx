@@ -212,6 +212,39 @@ function RelatoriosPage() {
     }, 50);
   }
 
+  const delLanc = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Lançamento removido");
+      qc.invalidateQueries({ queryKey: ["lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const delBio = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("biometrias").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Biometria removida");
+      qc.invalidateQueries({ queryKey: ["biometrias"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function confirmDelLanc(id: string) {
+    if (window.confirm("Apagar este lançamento?")) delLanc.mutate(id);
+  }
+  function confirmDelBio(id: string) {
+    if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
+  }
+
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
       <style>{`
