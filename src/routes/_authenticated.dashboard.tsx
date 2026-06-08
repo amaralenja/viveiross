@@ -364,7 +364,7 @@ function EditLancModal({
           data_lancamento: data,
           produto_nome: produto.trim(),
           quantidade: q,
-          custo_total: valor ? Number(valor) : null,
+          custo_total: valor ? Number(valor.replace(",", ".")) : null,
         })
         .eq("id", lanc.id);
       if (error) throw error;
