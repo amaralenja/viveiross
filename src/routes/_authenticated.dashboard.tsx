@@ -92,7 +92,8 @@ function Dashboard() {
       if (!produto.trim()) throw new Error("Informe o nome da ração.");
       const q = Number(quantidade);
       if (!q || q <= 0) throw new Error("Informe a quantidade.");
-      const v = valor ? Number(valor) : null;
+      const v = valor ? Number(valor.replace(",", ".")) : null;
+      if (valor && (v === null || Number.isNaN(v))) throw new Error("Valor inválido.");
       const { error } = await supabase.from("lancamentos").insert({
         user_id: userId,
         viveiro_id: viveiroId,
