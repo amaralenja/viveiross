@@ -255,18 +255,27 @@ function Dashboard() {
                 placeholder="Ex: 55"
               />
             </Field>
-            <Field label="Valor (R$)">
+            <Field label={valorIsAuto ? "Valor unit. (auto)" : "Valor unit. (R$)"}>
               <input
                 type="text"
                 inputMode="decimal"
                 pattern="[0-9.,]*"
-                value={valor}
+                value={valorIsAuto ? String(precoCadastrado) : valor}
+                disabled={valorIsAuto}
                 onChange={(e) => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
-                className="app-input"
+                className="app-input disabled:opacity-70"
                 placeholder="Opcional"
               />
             </Field>
           </div>
+          {totalCalc > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Total:{" "}
+              <span className="font-semibold text-foreground">
+                {totalCalc.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </span>
+            </p>
+          )}
           <button
             disabled={saveMut.isPending}
             className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
