@@ -92,7 +92,8 @@ function Dashboard() {
       if (!produto.trim()) throw new Error("Informe o nome da ração.");
       const q = Number(quantidade);
       if (!q || q <= 0) throw new Error("Informe a quantidade.");
-      const v = valor ? Number(valor) : null;
+      const v = valor ? Number(valor.replace(",", ".")) : null;
+      if (valor && (v === null || Number.isNaN(v))) throw new Error("Valor inválido.");
       const { error } = await supabase.from("lancamentos").insert({
         user_id: userId,
         viveiro_id: viveiroId,
@@ -240,12 +241,11 @@ function Dashboard() {
             </Field>
             <Field label="Valor (R$)">
               <input
-                min="0"
-                step="0.01"
-                type="number"
+                type="text"
                 inputMode="decimal"
+                pattern="[0-9.,]*"
                 value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                onChange={(e) => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
                 className="app-input"
                 placeholder="Opcional"
               />
@@ -364,7 +364,7 @@ function EditLancModal({
           data_lancamento: data,
           produto_nome: produto.trim(),
           quantidade: q,
-          custo_total: valor ? Number(valor) : null,
+          custo_total: valor ? Number(valor.replace(",", ".")) : null,
         })
         .eq("id", lanc.id);
       if (error) throw error;
@@ -436,11 +436,11 @@ function EditLancModal({
             </Field>
             <Field label="Valor (R$)">
               <input
-                min="0"
-                step="0.01"
-                type="number"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9.,]*"
                 value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                onChange={(e) => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
                 className="app-input"
               />
             </Field>
