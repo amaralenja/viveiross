@@ -83,6 +83,17 @@ function Dashboard() {
     },
   });
 
+  const produtoSelecionado = produtosList.find((p) => p.id === produtoId);
+  const precoCadastrado = produtoSelecionado?.preco_unidade ?? null;
+  const valorIsAuto = precoCadastrado != null;
+  const qNum = Number(quantidade.replace(",", ".")) || 0;
+  const unitNum = valorIsAuto
+    ? Number(precoCadastrado)
+    : valor
+      ? Number(valor.replace(",", "."))
+      : 0;
+  const totalCalc = unitNum > 0 && qNum > 0 ? unitNum * qNum : 0;
+
   const saveMut = useMutation({
     mutationFn: async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -90,10 +101,15 @@ function Dashboard() {
       if (!userId) throw new Error("Sessão expirada.");
       if (!viveiroId) throw new Error("Escolha um viveiro.");
       if (!produto.trim()) throw new Error("Informe o nome da ração.");
-      const q = Number(quantidade);
+      const q = Number(quantidade.replace(",", "."));
       if (!q || q <= 0) throw new Error("Informe a quantidade.");
-      const v = valor ? Number(valor.replace(",", ".")) : null;
-      if (valor && (v === null || Number.isNaN(v))) throw new Error("Valor inválido.");
+      const unit = valorIsAuto
+        ? Number(precoCadastrado)
+        : valor
+          ? Number(valor.replace(",", "."))
+          : null;
+      if (unit != null && Number.isNaN(unit)) throw new Error("Valor inválido.");
+      const total = unit != null ? unit * q : null;
       const { error } = await supabase.from("lancamentos").insert({
         user_id: userId,
         viveiro_id: viveiroId,
@@ -102,8 +118,8 @@ function Dashboard() {
         quantidade: q,
         unidade: "kg",
         tipo: "racao",
-        preco_unidade: null,
-        custo_total: v,
+        preco_unidade: unit,
+        custo_total: total,
       });
       if (error) throw error;
     },
@@ -239,18 +255,27 @@ function Dashboard() {
                 placeholder="Ex: 55"
               />
             </Field>
-            <Field label="Valor (R$)">
+            <Field label={valorIsAuto ? "Valor unit. (auto)" : "Valor unit. (R$)"}>
               <input
                 type="text"
                 inputMode="decimal"
                 pattern="[0-9.,]*"
-                value={valor}
+                value={valorIsAuto ? String(precoCadastrado) : valor}
+                disabled={valorIsAuto}
                 onChange={(e) => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
-                className="app-input"
+                className="app-input disabled:opacity-70"
                 placeholder="Opcional"
               />
             </Field>
           </div>
+          {totalCalc > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Total:{" "}
+              <span className="font-semibold text-foreground">
+                {totalCalc.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </span>
+            </p>
+          )}
           <button
             disabled={saveMut.isPending}
             className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
