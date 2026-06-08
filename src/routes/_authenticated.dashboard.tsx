@@ -83,6 +83,17 @@ function Dashboard() {
     },
   });
 
+  const produtoSelecionado = produtosList.find((p) => p.id === produtoId);
+  const precoCadastrado = produtoSelecionado?.preco_unidade ?? null;
+  const valorIsAuto = precoCadastrado != null;
+  const qNum = Number(quantidade.replace(",", ".")) || 0;
+  const unitNum = valorIsAuto
+    ? Number(precoCadastrado)
+    : valor
+      ? Number(valor.replace(",", "."))
+      : 0;
+  const totalCalc = unitNum > 0 && qNum > 0 ? unitNum * qNum : 0;
+
   const saveMut = useMutation({
     mutationFn: async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -90,10 +101,15 @@ function Dashboard() {
       if (!userId) throw new Error("Sessão expirada.");
       if (!viveiroId) throw new Error("Escolha um viveiro.");
       if (!produto.trim()) throw new Error("Informe o nome da ração.");
-      const q = Number(quantidade);
+      const q = Number(quantidade.replace(",", "."));
       if (!q || q <= 0) throw new Error("Informe a quantidade.");
-      const v = valor ? Number(valor.replace(",", ".")) : null;
-      if (valor && (v === null || Number.isNaN(v))) throw new Error("Valor inválido.");
+      const unit = valorIsAuto
+        ? Number(precoCadastrado)
+        : valor
+          ? Number(valor.replace(",", "."))
+          : null;
+      if (unit != null && Number.isNaN(unit)) throw new Error("Valor inválido.");
+      const total = unit != null ? unit * q : null;
       const { error } = await supabase.from("lancamentos").insert({
         user_id: userId,
         viveiro_id: viveiroId,
@@ -102,8 +118,8 @@ function Dashboard() {
         quantidade: q,
         unidade: "kg",
         tipo: "racao",
-        preco_unidade: null,
-        custo_total: v,
+        preco_unidade: unit,
+        custo_total: total,
       });
       if (error) throw error;
     },
