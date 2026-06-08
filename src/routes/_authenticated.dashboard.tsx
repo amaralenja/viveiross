@@ -436,11 +436,11 @@ function EditLancModal({
             </Field>
             <Field label="Valor (R$)">
               <input
-                min="0"
-                step="0.01"
-                type="number"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9.,]*"
                 value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                onChange={(e) => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
                 className="app-input"
               />
             </Field>
