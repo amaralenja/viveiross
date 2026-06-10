@@ -263,8 +263,8 @@ function ViveirosPage() {
                       />
                     );
                   })()}
-                  <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-md">
-                    Ver <ChevronRight className="size-3" />
+                  <span className="absolute bottom-1.5 right-1.5 size-7 rounded-md bg-background/80 border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background">
+                    <ChevronRight className="size-3.5" />
                   </span>
                 </button>
                 <button
