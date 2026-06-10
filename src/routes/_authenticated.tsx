@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_authenticated")({
 const NAV = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
   { to: "/viveiros", label: "Viveiros", icon: Warehouse },
+  { to: "/caixa", label: "Caixa", icon: Wallet },
   { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/biometrias", label: "Biometria", icon: FlaskConical },
   { to: "/relatorios", label: "Relatórios", icon: FileText },
