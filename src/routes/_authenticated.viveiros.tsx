@@ -397,6 +397,7 @@ function ViveirosPage() {
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["lancamentos"] });
             qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
+            qc.invalidateQueries({ queryKey: ["viveiros", "lancamentos-recentes"] });
             qc.invalidateQueries({ queryKey: ["dashboard"] });
             setRacaoViveiro(null);
           }}
