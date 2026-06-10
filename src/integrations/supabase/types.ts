@@ -64,6 +64,53 @@ export type Database = {
           },
         ]
       }
+      caixa_lancamentos: {
+        Row: {
+          categoria: string
+          created_at: string
+          data_lancamento: string
+          descricao: string
+          id: string
+          observacao: string | null
+          updated_at: string
+          user_id: string
+          valor: number
+          viveiro_id: string | null
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          data_lancamento?: string
+          descricao: string
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+          user_id: string
+          valor: number
+          viveiro_id?: string | null
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data_lancamento?: string
+          descricao?: string
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+          user_id?: string
+          valor?: number
+          viveiro_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caixa_lancamentos_viveiro_id_fkey"
+            columns: ["viveiro_id"]
+            isOneToOne: false
+            referencedRelation: "viveiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categorias: {
         Row: {
           created_at: string
