@@ -271,6 +271,35 @@ function ViveirosPage() {
                   highlight
                 />
               </div>
+              {(() => {
+                const bios = biometriasPorViveiro[v.id] ?? [];
+                if (bios.length === 0) return null;
+                return (
+                  <div className="mt-3 p-3 rounded-xl border bg-muted/30">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground mb-2">
+                      Últimas biometrias
+                    </p>
+                    <ul className="space-y-1.5">
+                      {bios.map((b) => (
+                        <li key={b.id} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-muted-foreground flex items-center gap-1 shrink-0">
+                            <CalendarDays className="size-3.5" />
+                            {formatDateBR(b.data_biometria)}
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {Number(b.peso_medio_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g
+                          </span>
+                          {b.crescimento_semanal_g != null && (
+                            <span className="text-xs text-primary font-medium">
+                              +{Number(b.crescimento_semanal_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g/sem
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setRacaoViveiro(v)}
