@@ -130,6 +130,32 @@ function ViveirosPage() {
     },
   });
 
+  type LancItem = {
+    id: string;
+    viveiro_id: string;
+    data_lancamento: string;
+    quantidade: number | null;
+    tipo: string | null;
+    produtos: { nome: string } | { nome: string }[] | null;
+  };
+  const { data: lancamentosPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "lancamentos-recentes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("id, viveiro_id, data_lancamento, quantidade, tipo, produtos(nome)")
+        .order("data_lancamento", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, LancItem[]> = {};
+      for (const l of (data ?? []) as LancItem[]) {
+        if (!map[l.viveiro_id]) map[l.viveiro_id] = [];
+        if (map[l.viveiro_id].length < 3) map[l.viveiro_id].push(l);
+      }
+      return map;
+    },
+  });
+
   const delMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("viveiros").delete().eq("id", id);
