@@ -105,6 +105,31 @@ function ViveirosPage() {
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
   const primeiraDataPorViveiro = totaisPorViveiro.primeiraData ?? {};
 
+  type BioItem = {
+    id: string;
+    viveiro_id: string;
+    data_biometria: string;
+    peso_medio_g: number;
+    crescimento_semanal_g: number | null;
+    sobrevivencia_percent: number | null;
+  };
+  const { data: biometriasPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "biometrias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("biometrias")
+        .select("id, viveiro_id, data_biometria, peso_medio_g, crescimento_semanal_g, sobrevivencia_percent")
+        .order("data_biometria", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, BioItem[]> = {};
+      for (const b of (data ?? []) as BioItem[]) {
+        if (!map[b.viveiro_id]) map[b.viveiro_id] = [];
+        if (map[b.viveiro_id].length < 3) map[b.viveiro_id].push(b);
+      }
+      return map;
+    },
+  });
+
   const delMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("viveiros").delete().eq("id", id);
@@ -246,6 +271,35 @@ function ViveirosPage() {
                   highlight
                 />
               </div>
+              {(() => {
+                const bios = biometriasPorViveiro[v.id] ?? [];
+                if (bios.length === 0) return null;
+                return (
+                  <div className="mt-3 p-3 rounded-xl border bg-muted/30">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground mb-2">
+                      Últimas biometrias
+                    </p>
+                    <ul className="space-y-1.5">
+                      {bios.map((b) => (
+                        <li key={b.id} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-muted-foreground flex items-center gap-1 shrink-0">
+                            <CalendarDays className="size-3.5" />
+                            {formatDateBR(b.data_biometria)}
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {Number(b.peso_medio_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g
+                          </span>
+                          {b.crescimento_semanal_g != null && (
+                            <span className="text-xs text-primary font-medium">
+                              +{Number(b.crescimento_semanal_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g/sem
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setRacaoViveiro(v)}
