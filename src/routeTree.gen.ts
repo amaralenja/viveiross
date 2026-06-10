@@ -16,7 +16,6 @@ import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated.produtos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
-import { Route as AuthenticatedCaixaRouteImport } from './routes/_authenticated.caixa'
 import { Route as AuthenticatedBiometriasRouteImport } from './routes/_authenticated.biometrias'
 
 const LoginRoute = LoginRouteImport.update({
@@ -53,11 +52,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCaixaRoute = AuthenticatedCaixaRouteImport.update({
-  id: '/caixa',
-  path: '/caixa',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedBiometriasRoute = AuthenticatedBiometriasRouteImport.update({
   id: '/biometrias',
   path: '/biometrias',
@@ -68,7 +62,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/biometrias': typeof AuthenticatedBiometriasRoute
-  '/caixa': typeof AuthenticatedCaixaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -78,7 +71,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/biometrias': typeof AuthenticatedBiometriasRoute
-  '/caixa': typeof AuthenticatedCaixaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -90,7 +82,6 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/biometrias': typeof AuthenticatedBiometriasRoute
-  '/_authenticated/caixa': typeof AuthenticatedCaixaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -102,7 +93,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/biometrias'
-    | '/caixa'
     | '/dashboard'
     | '/produtos'
     | '/relatorios'
@@ -112,7 +102,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/biometrias'
-    | '/caixa'
     | '/dashboard'
     | '/produtos'
     | '/relatorios'
@@ -123,7 +112,6 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/biometrias'
-    | '/_authenticated/caixa'
     | '/_authenticated/dashboard'
     | '/_authenticated/produtos'
     | '/_authenticated/relatorios'
@@ -187,13 +175,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/caixa': {
-      id: '/_authenticated/caixa'
-      path: '/caixa'
-      fullPath: '/caixa'
-      preLoaderRoute: typeof AuthenticatedCaixaRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/biometrias': {
       id: '/_authenticated/biometrias'
       path: '/biometrias'
@@ -206,7 +187,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedBiometriasRoute: typeof AuthenticatedBiometriasRoute
-  AuthenticatedCaixaRoute: typeof AuthenticatedCaixaRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -215,7 +195,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBiometriasRoute: AuthenticatedBiometriasRoute,
-  AuthenticatedCaixaRoute: AuthenticatedCaixaRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
