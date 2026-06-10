@@ -326,6 +326,36 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
+              {(() => {
+                const lancs = lancamentosPorViveiro[v.id] ?? [];
+                if (lancs.length === 0) return null;
+                return (
+                  <div className="mt-3 p-3 rounded-xl border bg-muted/30">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground mb-2">
+                      Últimos lançamentos
+                    </p>
+                    <ul className="space-y-1.5">
+                      {lancs.map((l) => {
+                        const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
+                        return (
+                          <li key={l.id} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="text-muted-foreground flex items-center gap-1 shrink-0">
+                              <CalendarDays className="size-3.5" />
+                              {formatDateBR(l.data_lancamento)}
+                            </span>
+                            <span className="font-medium text-foreground truncate flex-1 text-right">
+                              {prod?.nome ?? l.tipo ?? "—"}
+                            </span>
+                            <span className="text-xs font-semibold text-primary shrink-0">
+                              {Number(l.quantidade ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })()}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setRacaoViveiro(v)}
