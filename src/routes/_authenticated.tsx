@@ -77,7 +77,7 @@ function AuthLayout() {
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-5">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-6">
           {NAV.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
@@ -86,12 +86,12 @@ function AuthLayout() {
                 key={item.to}
                 to={item.to}
                 onClick={(e) => handleNav(item.to, e)}
-                className={`flex flex-col items-center gap-1 py-3 text-xs font-medium transition ${
+                className={`flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition ${
                   active ? "text-primary" : "text-muted-foreground"
                 } min-w-0`}
               >
-                <Icon className={`size-6 ${active ? "stroke-[2.5]" : ""}`} />
-                <span className="max-w-full truncate px-0.5 text-[10px] sm:text-xs">{item.label}</span>
+                <Icon className={`size-5 ${active ? "stroke-[2.5]" : ""}`} />
+                <span className="max-w-full truncate px-0.5 text-[9px] sm:text-[11px] leading-none">{item.label}</span>
               </Link>
             );
           })}
