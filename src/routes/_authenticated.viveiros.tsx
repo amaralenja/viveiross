@@ -105,6 +105,31 @@ function ViveirosPage() {
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
   const primeiraDataPorViveiro = totaisPorViveiro.primeiraData ?? {};
 
+  type BioItem = {
+    id: string;
+    viveiro_id: string;
+    data_biometria: string;
+    peso_medio_g: number;
+    crescimento_semanal_g: number | null;
+    sobrevivencia_percent: number | null;
+  };
+  const { data: biometriasPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "biometrias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("biometrias")
+        .select("id, viveiro_id, data_biometria, peso_medio_g, crescimento_semanal_g, sobrevivencia_percent")
+        .order("data_biometria", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, BioItem[]> = {};
+      for (const b of (data ?? []) as BioItem[]) {
+        if (!map[b.viveiro_id]) map[b.viveiro_id] = [];
+        if (map[b.viveiro_id].length < 3) map[b.viveiro_id].push(b);
+      }
+      return map;
+    },
+  });
+
   const delMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("viveiros").delete().eq("id", id);
