@@ -130,6 +130,32 @@ function ViveirosPage() {
     },
   });
 
+  type LancItem = {
+    id: string;
+    viveiro_id: string;
+    data_lancamento: string;
+    quantidade: number | null;
+    tipo: string | null;
+    produtos: { nome: string } | { nome: string }[] | null;
+  };
+  const { data: lancamentosPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "lancamentos-recentes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("id, viveiro_id, data_lancamento, quantidade, tipo, produtos(nome)")
+        .order("data_lancamento", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, LancItem[]> = {};
+      for (const l of (data ?? []) as LancItem[]) {
+        if (!map[l.viveiro_id]) map[l.viveiro_id] = [];
+        if (map[l.viveiro_id].length < 3) map[l.viveiro_id].push(l);
+      }
+      return map;
+    },
+  });
+
   const delMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("viveiros").delete().eq("id", id);
@@ -300,6 +326,36 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
+              {(() => {
+                const lancs = lancamentosPorViveiro[v.id] ?? [];
+                if (lancs.length === 0) return null;
+                return (
+                  <div className="mt-3 p-3 rounded-xl border bg-muted/30">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground mb-2">
+                      Últimos lançamentos
+                    </p>
+                    <ul className="space-y-1.5">
+                      {lancs.map((l) => {
+                        const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
+                        return (
+                          <li key={l.id} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="text-muted-foreground flex items-center gap-1 shrink-0">
+                              <CalendarDays className="size-3.5" />
+                              {formatDateBR(l.data_lancamento)}
+                            </span>
+                            <span className="font-medium text-foreground truncate flex-1 text-right">
+                              {prod?.nome ?? l.tipo ?? "—"}
+                            </span>
+                            <span className="text-xs font-semibold text-primary shrink-0">
+                              {Number(l.quantidade ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })()}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setRacaoViveiro(v)}
@@ -341,6 +397,7 @@ function ViveirosPage() {
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["lancamentos"] });
             qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
+            qc.invalidateQueries({ queryKey: ["viveiros", "lancamentos-recentes"] });
             qc.invalidateQueries({ queryKey: ["dashboard"] });
             setRacaoViveiro(null);
           }}
