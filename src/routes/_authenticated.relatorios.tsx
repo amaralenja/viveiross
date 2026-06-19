@@ -270,7 +270,7 @@ function RelatoriosPage() {
         @media print {
           .no-print { display: none !important; }
           .print-only-target { display: block !important; }
-          ${printOnlyId ? `.viveiro-card:not([data-vid="${printOnlyId}"]) { display: none !important; }` : ""}
+          ${printIds ? `.viveiro-card { display: none !important; } ${printIds.map((id) => `.viveiro-card[data-vid="${id}"]`).join(",")} { display: block !important; }` : ""}
         }
       `}</style>
 
@@ -280,6 +280,13 @@ function RelatoriosPage() {
           <p className="mt-1 text-muted-foreground break-words">Extrato por viveiro</p>
         </div>
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <button
+            onClick={imprimirSelecionados}
+            disabled={selecionados.size === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
+          >
+            <Printer className="size-5" /> Imprimir selecionados {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+          </button>
           <button
             onClick={imprimirTudo}
             disabled={linhas.length === 0}
