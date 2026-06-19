@@ -210,15 +210,24 @@ function RelatoriosPage() {
   }
 
   function imprimirTudo() {
-    setPrintOnlyId(null);
+    setPrintIds(null);
     setTimeout(() => window.print(), 50);
   }
 
   function imprimirViveiro(id: string) {
-    setPrintOnlyId(id);
+    setPrintIds([id]);
     setTimeout(() => {
       window.print();
-      setTimeout(() => setPrintOnlyId(null), 200);
+      setTimeout(() => setPrintIds(null), 200);
+    }, 50);
+  }
+
+  function imprimirSelecionados() {
+    if (selecionados.size === 0) return;
+    setPrintIds(Array.from(selecionados));
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintIds(null), 200);
     }, 50);
   }
 
