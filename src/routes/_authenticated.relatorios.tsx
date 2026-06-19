@@ -42,9 +42,19 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 
 function RelatoriosPage() {
   const qc = useQueryClient();
-  const [printOnlyId, setPrintOnlyId] = useState<string | null>(null);
+  const [printIds, setPrintIds] = useState<string[] | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [editLanc, setEditLanc] = useState<LancamentoRelatorio | null>(null);
   const [editBio, setEditBio] = useState<BiometriaRelatorio | null>(null);
+
+  function toggleSel(id: string) {
+    setSelecionados((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "relatorio"],
@@ -200,15 +210,24 @@ function RelatoriosPage() {
   }
 
   function imprimirTudo() {
-    setPrintOnlyId(null);
+    setPrintIds(null);
     setTimeout(() => window.print(), 50);
   }
 
   function imprimirViveiro(id: string) {
-    setPrintOnlyId(id);
+    setPrintIds([id]);
     setTimeout(() => {
       window.print();
-      setTimeout(() => setPrintOnlyId(null), 200);
+      setTimeout(() => setPrintIds(null), 200);
+    }, 50);
+  }
+
+  function imprimirSelecionados() {
+    if (selecionados.size === 0) return;
+    setPrintIds(Array.from(selecionados));
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintIds(null), 200);
     }, 50);
   }
 
@@ -251,7 +270,7 @@ function RelatoriosPage() {
         @media print {
           .no-print { display: none !important; }
           .print-only-target { display: block !important; }
-          ${printOnlyId ? `.viveiro-card:not([data-vid="${printOnlyId}"]) { display: none !important; }` : ""}
+          ${printIds ? `.viveiro-card { display: none !important; } ${printIds.map((id) => `.viveiro-card[data-vid="${id}"]`).join(",")} { display: block !important; }` : ""}
         }
       `}</style>
 
@@ -261,6 +280,13 @@ function RelatoriosPage() {
           <p className="mt-1 text-muted-foreground break-words">Extrato por viveiro</p>
         </div>
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <button
+            onClick={imprimirSelecionados}
+            disabled={selecionados.size === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
+          >
+            <Printer className="size-5" /> Imprimir selecionados {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+          </button>
           <button
             onClick={imprimirTudo}
             disabled={linhas.length === 0}
@@ -298,11 +324,22 @@ function RelatoriosPage() {
               className="viveiro-card min-w-0 rounded-2xl border bg-card p-5 print:border-black"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-words text-xl font-bold">{l.viveiro}</h2>
-                  <p className="break-words text-xs text-muted-foreground">
-                    {l.fazenda} • {l.status} • {l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}
-                  </p>
+                <div className="flex min-w-0 items-start gap-3">
+                  <label className="no-print mt-1 inline-flex shrink-0 cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={selecionados.has(l.id)}
+                      onChange={() => toggleSel(l.id)}
+                      className="size-5 accent-primary"
+                      aria-label={`Selecionar ${l.viveiro}`}
+                    />
+                  </label>
+                  <div className="min-w-0">
+                    <h2 className="break-words text-xl font-bold">{l.viveiro}</h2>
+                    <p className="break-words text-xs text-muted-foreground">
+                      {l.fazenda} • {l.status} • {l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => imprimirViveiro(l.id)}
