@@ -324,11 +324,22 @@ function RelatoriosPage() {
               className="viveiro-card min-w-0 rounded-2xl border bg-card p-5 print:border-black"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-words text-xl font-bold">{l.viveiro}</h2>
-                  <p className="break-words text-xs text-muted-foreground">
-                    {l.fazenda} • {l.status} • {l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}
-                  </p>
+                <div className="flex min-w-0 items-start gap-3">
+                  <label className="no-print mt-1 inline-flex shrink-0 cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={selecionados.has(l.id)}
+                      onChange={() => toggleSel(l.id)}
+                      className="size-5 accent-primary"
+                      aria-label={`Selecionar ${l.viveiro}`}
+                    />
+                  </label>
+                  <div className="min-w-0">
+                    <h2 className="break-words text-xl font-bold">{l.viveiro}</h2>
+                    <p className="break-words text-xs text-muted-foreground">
+                      {l.fazenda} • {l.status} • {l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => imprimirViveiro(l.id)}
