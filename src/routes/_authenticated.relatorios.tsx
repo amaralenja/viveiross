@@ -42,9 +42,19 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 
 function RelatoriosPage() {
   const qc = useQueryClient();
-  const [printOnlyId, setPrintOnlyId] = useState<string | null>(null);
+  const [printIds, setPrintIds] = useState<string[] | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [editLanc, setEditLanc] = useState<LancamentoRelatorio | null>(null);
   const [editBio, setEditBio] = useState<BiometriaRelatorio | null>(null);
+
+  function toggleSel(id: string) {
+    setSelecionados((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "relatorio"],
