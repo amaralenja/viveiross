@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 
 function RelatoriosPage() {
   const qc = useQueryClient();
-  const [printIds, setPrintIds] = useState<string[] | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [editLanc, setEditLanc] = useState<LancamentoRelatorio | null>(null);
   const [editBio, setEditBio] = useState<BiometriaRelatorio | null>(null);
