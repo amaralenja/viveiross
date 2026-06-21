@@ -168,67 +168,224 @@ function RelatoriosPage() {
     );
   }, [linhas]);
 
-  async function exportPdf() {
+  async function exportPdf(ids?: string[]) {
+    const alvo = ids && ids.length > 0 ? linhas.filter((l) => ids.includes(l.id)) : linhas;
+    if (alvo.length === 0) {
+      toast.error("Nada para exportar.");
+      return;
+    }
+
     const [pdfModule, tableModule] = await Promise.all([
       import("jspdf"),
       import("jspdf-autotable"),
     ]);
     const jsPDF = pdfModule.default;
     const autoTable = (tableModule as { default?: unknown; autoTable?: unknown }).default ?? (tableModule as { autoTable?: unknown }).autoTable;
-    if (typeof autoTable !== "function") throw new Error("PDF generator falhou.");
+    if (typeof autoTable !== "function") {
+      toast.error("Falha ao carregar gerador de PDF.");
+      return;
+    }
+    const at = autoTable as (d: unknown, o: unknown) => void;
 
-    const doc = new jsPDF({ orientation: "landscape" });
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
     const hoje = new Date().toLocaleDateString("pt-BR");
-    doc.setFontSize(16);
-    doc.text("Relatório Completo de Viveiros", 14, 16);
-    doc.setFontSize(10);
-    doc.text(`Gerado em ${hoje}`, 14, 22);
-    doc.text(
-      `Viveiros: ${totais.viveiros} | Ração: ${formatNumber(totais.racaoKg)} kg | Biomassa: ${formatNumber(totais.biomassa)} kg | Custo: ${formatBRL(totais.custoTotal)}`,
-      14,
-      28,
+    const TEAL: [number, number, number] = [13, 148, 136];
+    const DARK: [number, number, number] = [30, 41, 59];
+    const MUTED: [number, number, number] = [100, 116, 139];
+
+    function header(titulo: string, subtitulo: string) {
+      doc.setFillColor(...TEAL);
+      doc.rect(0, 0, pageW, 26, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text(titulo, 14, 13);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(subtitulo, 14, 20);
+      doc.setTextColor(...DARK);
+    }
+
+    function footer() {
+      const total = doc.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(...MUTED);
+        doc.text(`Gerado em ${hoje} • Relatório de Viveiros`, 14, pageH - 8);
+        doc.text(`Página ${i} de ${total}`, pageW - 14, pageH - 8, { align: "right" });
+      }
+    }
+
+    // CAPA / RESUMO
+    const totaisAlvo = alvo.reduce(
+      (acc, l) => ({
+        viveiros: acc.viveiros + 1,
+        racaoKg: acc.racaoKg + l.racaoKg,
+        biomassa: acc.biomassa + l.biomassa,
+        custoTotal: acc.custoTotal + l.custoTotal,
+      }),
+      { viveiros: 0, racaoKg: 0, biomassa: 0, custoTotal: 0 },
     );
-    const header = ["Viveiro","Fazenda","Povoamento","Dias","Povoados","Ração kg","Custo total","Peso g","Sobrev.","Biomassa","FCA","R$/kg"];
-    const rows = linhas.map((l) => [
-      l.viveiro, l.fazenda,
-      l.dataPovoamento ? formatDate(l.dataPovoamento) : "—",
-      String(l.dias ?? "—"),
-      l.qtdPovoada.toLocaleString("pt-BR"),
-      formatNumber(l.racaoKg),
-      formatBRL(l.custoTotal),
-      l.pesoMedio ? formatNumber(l.pesoMedio) : "—",
-      l.sobrevivencia ? formatNumber(l.sobrevivencia) : "—",
-      l.biomassa ? formatNumber(l.biomassa) : "—",
-      l.fca ? formatNumber(l.fca) : "—",
-      l.custoPorKg ? formatBRL(l.custoPorKg) : "—",
-    ]);
-    (autoTable as (d: unknown, o: unknown) => void)(doc, {
-      head: [header], body: rows, startY: 34,
-      styles: { fontSize: 8 }, headStyles: { fillColor: [13, 148, 136] },
+
+    const escopo = ids && ids.length > 0
+      ? (alvo.length === 1 ? alvo[0].viveiro : `${alvo.length} viveiros selecionados`)
+      : "Todos os viveiros";
+
+    header("Relatório de Viveiros", `${escopo} • ${hoje}`);
+
+    // Cards de resumo
+    const cards = [
+      { label: "Viveiros", value: String(totaisAlvo.viveiros) },
+      { label: "Ração total", value: `${formatNumber(totaisAlvo.racaoKg)} kg` },
+      { label: "Biomassa estimada", value: `${formatNumber(totaisAlvo.biomassa)} kg` },
+      { label: "Custo total", value: formatBRL(totaisAlvo.custoTotal) },
+    ];
+    const cardW = (pageW - 28 - 12) / 4;
+    cards.forEach((c, i) => {
+      const x = 14 + i * (cardW + 4);
+      doc.setFillColor(245, 247, 250);
+      doc.roundedRect(x, 34, cardW, 22, 2, 2, "F");
+      doc.setTextColor(...MUTED);
+      doc.setFontSize(8);
+      doc.text(c.label.toUpperCase(), x + 3, 40);
+      doc.setTextColor(...DARK);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(c.value, x + 3, 50);
+      doc.setFont("helvetica", "normal");
     });
-    doc.save(`relatorio-viveiros-${todayLocal()}.pdf`);
-  }
 
-  function imprimirTudo() {
-    setPrintIds(null);
-    setTimeout(() => window.print(), 50);
-  }
+    // Tabela resumo geral
+    at(doc, {
+      startY: 62,
+      head: [["Viveiro", "Fazenda", "Dias", "Povoados", "Ração kg", "Biom. kg", "FCA", "Custo R$", "R$/kg"]],
+      body: alvo.map((l) => [
+        l.viveiro,
+        l.fazenda,
+        String(l.dias ?? "—"),
+        l.qtdPovoada.toLocaleString("pt-BR"),
+        formatNumber(l.racaoKg),
+        formatNumber(l.biomassa),
+        l.fca ? formatNumber(l.fca) : "—",
+        formatBRL(l.custoTotal),
+        l.custoPorKg ? formatBRL(l.custoPorKg) : "—",
+      ]),
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: TEAL, textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 14, right: 14 },
+    });
 
-  function imprimirViveiro(id: string) {
-    setPrintIds([id]);
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => setPrintIds(null), 200);
-    }, 50);
-  }
+    // DETALHES POR VIVEIRO
+    for (const l of alvo) {
+      doc.addPage();
+      header(l.viveiro, `${l.fazenda} • ${l.status} • ${l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}`);
 
-  function imprimirSelecionados() {
-    if (selecionados.size === 0) return;
-    setPrintIds(Array.from(selecionados));
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => setPrintIds(null), 200);
-    }, 50);
+      // Bloco de métricas
+      const metrics: [string, string][] = [
+        ["Fornecedor", l.fornecedor],
+        ["Povoamento", l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"],
+        ["Pós-larvas", l.qtdPovoada.toLocaleString("pt-BR")],
+        ["Ração total", `${formatNumber(l.racaoKg)} kg`],
+        ["Custo ração", formatBRL(l.custoRacao)],
+        ["Custo outros", formatBRL(l.custoOutros)],
+        ["Custo total", formatBRL(l.custoTotal)],
+        ["R$ por kg", l.custoPorKg ? formatBRL(l.custoPorKg) : "—"],
+        ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
+        ["Sobrevivência", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
+        ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
+        ["FCA", l.fca ? formatNumber(l.fca) : "—"],
+      ];
+      const cols = 4;
+      const mW = (pageW - 28 - (cols - 1) * 3) / cols;
+      const mH = 16;
+      metrics.forEach((m, i) => {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        const x = 14 + col * (mW + 3);
+        const y = 32 + row * (mH + 3);
+        doc.setFillColor(245, 247, 250);
+        doc.roundedRect(x, y, mW, mH, 1.5, 1.5, "F");
+        doc.setFontSize(7);
+        doc.setTextColor(...MUTED);
+        doc.text(m[0].toUpperCase(), x + 2.5, y + 5);
+        doc.setFontSize(10);
+        doc.setTextColor(...DARK);
+        doc.setFont("helvetica", "bold");
+        doc.text(m[1], x + 2.5, y + 12);
+        doc.setFont("helvetica", "normal");
+      });
+      let y = 32 + Math.ceil(metrics.length / cols) * (mH + 3) + 4;
+
+      if (l.bios.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Biometrias", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Peso médio (g)"]],
+          body: l.bios.map((b) => [formatDate(b.data_biometria), formatNumber(Number(b.peso_medio_g ?? 0))]),
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.racaoDiaria.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Ração dia a dia", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Ração (kg)", "Custo"]],
+          body: l.racaoDiaria.map((r) => [formatDate(r.data), formatNumber(r.kg), formatBRL(r.custo)]),
+          foot: [["Total", formatNumber(l.racaoKg), formatBRL(l.custoRacao)]],
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.lancs.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Lançamentos", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Produto", "Tipo", "Qtd", "Custo"]],
+          body: l.lancs.map((x) => [
+            formatDate(x.data_lancamento),
+            x.produto_nome,
+            x.tipo,
+            `${formatNumber(Number(x.quantidade ?? 0))} ${x.unidade}`,
+            formatBRL(Number(x.custo_total ?? 0)),
+          ]),
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+      }
+    }
+
+    footer();
+    const nome = ids && ids.length === 1
+      ? `relatorio-${alvo[0].viveiro.replace(/\s+/g, "-").toLowerCase()}-${todayLocal()}.pdf`
+      : `relatorio-viveiros-${todayLocal()}.pdf`;
+    doc.save(nome);
   }
 
   const delLanc = useMutation({
