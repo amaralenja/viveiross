@@ -423,43 +423,29 @@ function RelatoriosPage() {
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          .print-only-target { display: block !important; }
-          ${printIds ? `.viveiro-card { display: none !important; } ${printIds.map((id) => `.viveiro-card[data-vid="${id}"]`).join(",")} { display: block !important; }` : ""}
-        }
-      `}</style>
-
-      <div className="no-print flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="mt-1 text-muted-foreground break-words">Extrato por viveiro</p>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
           <button
-            onClick={imprimirSelecionados}
+            onClick={() => exportPdf(Array.from(selecionados))}
             disabled={selecionados.size === 0}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
           >
-            <Printer className="size-5" /> Imprimir selecionados {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+            <FileDown className="size-5" /> PDF dos selecionados {selecionados.size > 0 ? `(${selecionados.size})` : ""}
           </button>
           <button
-            onClick={imprimirTudo}
-            disabled={linhas.length === 0}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
-          >
-            <Printer className="size-5" /> Imprimir tudo
-          </button>
-          <button
-            onClick={exportPdf}
+            onClick={() => exportPdf()}
             disabled={linhas.length === 0}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-3 font-semibold text-primary-foreground shadow-md hover:bg-primary/90 disabled:opacity-50 sm:px-4"
           >
-            <FileDown className="size-5" /> PDF
+            <FileDown className="size-5" /> PDF de tudo
           </button>
         </div>
       </div>
+
 
       <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
         <ResumoCard Icon={FileText} label="Viveiros" value={String(totais.viveiros)} />
