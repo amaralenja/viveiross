@@ -504,3 +504,121 @@ function formatDate(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y.slice(2)}`;
 }
+
+function ymd(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function RacaoHojeOntem() {
+  const hoje = todayLocal();
+  const ontemDate = new Date();
+  ontemDate.setDate(ontemDate.getDate() - 1);
+  const ontem = ymd(ontemDate);
+
+  const { data: linhas = [] } = useQuery({
+    queryKey: ["dashboard", "racao-hoje-ontem", hoje, ontem],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("viveiro_id, quantidade, data_lancamento, viveiros(nome)")
+        .eq("tipo", "racao")
+        .in("data_lancamento", [hoje, ontem]);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        viveiro_id: string;
+        quantidade: number | null;
+        data_lancamento: string;
+        viveiros: { nome: string } | { nome: string }[] | null;
+      }>;
+    },
+  });
+
+  const stats = useMemo(() => {
+    const map = new Map<string, { nome: string; hoje: number; ontem: number }>();
+    let totalHoje = 0;
+    let totalOntem = 0;
+    for (const l of linhas) {
+      const nome = relName(l.viveiros) || "Sem viveiro";
+      const cur = map.get(l.viveiro_id) ?? { nome, hoje: 0, ontem: 0 };
+      const q = Number(l.quantidade ?? 0);
+      if (l.data_lancamento === hoje) {
+        cur.hoje += q;
+        totalHoje += q;
+      } else if (l.data_lancamento === ontem) {
+        cur.ontem += q;
+        totalOntem += q;
+      }
+      map.set(l.viveiro_id, cur);
+    }
+    const porViveiro = Array.from(map.values()).sort(
+      (a, b) => Math.abs(b.hoje - b.ontem) - Math.abs(a.hoje - a.ontem),
+    );
+    return { totalHoje, totalOntem, porViveiro };
+  }, [linhas, hoje, ontem]);
+
+  if (stats.totalHoje === 0 && stats.totalOntem === 0) return null;
+
+  const diff = stats.totalHoje - stats.totalOntem;
+  const pct = stats.totalOntem > 0 ? (diff / stats.totalOntem) * 100 : null;
+  const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
+  return (
+    <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+          Ração — hoje x ontem
+        </h2>
+        <span
+          className={`text-xs font-bold ${
+            diff > 0 ? "text-emerald-600" : diff < 0 ? "text-destructive" : "text-muted-foreground"
+          }`}
+        >
+          {diff > 0 ? "+" : ""}
+          {fmt(diff)} kg
+          {pct !== null && (
+            <> ({diff > 0 ? "+" : ""}{pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)</>
+          )}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-background/60 p-3">
+          <p className="text-[10px] uppercase text-muted-foreground">Hoje</p>
+          <p className="text-xl font-bold text-primary">{fmt(stats.totalHoje)} kg</p>
+        </div>
+        <div className="rounded-xl bg-background/60 p-3">
+          <p className="text-[10px] uppercase text-muted-foreground">Ontem</p>
+          <p className="text-xl font-bold">{fmt(stats.totalOntem)} kg</p>
+        </div>
+      </div>
+      {stats.porViveiro.length > 0 && (
+        <ul className="space-y-1">
+          {stats.porViveiro.map((v) => {
+            const d = v.hoje - v.ontem;
+            return (
+              <li
+                key={v.nome}
+                className="flex items-center justify-between text-xs rounded-lg bg-background/40 px-3 py-2"
+              >
+                <span className="font-medium truncate">{v.nome}</span>
+                <span className="flex items-center gap-2 shrink-0">
+                  <span className="text-muted-foreground">
+                    {fmt(v.ontem)} → <span className="font-semibold text-foreground">{fmt(v.hoje)}</span> kg
+                  </span>
+                  <span
+                    className={`font-bold tabular-nums ${
+                      d > 0 ? "text-emerald-600" : d < 0 ? "text-destructive" : "text-muted-foreground"
+                    }`}
+                  >
+                    {d > 0 ? "+" : ""}
+                    {fmt(d)}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
