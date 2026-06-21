@@ -485,11 +485,12 @@ function RelatoriosPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => imprimirViveiro(l.id)}
-                  className="no-print inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-secondary px-3 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
+                  onClick={() => exportPdf([l.id])}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-secondary px-3 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
                 >
-                  <Printer className="size-4" /> Imprimir
+                  <FileDown className="size-4" /> PDF
                 </button>
+
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 md:grid-cols-4">
