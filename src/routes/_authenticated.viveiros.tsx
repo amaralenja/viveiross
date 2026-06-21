@@ -1089,6 +1089,22 @@ function HistoricoModal({
   }
   const datas = Array.from(porData.keys()).sort((a, b) => (a < b ? 1 : -1));
 
+  function racaoKgDoDia(date: string): number {
+    const itens = porData.get(date) ?? [];
+    return itens
+      .filter((i) => i.tipo === "racao")
+      .reduce((s, i) => s + Number(i.quantidade ?? 0), 0);
+  }
+  const hojeStr = todayLocal();
+  const ontemDate = new Date();
+  ontemDate.setDate(ontemDate.getDate() - 1);
+  const ontemStr = `${ontemDate.getFullYear()}-${String(ontemDate.getMonth() + 1).padStart(2, "0")}-${String(ontemDate.getDate()).padStart(2, "0")}`;
+  const racaoHoje = racaoKgDoDia(hojeStr);
+  const racaoOntem = racaoKgDoDia(ontemStr);
+  const diffKg = racaoHoje - racaoOntem;
+  const diffPct = racaoOntem > 0 ? (diffKg / racaoOntem) * 100 : null;
+  const fmtKg = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <ModalStyle />
@@ -1107,6 +1123,38 @@ function HistoricoModal({
         </div>
 
         <div className="overflow-y-auto p-4 space-y-3">
+          {!isLoading && (racaoHoje > 0 || racaoOntem > 0) && (
+            <div className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4">
+              <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+                Ração — hoje x ontem
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-background/60 p-3">
+                  <p className="text-[10px] uppercase text-muted-foreground">Hoje</p>
+                  <p className="text-lg font-bold text-primary">{fmtKg(racaoHoje)} kg</p>
+                </div>
+                <div className="rounded-xl bg-background/60 p-3">
+                  <p className="text-[10px] uppercase text-muted-foreground">Ontem</p>
+                  <p className="text-lg font-bold">{fmtKg(racaoOntem)} kg</p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Diferença</span>
+                <span
+                  className={`font-bold ${
+                    diffKg > 0 ? "text-emerald-600" : diffKg < 0 ? "text-destructive" : "text-muted-foreground"
+                  }`}
+                >
+                  {diffKg > 0 ? "+" : ""}
+                  {fmtKg(diffKg)} kg
+                  {diffPct !== null && (
+                    <> ({diffKg > 0 ? "+" : ""}{diffPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)</>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <p className="text-muted-foreground text-center py-8">Carregando...</p>
           ) : datas.length === 0 ? (
@@ -1122,6 +1170,7 @@ function HistoricoModal({
               <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
                 {datas.length} {datas.length === 1 ? "dia com lançamento" : "dias com lançamento"}
               </p>
+
               <ul className="space-y-2">
                 {datas.map((d) => {
                   const itens = porData.get(d)!;
