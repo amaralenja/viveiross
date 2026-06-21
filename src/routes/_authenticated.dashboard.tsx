@@ -285,6 +285,8 @@ function Dashboard() {
         </form>
       )}
 
+      <RacaoHojeOntem />
+
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Histórico</h2>
@@ -292,6 +294,7 @@ function Dashboard() {
             Ver relatório
           </Link>
         </div>
+
         {isLoading ? (
           <p className="text-muted-foreground">Carregando...</p>
         ) : ultimos.length === 0 ? (
