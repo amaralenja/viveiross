@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Pencil, X, ClipboardList } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Início — Viveiros" }] }),
