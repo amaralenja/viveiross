@@ -60,6 +60,24 @@ function CaixaPage() {
     },
   });
 
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["produtos", "caixa"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, categoria, unidade, preco_unidade")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        nome: string;
+        categoria: string;
+        unidade: string;
+        preco_unidade: number | null;
+      }>;
+    },
+  });
+
   const { data: lancamentos = [], isLoading } = useQuery({
     queryKey: ["caixa", "lancamentos"],
     queryFn: async () => {
