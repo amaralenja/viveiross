@@ -53,7 +53,7 @@ function Dashboard() {
         .eq("status", "ativo")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as ViveiroOpt[];
+      return sortByViveiroNome((data ?? []) as ViveiroOpt[], (v) => v.nome);
     },
   });
 
