@@ -14,7 +14,7 @@ type ViveiroRelatorio = {
   data_povoamento: string | null;
   status: string;
   fornecedor: string | null;
-  fazendas: { nome: string } | null;
+  fazendas: { nome: string } | { nome: string }[] | null;
 };
 type LancamentoRelatorio = {
   id: string;
@@ -35,6 +35,18 @@ type BiometriaRelatorio = {
   amostras: number | null;
   sobrevivencia_percent: number | null;
 };
+
+function textValue(value: unknown, fallback = "—"): string {
+  if (value == null || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return textValue(value[0], fallback);
+  if (typeof value === "object" && "nome" in value) return textValue((value as { nome?: unknown }).nome, fallback);
+  return fallback;
+}
+
+function relName(rel: { nome: string } | { nome: string }[] | null | undefined): string {
+  return textValue(rel, "");
+}
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   head: () => ({ meta: [{ title: "Relatórios" }] }),
@@ -106,9 +118,13 @@ function RelatoriosPage() {
       const bios = biometrias.filter((b) => b.viveiro_id === v.id);
       const ultimaBio = bios[0];
       const pesoMedio = Number(ultimaBio?.peso_medio_g ?? 0);
-      const sobrevivencia = Number(ultimaBio?.sobrevivencia_percent ?? 0);
-      const biomassa = ((v.qtd_povoada ?? 0) * (sobrevivencia / 100) * pesoMedio) / 1000;
-      const fca = biomassa > 0 ? racaoKg / biomassa : 0;
+      const sobrevivencia = ultimaBio?.sobrevivencia_percent != null ? Number(ultimaBio.sobrevivencia_percent) : null;
+      const sobrevivenciaCalculo = sobrevivencia ?? 100;
+      const qtdPovoada = Number(v.qtd_povoada ?? 0);
+      const biomassa = ultimaBio && qtdPovoada > 0 && pesoMedio > 0
+        ? (qtdPovoada * (sobrevivenciaCalculo / 100) * pesoMedio) / 1000
+        : 0;
+      const fca = ultimaBio && biomassa > 0 ? racaoKg / biomassa : null;
       const custoPorKg = biomassa > 0 ? custoTotal / biomassa : 0;
 
       const datasLanc = lancs.map((l) => l.data_lancamento).sort();
@@ -130,13 +146,13 @@ function RelatoriosPage() {
 
       return {
         id: v.id,
-        viveiro: v.nome,
-        fazenda: v.fazendas?.nome ?? "Sem fazenda",
-        status: v.status,
-        fornecedor: v.fornecedor ?? "—",
+        viveiro: textValue(v.nome),
+        fazenda: relName(v.fazendas) || "Sem fazenda",
+        status: textValue(v.status),
+        fornecedor: textValue(v.fornecedor),
         dataPovoamento: v.data_povoamento,
         dias,
-        qtdPovoada: v.qtd_povoada ?? 0,
+        qtdPovoada,
         racaoKg,
         custoRacao,
         custoOutros,
@@ -157,7 +173,7 @@ function RelatoriosPage() {
   }, [biometrias, lancamentos, viveiros]);
 
   const totais = useMemo(() => {
-    return linhas.reduce(
+    const base = linhas.reduce(
       (acc, l) => ({
         viveiros: acc.viveiros + 1,
         racaoKg: acc.racaoKg + l.racaoKg,
@@ -166,6 +182,7 @@ function RelatoriosPage() {
       }),
       { viveiros: 0, racaoKg: 0, biomassa: 0, custoTotal: 0 },
     );
+    return { ...base, fca: base.biomassa > 0 ? base.racaoKg / base.biomassa : null };
   }, [linhas]);
 
   async function exportPdf(ids?: string[]) {
@@ -269,7 +286,7 @@ function RelatoriosPage() {
         l.qtdPovoada.toLocaleString("pt-BR"),
         formatNumber(l.racaoKg),
         formatNumber(l.biomassa),
-        l.fca ? formatNumber(l.fca) : "—",
+        l.fca != null ? formatNumber(l.fca) : "—",
         formatBRL(l.custoTotal),
         l.custoPorKg ? formatBRL(l.custoPorKg) : "—",
       ]),
@@ -297,7 +314,7 @@ function RelatoriosPage() {
         ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
         ["Sobrevivência", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
         ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
-        ["FCA", l.fca ? formatNumber(l.fca) : "—"],
+        ["FCA", l.fca != null ? formatNumber(l.fca) : "—"],
       ];
       const cols = 4;
       const mW = (pageW - 28 - (cols - 1) * 3) / cols;
@@ -447,10 +464,11 @@ function RelatoriosPage() {
       </div>
 
 
-      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-5">
         <ResumoCard Icon={FileText} label="Viveiros" value={String(totais.viveiros)} />
         <ResumoCard Icon={Utensils} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
         <ResumoCard Icon={Scale} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
+        <ResumoCard Icon={Scale} label="FCA geral" value={totais.fca != null ? formatNumber(totais.fca) : "—"} />
         <ResumoCard Icon={DollarSign} label="Custo total" value={formatBRL(totais.custoTotal)} />
       </div>
 
@@ -505,7 +523,7 @@ function RelatoriosPage() {
                 <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
                 <Info label="Sobrev." value={l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"} />
                 <Info label="Biomassa" value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"} />
-                <Info label="FCA" value={l.fca ? formatNumber(l.fca) : "—"} />
+                <Info label="FCA" value={l.fca != null ? formatNumber(l.fca) : "—"} />
                 <Info label="Lançamentos" value={String(l.nLancamentos)} />
                 <Info label="Biometrias" value={String(l.nBiometrias)} />
                 <Info label="Última biometria" value={l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"} />
@@ -587,9 +605,9 @@ function RelatoriosPage() {
                         {l.lancs.map((x) => (
                           <tr key={x.id} className="border-t">
                             <td className="p-2">{formatDate(x.data_lancamento)}</td>
-                            <td className="p-2">{x.produto_nome}</td>
-                            <td className="p-2">{x.tipo}</td>
-                            <td className="p-2 text-right">{formatNumber(Number(x.quantidade ?? 0))} {x.unidade}</td>
+                            <td className="p-2">{textValue(x.produto_nome)}</td>
+                            <td className="p-2">{textValue(x.tipo)}</td>
+                            <td className="p-2 text-right">{formatNumber(Number(x.quantidade ?? 0))} {textValue(x.unidade, "")}</td>
                             <td className="p-2 text-right">{formatBRL(Number(x.custo_total ?? 0))}</td>
                             <td className="no-print p-2 text-right">
                               <div className="inline-flex gap-1">
@@ -803,10 +821,10 @@ function EditLancModal({
   onSaved: () => void;
 }) {
   const [data, setData] = useState(lanc.data_lancamento);
-  const [produto, setProduto] = useState(lanc.produto_nome);
+  const [produto, setProduto] = useState(textValue(lanc.produto_nome, ""));
   const [quantidade, setQuantidade] = useState(String(lanc.quantidade ?? ""));
-  const [unidade, setUnidade] = useState(lanc.unidade);
-  const [tipo, setTipo] = useState(lanc.tipo);
+  const [unidade, setUnidade] = useState(textValue(lanc.unidade, "kg"));
+  const [tipo, setTipo] = useState(textValue(lanc.tipo, "racao"));
   const [preco, setPreco] = useState(String(lanc.preco_unidade ?? ""));
   const [custo, setCusto] = useState(String(lanc.custo_total ?? ""));
 
@@ -910,11 +928,11 @@ function ResumoCard({
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="min-w-0 rounded-lg bg-muted/40 px-3 py-2">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="break-words font-semibold">{value}</p>
+      <p className="break-words font-semibold">{textValue(value)}</p>
     </div>
   );
 }
