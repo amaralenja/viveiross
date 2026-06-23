@@ -5,6 +5,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays } from "lucide-react";
+import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
   head: () => ({ meta: [{ title: "Viveiros" }] }),
