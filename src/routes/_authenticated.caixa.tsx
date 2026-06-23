@@ -121,6 +121,7 @@ function CaixaPage() {
     },
     onSuccess: () => {
       toast.success("Despesa registrada");
+      setProdutoId("");
       setDescricao("");
       setCategoria("");
       setPrecoKg("");
