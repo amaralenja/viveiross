@@ -64,7 +64,7 @@ function RelatoriosPage() {
         .select("id, nome, qtd_povoada, data_povoamento, status, fornecedor, fazendas(nome)")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as unknown as ViveiroRelatorio[];
+      return sortByViveiroNome((data ?? []) as unknown as ViveiroRelatorio[], (v) => v.nome);
     },
   });
 
