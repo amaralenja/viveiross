@@ -56,7 +56,7 @@ function ViveirosPage() {
         .select("id, nome, status, data_povoamento, qtd_povoada, fornecedor, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Viveiro[];
+      return sortByViveiroNome((data ?? []) as Viveiro[], (v) => v.nome);
     },
   });
 
