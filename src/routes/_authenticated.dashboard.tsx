@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Pencil, X, ClipboardList } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Início — Viveiros" }] }),
@@ -52,7 +53,7 @@ function Dashboard() {
         .eq("status", "ativo")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as ViveiroOpt[];
+      return sortByViveiroNome((data ?? []) as ViveiroOpt[], (v) => v.nome);
     },
   });
 
@@ -550,9 +551,7 @@ function RacaoHojeOntem() {
       }
       map.set(l.viveiro_id, cur);
     }
-    const porViveiro = Array.from(map.values()).sort(
-      (a, b) => Math.abs(b.hoje - b.ontem) - Math.abs(a.hoje - a.ontem),
-    );
+    const porViveiro = sortByViveiroNome(Array.from(map.values()), (v) => v.nome);
     return { totalHoje, totalOntem, porViveiro };
   }, [linhas, hoje, ontem]);
 

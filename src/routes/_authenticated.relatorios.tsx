@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { sortByViveiroNome } from "@/lib/sort";
 
 type ViveiroRelatorio = {
   id: string;
@@ -63,7 +64,7 @@ function RelatoriosPage() {
         .select("id, nome, qtd_povoada, data_povoamento, status, fornecedor, fazendas(nome)")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as unknown as ViveiroRelatorio[];
+      return sortByViveiroNome((data ?? []) as unknown as ViveiroRelatorio[], (v) => v.nome);
     },
   });
 
