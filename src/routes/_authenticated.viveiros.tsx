@@ -299,6 +299,48 @@ function ViveirosPage() {
                 />
               </div>
               {(() => {
+                const ultima = (biometriasPorViveiro[v.id] ?? [])[0];
+                if (!ultima || !v.qtd_povoada) return null;
+                const sobrev = ultima.sobrevivencia_percent != null
+                  ? Number(ultima.sobrevivencia_percent) / 100
+                  : 1;
+                const vivos = Number(v.qtd_povoada) * sobrev;
+                const biomassaKg = (Number(ultima.peso_medio_g) * vivos) / 1000;
+                if (biomassaKg <= 0) return null;
+                const racaoKg = racaoPorViveiro[v.id] ?? 0;
+                const fca = racaoKg > 0 ? racaoKg / biomassaKg : 0;
+                const fmt = (n: number, d = 2) =>
+                  n.toLocaleString("pt-BR", { maximumFractionDigits: d });
+                return (
+                  <div className="mt-3 p-3 rounded-xl border bg-gradient-to-br from-primary/10 to-primary/5">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
+                        FCA — Fator de Conversão Alimentar
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatDateBR(ultima.data_biometria)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg bg-background/60 p-2">
+                        <p className="text-[9px] uppercase text-muted-foreground">Biomassa</p>
+                        <p className="text-sm font-bold">{fmt(biomassaKg, 1)} kg</p>
+                      </div>
+                      <div className="rounded-lg bg-background/60 p-2">
+                        <p className="text-[9px] uppercase text-muted-foreground">Ração total</p>
+                        <p className="text-sm font-bold">{fmt(racaoKg, 1)} kg</p>
+                      </div>
+                      <div className="rounded-lg bg-primary/15 p-2">
+                        <p className="text-[9px] uppercase text-muted-foreground">FCA</p>
+                        <p className="text-sm font-bold text-primary">
+                          {fca > 0 ? fmt(fca) : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {(() => {
                 const bios = biometriasPorViveiro[v.id] ?? [];
                 if (bios.length === 0) return null;
                 return (
