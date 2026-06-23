@@ -39,6 +39,7 @@ function CaixaPage() {
 
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
   const [data, setData] = useState(todayLocal());
+  const [produtoId, setProdutoId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState("");
   const [precoKg, setPrecoKg] = useState("");
@@ -56,6 +57,24 @@ function CaixaPage() {
         .order("nome");
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as ViveiroOpt[], (v) => v.nome);
+    },
+  });
+
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["produtos", "caixa"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, categoria, unidade, preco_unidade")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        nome: string;
+        categoria: string;
+        unidade: string;
+        preco_unidade: number | null;
+      }>;
     },
   });
 
@@ -102,6 +121,7 @@ function CaixaPage() {
     },
     onSuccess: () => {
       toast.success("Despesa registrada");
+      setProdutoId("");
       setDescricao("");
       setCategoria("");
       setPrecoKg("");
@@ -234,11 +254,41 @@ function CaixaPage() {
           </Field>
         </div>
 
+        {produtos.length > 0 && (
+          <Field label="Produto cadastrado (opcional)">
+            <select
+              value={produtoId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setProdutoId(id);
+                const p = produtos.find((x) => x.id === id);
+                if (p) {
+                  setDescricao(p.nome);
+                  if (p.categoria) setCategoria(p.categoria);
+                  if (p.preco_unidade != null) setPrecoKg(String(p.preco_unidade));
+                }
+              }}
+              className="app-input"
+            >
+              <option value="">— Digitar manualmente —</option>
+              {produtos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                  {p.preco_unidade != null ? ` · R$ ${Number(p.preco_unidade).toLocaleString("pt-BR")}/${p.unidade}` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+
         <Field label="Descrição">
           <input
             required
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) => {
+              setDescricao(e.target.value);
+              setProdutoId("");
+            }}
             className="app-input"
             placeholder="Ex: Ração 40%, energia, transporte..."
           />
