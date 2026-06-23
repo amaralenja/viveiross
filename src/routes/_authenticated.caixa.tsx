@@ -254,11 +254,41 @@ function CaixaPage() {
           </Field>
         </div>
 
+        {produtos.length > 0 && (
+          <Field label="Produto cadastrado (opcional)">
+            <select
+              value={produtoId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setProdutoId(id);
+                const p = produtos.find((x) => x.id === id);
+                if (p) {
+                  setDescricao(p.nome);
+                  if (p.categoria) setCategoria(p.categoria);
+                  if (p.preco_unidade != null) setPrecoKg(String(p.preco_unidade));
+                }
+              }}
+              className="app-input"
+            >
+              <option value="">— Digitar manualmente —</option>
+              {produtos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                  {p.preco_unidade != null ? ` · R$ ${Number(p.preco_unidade).toLocaleString("pt-BR")}/${p.unidade}` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+
         <Field label="Descrição">
           <input
             required
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) => {
+              setDescricao(e.target.value);
+              setProdutoId("");
+            }}
             className="app-input"
             placeholder="Ex: Ração 40%, energia, transporte..."
           />
