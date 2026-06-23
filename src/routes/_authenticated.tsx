@@ -19,6 +19,7 @@ const NAV = [
   { to: "/viveiros", label: "Viveiros", icon: Warehouse },
   { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/biometrias", label: "Biometria", icon: FlaskConical },
+  { to: "/caixa", label: "Caixa", icon: Wallet },
   { to: "/relatorios", label: "Relatórios", icon: FileText },
 ] as const;
 
