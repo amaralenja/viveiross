@@ -551,9 +551,7 @@ function RacaoHojeOntem() {
       }
       map.set(l.viveiro_id, cur);
     }
-    const porViveiro = Array.from(map.values()).sort(
-      (a, b) => Math.abs(b.hoje - b.ontem) - Math.abs(a.hoje - a.ontem),
-    );
+    const porViveiro = sortByViveiroNome(Array.from(map.values()), (v) => v.nome);
     return { totalHoje, totalOntem, porViveiro };
   }, [linhas, hoje, ontem]);
 
