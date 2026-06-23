@@ -39,6 +39,7 @@ function CaixaPage() {
 
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
   const [data, setData] = useState(todayLocal());
+  const [produtoId, setProdutoId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState("");
   const [precoKg, setPrecoKg] = useState("");
