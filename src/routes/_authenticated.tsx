@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
@@ -19,6 +19,7 @@ const NAV = [
   { to: "/viveiros", label: "Viveiros", icon: Warehouse },
   { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/biometrias", label: "Biometria", icon: FlaskConical },
+  { to: "/caixa", label: "Caixa", icon: Wallet },
   { to: "/relatorios", label: "Relatórios", icon: FileText },
 ] as const;
 
@@ -76,7 +77,7 @@ function AuthLayout() {
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-5">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-6">
           {NAV.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
