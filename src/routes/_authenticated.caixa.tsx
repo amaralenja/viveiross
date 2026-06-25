@@ -35,6 +35,95 @@ function fmtDate(iso: string) {
   return `${d}/${m}/${y.slice(2)}`;
 }
 
+type ViveiroRel = {
+  id: string;
+  nome: string;
+  despesaTotal: number;
+  receitaTotal: number;
+  saldo: number;
+  historico: { l: Lanc; rateado: boolean; valorMostrado: number }[];
+};
+
+function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  let y = startY;
+
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Caixa · ${v.nome}`, 14, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, y);
+  y += 8;
+
+  doc.setTextColor(0);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Receitas:", 14, y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0, 130, 70);
+  doc.text(fmtBRL(v.receitaTotal), 50, y);
+
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.text("Despesas:", 90, y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(180, 30, 30);
+  doc.text(fmtBRL(v.despesaTotal), 130, y);
+  y += 7;
+
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.text("Saldo:", 14, y);
+  doc.setTextColor(v.saldo >= 0 ? 0 : 180, v.saldo >= 0 ? 130 : 30, v.saldo >= 0 ? 70 : 30);
+  doc.text(fmtBRL(v.saldo), 50, y);
+  doc.setTextColor(0);
+  y += 10;
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Histórico", 14, y);
+  y += 6;
+
+  doc.setFontSize(9);
+  doc.setFillColor(240, 240, 240);
+  doc.rect(14, y - 4, pageW - 28, 6, "F");
+  doc.text("Data", 16, y);
+  doc.text("Descrição", 36, y);
+  doc.text("Tipo", 130, y);
+  doc.text("Valor", pageW - 16, y, { align: "right" });
+  y += 4;
+  doc.setFont("helvetica", "normal");
+
+  if (v.historico.length === 0) {
+    y += 6;
+    doc.setTextColor(120);
+    doc.text("Sem lançamentos.", 16, y);
+    doc.setTextColor(0);
+    y += 6;
+  } else {
+    for (const h of v.historico) {
+      if (y > pageH - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      y += 5;
+      doc.text(fmtDate(h.l.data_lancamento), 16, y);
+      const desc = h.l.descricao + (h.rateado ? " (rateado)" : "");
+      doc.text(desc.length > 55 ? desc.slice(0, 55) + "…" : desc, 36, y);
+      doc.text(h.l.tipo === "receita" ? "Receita" : "Despesa", 130, y);
+      const sign = h.l.tipo === "receita" ? "+" : "-";
+      doc.text(`${sign} ${fmtBRL(Math.abs(h.valorMostrado))}`, pageW - 16, y, { align: "right" });
+    }
+    y += 4;
+  }
+  return y;
+}
+
 function CaixaPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Lanc | null>(null);
