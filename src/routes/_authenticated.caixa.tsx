@@ -43,6 +43,28 @@ function fmtDate(iso: string) {
   return `${d}/${m}/${y.slice(2)}`;
 }
 
+// Abre o PDF no visualizador nativo (mobile mostra compartilhar/imprimir).
+// Fallback para download se o popup for bloqueado.
+function openPdf(doc: jsPDF, filename: string) {
+  try {
+    const blob = doc.output("blob");
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    if (!win) {
+      // popup bloqueado -> baixa
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch {
+    doc.save(filename);
+  }
+}
+
 type ViveiroRel = {
   id: string;
   nome: string;
