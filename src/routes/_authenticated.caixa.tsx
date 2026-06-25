@@ -590,6 +590,7 @@ function EditModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [tipo, setTipo] = useState<"despesa" | "receita">(lanc.tipo ?? "despesa");
   const [viveiroId, setViveiroId] = useState<string>(lanc.viveiro_id ?? TODOS);
   const [data, setData] = useState(lanc.data_lancamento);
   const [descricao, setDescricao] = useState(lanc.descricao);
@@ -608,6 +609,7 @@ function EditModal({
           descricao: descricao.trim(),
           categoria: categoria.trim() || "geral",
           valor: v,
+          tipo,
         })
         .eq("id", lanc.id);
       if (error) throw error;
