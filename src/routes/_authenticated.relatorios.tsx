@@ -665,6 +665,36 @@ function RelatoriosPage() {
                   </div>
                 </div>
               )}
+
+              {l.despesasLista.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Despesas gerais</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-left">Descrição</th>
+                          <th className="p-2 text-left">Rateio</th>
+                          <th className="p-2 text-right">Valor total</th>
+                          <th className="p-2 text-right">Atribuído</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.despesasLista.map((d) => (
+                          <tr key={d.id} className="border-t">
+                            <td className="p-2">{formatDate(d.data_despesa)}</td>
+                            <td className="p-2">{textValue(d.descricao)}</td>
+                            <td className="p-2 capitalize">{d.tipoRateio === "rateado" ? "Rateado" : "Individual"}</td>
+                            <td className="p-2 text-right">{formatBRL(Number(d.valor ?? 0))}</td>
+                            <td className="p-2 text-right">{formatBRL(d.share)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
