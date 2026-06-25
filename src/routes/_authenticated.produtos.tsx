@@ -502,8 +502,113 @@ function EstoqueView({
   );
 }
 
+function ComprasView({
+  produtos,
+  entradas,
+  onNovaCompra,
+  onEditCompra,
+  onDelCompra,
+}: {
+  produtos: Produto[];
+  entradas: EstoqueEntrada[];
+  onNovaCompra: () => void;
+  onEditCompra: (e: EstoqueEntrada) => void;
+  onDelCompra: (e: EstoqueEntrada) => void;
+}) {
+  if (produtos.length === 0) {
+    return (
+      <Empty
+        icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
+        titulo="Cadastre produtos antes"
+        descricao="Você precisa ter produtos cadastrados pra lançar compras."
+        onClick={onNovaCompra}
+      />
+    );
+  }
+
+  const totalGasto = entradas.reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total gasto</p>
+          <p className="text-2xl font-bold truncate">
+            {formatBRL(totalGasto) ?? "R$ 0,00"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {entradas.length} {entradas.length === 1 ? "compra" : "compras"} · vai pro estoque
+          </p>
+        </div>
+        <button
+          onClick={onNovaCompra}
+          className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shrink-0"
+        >
+          <Plus className="size-4" /> Compra
+        </button>
+      </div>
+
+      {entradas.length === 0 ? (
+        <Empty
+          icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
+          titulo="Nenhuma compra ainda"
+          descricao="Lance a nota e o estoque atualiza sozinho."
+          onClick={onNovaCompra}
+        />
+      ) : (
+        <ul className="space-y-2">
+          {entradas.map((e) => {
+            const p = produtos.find((x) => x.id === e.produto_id);
+            return (
+              <li
+                key={e.id}
+                className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <ShoppingCart className="size-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{p?.nome ?? "Produto"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                      {" · "}
+                      {formatNumber(e.quantidade)} {e.unidade}
+                      {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade}`}
+                    </p>
+                    {(e.custo_total != null || e.fornecedor) && (
+                      <p className="text-xs mt-0.5">
+                        {e.custo_total != null && (
+                          <span className="text-primary font-semibold">
+                            {formatBRL(Number(e.custo_total))}
+                          </span>
+                        )}
+                        {e.fornecedor && (
+                          <span className="text-muted-foreground">
+                            {e.custo_total != null ? " · " : ""}
+                            {e.fornecedor}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <RowActions onEdit={() => onEditCompra(e)} onDel={() => onDelCompra(e)} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function EntradaEstoqueModal({
   entrada,
+  produtos,
+  onClose,
+  onSaved,
+}: {
   produtos,
   onClose,
   onSaved,
