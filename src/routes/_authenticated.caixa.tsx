@@ -282,14 +282,16 @@ function CaixaPage() {
 
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Total
+                      Saldo
                     </p>
-                    <p className="text-2xl font-black text-primary tabular-nums">
-                      {fmtBRL(v.total)}
+                    <p
+                      className={`text-2xl font-black tabular-nums ${v.saldo >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                    >
+                      {fmtBRL(v.saldo)}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground tabular-nums">
-                      <span>direto {fmtBRL(v.direto)}</span>
-                      {v.rateio > 0 && <span>+ rateio {fmtBRL(v.rateio)}</span>}
+                      <span className="text-emerald-600">+ {fmtBRL(v.receitaTotal)}</span>
+                      <span className="text-destructive">− {fmtBRL(v.despesaTotal)}</span>
                     </div>
                   </div>
 
