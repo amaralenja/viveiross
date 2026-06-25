@@ -21,6 +21,7 @@ type Lanc = {
   categoria: string;
   valor: number;
   observacao: string | null;
+  tipo: "despesa" | "receita";
 };
 
 const TODOS = "__todos__";
