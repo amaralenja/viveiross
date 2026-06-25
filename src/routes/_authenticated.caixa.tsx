@@ -441,7 +441,7 @@ function CaixaPage() {
                       onClick={() => {
                         const doc = new jsPDF();
                         buildViveiroPDF(doc, v, 20);
-                        doc.save(`caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
+                        openPdf(doc, `caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
                         toast.success("PDF gerado");
                       }}
                       className="shrink-0 size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
