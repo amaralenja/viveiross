@@ -195,22 +195,22 @@ function ProdutosPage() {
           className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
         >
           <Plus className="size-5" />
-          {tab === "estoque" ? "Entrada" : "Novo"}
+          {tab === "estoque" || tab === "compras" ? (tab === "compras" ? "Compra" : "Entrada") : "Novo"}
         </button>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-xl bg-muted">
-        {(["produtos", "funcionarios", "estoque"] as const).map((t) => (
+      <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
+        {(["produtos", "funcionarios", "estoque", "compras"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 h-10 rounded-lg font-semibold text-sm transition ${
+            className={`flex-1 min-w-[88px] h-10 rounded-lg font-semibold text-sm transition ${
               tab === t
                 ? "bg-card shadow-sm text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : "Estoque"}
+            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : "Compras"}
           </button>
         ))}
       </div>
