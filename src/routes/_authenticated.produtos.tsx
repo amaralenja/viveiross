@@ -1416,19 +1416,35 @@ function DespesaModal({
             </div>
           </Field>
           {rateio === "individual" && (
-            <Field label="Viveiro">
-              <select
-                value={viveiroId}
-                onChange={(e) => setViveiroId(e.target.value)}
-                className="w-full h-11 px-3 rounded-lg border bg-background"
-              >
-                <option value="">Selecione...</option>
-                {viveiros.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nome}
-                  </option>
-                ))}
-              </select>
+            <Field label={`Viveiros (${viveiroIds.length} selecionado${viveiroIds.length === 1 ? "" : "s"})`}>
+              <div className="border rounded-lg bg-background max-h-48 overflow-y-auto divide-y">
+                {viveiros.length === 0 ? (
+                  <div className="p-3 text-sm text-muted-foreground">Nenhum viveiro cadastrado.</div>
+                ) : (
+                  viveiros.map((v) => {
+                    const checked = viveiroIds.includes(v.id);
+                    return (
+                      <label
+                        key={v.id}
+                        className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleViveiro(v.id)}
+                          className="size-4"
+                        />
+                        <span className="font-medium">{v.nome}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              {!despesa && viveiroIds.length > 1 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Será criada uma despesa para cada viveiro selecionado.
+                </p>
+              )}
             </Field>
           )}
           <Field label="Observação (opcional)">
