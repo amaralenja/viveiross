@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
@@ -21,6 +21,7 @@ type Lanc = {
   categoria: string;
   valor: number;
   observacao: string | null;
+  tipo: "despesa" | "receita";
 };
 
 const TODOS = "__todos__";
@@ -37,6 +38,7 @@ function CaixaPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Lanc | null>(null);
 
+  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
   const [data, setData] = useState(todayLocal());
   const [produtoId, setProdutoId] = useState("");
@@ -100,7 +102,7 @@ function CaixaPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo")
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -131,13 +133,14 @@ function CaixaPage() {
         viveiro_id: viveiroId === TODOS ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: categoria.trim() || "geral",
+        categoria: categoria.trim() || (tipo === "receita" ? "venda" : "geral"),
         valor: valorFinal,
+        tipo,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Despesa registrada");
+      toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada");
       setProdutoId("");
       setDescricao("");
       setCategoria("");
@@ -161,37 +164,47 @@ function CaixaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Relatório: total por viveiro com rateio das despesas gerais
+  // Relatório: total por viveiro com rateio dos gerais (despesas E receitas)
   const relatorio = useMemo(() => {
-    const totalGeral = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const sign = (l: Lanc) => (l.tipo === "receita" ? 1 : -1);
+    const val = (l: Lanc) => Number(l.valor ?? 0);
+
+    const totalDespesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
+    const totalReceitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
+    const saldoGeral = totalReceitas - totalDespesas;
+
     const rateados = lancamentos.filter((l) => !l.viveiro_id);
-    const despesasGerais = rateados.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const despesasGerais = rateados.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
+    const receitasGerais = rateados.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
     const nAtivos = viveiros.length || 1;
-    const rateio = despesasGerais / nAtivos;
+    const rateioDesp = despesasGerais / nAtivos;
+    const rateioRec = receitasGerais / nAtivos;
 
     const porViveiro = viveiros.map((v) => {
       const diretos = lancamentos.filter((l) => l.viveiro_id === v.id);
-      const direto = diretos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
-      // Histórico combinado: diretos + rateados (com valor dividido)
+      const despDireto = diretos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
+      const recDireto = diretos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
       const historico = [
-        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: Number(l.valor) })),
+        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: val(l) * sign(l) })),
         ...rateados.map((l) => ({
           l,
           rateado: true,
-          valorMostrado: Number(l.valor) / nAtivos,
+          valorMostrado: (val(l) / nAtivos) * sign(l),
         })),
       ].sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
+      const despesaTotal = despDireto + rateioDesp;
+      const receitaTotal = recDireto + rateioRec;
       return {
         id: v.id,
         nome: v.nome,
-        direto,
-        rateio,
-        total: direto + rateio,
+        despesaTotal,
+        receitaTotal,
+        saldo: receitaTotal - despesaTotal,
         historico,
       };
     });
 
-    return { totalGeral, despesasGerais, porViveiro, nAtivos };
+    return { totalDespesas, totalReceitas, saldoGeral, despesasGerais, receitasGerais, porViveiro, nAtivos };
   }, [lancamentos, viveiros]);
 
   return (
@@ -202,35 +215,41 @@ function CaixaPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold">Caixa</h1>
-          <p className="text-sm text-muted-foreground">Despesas por viveiro ou rateadas</p>
+          <p className="text-sm text-muted-foreground">Despesas e receitas por viveiro</p>
         </div>
       </div>
 
       {/* Resumo geral */}
-      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Resumo geral
-            </p>
-            <p className="text-2xl sm:text-3xl font-black text-primary tabular-nums break-words">
-              {fmtBRL(relatorio.totalGeral)}
-            </p>
-          </div>
-          {relatorio.despesasGerais > 0 && (
-            <div className="text-right shrink-0">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Rateado
-              </p>
-              <p className="text-sm font-bold tabular-nums">
-                {fmtBRL(relatorio.despesasGerais)}
-              </p>
-              <p className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
-                <Users className="size-3" /> {relatorio.nAtivos} viveiro(s)
-              </p>
-            </div>
-          )}
+      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Saldo geral
+          </p>
+          <p
+            className={`text-2xl sm:text-3xl font-black tabular-nums break-words ${relatorio.saldoGeral >= 0 ? "text-emerald-600" : "text-destructive"}`}
+          >
+            {fmtBRL(relatorio.saldoGeral)}
+          </p>
         </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-2">
+            <p className="flex items-center gap-1 text-[10px] uppercase font-bold opacity-80">
+              <TrendingUp className="size-3" /> Receitas
+            </p>
+            <p className="font-bold tabular-nums">{fmtBRL(relatorio.totalReceitas)}</p>
+          </div>
+          <div className="rounded-lg bg-destructive/10 text-destructive px-3 py-2">
+            <p className="flex items-center gap-1 text-[10px] uppercase font-bold opacity-80">
+              <TrendingDown className="size-3" /> Despesas
+            </p>
+            <p className="font-bold tabular-nums">{fmtBRL(relatorio.totalDespesas)}</p>
+          </div>
+        </div>
+        {(relatorio.despesasGerais > 0 || relatorio.receitasGerais > 0) && (
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Users className="size-3" /> Rateado entre {relatorio.nAtivos} viveiro(s)
+          </p>
+        )}
       </section>
 
       {/* Carrossel de caixas por viveiro */}
@@ -263,14 +282,16 @@ function CaixaPage() {
 
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Total
+                      Saldo
                     </p>
-                    <p className="text-2xl font-black text-primary tabular-nums">
-                      {fmtBRL(v.total)}
+                    <p
+                      className={`text-2xl font-black tabular-nums ${v.saldo >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                    >
+                      {fmtBRL(v.saldo)}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground tabular-nums">
-                      <span>direto {fmtBRL(v.direto)}</span>
-                      {v.rateio > 0 && <span>+ rateio {fmtBRL(v.rateio)}</span>}
+                      <span className="text-emerald-600">+ {fmtBRL(v.receitaTotal)}</span>
+                      <span className="text-destructive">− {fmtBRL(v.despesaTotal)}</span>
                     </div>
                   </div>
 
@@ -300,8 +321,10 @@ function CaixaPage() {
                                 </span>
                               )}
                             </span>
-                            <span className="font-semibold tabular-nums shrink-0">
-                              {fmtBRL(h.valorMostrado)}
+                            <span
+                              className={`font-semibold tabular-nums shrink-0 ${h.l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
+                            >
+                              {h.l.tipo === "receita" ? "+" : "−"} {fmtBRL(Math.abs(h.valorMostrado))}
                             </span>
                             <div className="flex gap-0.5 shrink-0">
                               <button
@@ -343,7 +366,25 @@ function CaixaPage() {
         }}
         className="space-y-4 rounded-2xl bg-card border p-5"
       >
-        <h2 className="font-bold">Nova despesa</h2>
+        <h2 className="font-bold">Novo lançamento</h2>
+
+        <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
+          <button
+            type="button"
+            onClick={() => setTipo("despesa")}
+            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "despesa" ? "bg-destructive text-destructive-foreground shadow" : "text-muted-foreground"}`}
+          >
+            <TrendingDown className="size-4" /> Despesa
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipo("receita")}
+            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow" : "text-muted-foreground"}`}
+          >
+            <TrendingUp className="size-4" /> Receita
+          </button>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Viveiro">
             <select
@@ -549,6 +590,7 @@ function EditModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [tipo, setTipo] = useState<"despesa" | "receita">(lanc.tipo ?? "despesa");
   const [viveiroId, setViveiroId] = useState<string>(lanc.viveiro_id ?? TODOS);
   const [data, setData] = useState(lanc.data_lancamento);
   const [descricao, setDescricao] = useState(lanc.descricao);
@@ -567,6 +609,7 @@ function EditModal({
           descricao: descricao.trim(),
           categoria: categoria.trim() || "geral",
           valor: v,
+          tipo,
         })
         .eq("id", lanc.id);
       if (error) throw error;
@@ -588,7 +631,7 @@ function EditModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-bold">Editar despesa</h3>
+          <h3 className="font-bold">Editar lançamento</h3>
           <button
             onClick={onClose}
             className="size-8 rounded-lg hover:bg-muted flex items-center justify-center"
@@ -604,6 +647,16 @@ function EditModal({
           }}
           className="p-4 space-y-3"
         >
+          <Field label="Tipo">
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as "despesa" | "receita")}
+              className="app-input"
+            >
+              <option value="despesa">💸 Despesa</option>
+              <option value="receita">💰 Receita</option>
+            </select>
+          </Field>
           <Field label="Viveiro">
             <select
               value={viveiroId}
