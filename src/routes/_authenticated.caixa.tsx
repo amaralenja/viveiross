@@ -182,35 +182,50 @@ function CaixaPage() {
       </div>
 
       {/* Resumo */}
-      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-            Resumo geral
-          </h2>
-          <span className="text-lg font-bold text-primary">{fmtBRL(relatorio.totalGeral)}</span>
+      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Resumo geral
+            </p>
+            <p className="text-2xl sm:text-3xl font-black text-primary tabular-nums break-words">
+              {fmtBRL(relatorio.totalGeral)}
+            </p>
+          </div>
+          {relatorio.despesasGerais > 0 && (
+            <div className="text-right shrink-0">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Rateado
+              </p>
+              <p className="text-sm font-bold tabular-nums">
+                {fmtBRL(relatorio.despesasGerais)}
+              </p>
+              <p className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
+                <Users className="size-3" /> {relatorio.nAtivos} viveiro(s)
+              </p>
+            </div>
+          )}
         </div>
-        {relatorio.despesasGerais > 0 && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <Users className="size-3" />
-            {fmtBRL(relatorio.despesasGerais)} em despesas gerais rateadas entre {relatorio.nAtivos} viveiro(s)
-          </p>
-        )}
+
         {relatorio.porViveiro.length > 0 ? (
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {relatorio.porViveiro.map((v) => (
               <li
                 key={v.id}
-                className="flex items-center justify-between text-xs rounded-lg bg-background/60 px-3 py-2"
+                className="rounded-lg bg-background/70 px-3 py-2.5 space-y-1"
               >
-                <span className="font-medium truncate">{v.nome}</span>
-                <span className="flex items-center gap-3 shrink-0">
-                  {v.rateio > 0 && (
-                    <span className="text-muted-foreground">
-                      direto {fmtBRL(v.direto)} + rateio {fmtBRL(v.rateio)}
-                    </span>
-                  )}
-                  <span className="font-bold tabular-nums">{fmtBRL(v.total)}</span>
-                </span>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
+                  <span className="font-semibold text-sm truncate">{v.nome}</span>
+                  <span className="text-base font-bold tabular-nums shrink-0">
+                    {fmtBRL(v.total)}
+                  </span>
+                </div>
+                {v.rateio > 0 && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
+                    <span>direto {fmtBRL(v.direto)}</span>
+                    <span>+ rateio {fmtBRL(v.rateio)}</span>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
