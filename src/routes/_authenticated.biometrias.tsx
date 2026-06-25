@@ -553,22 +553,36 @@ function HistoricoBiometrias({
   const racaoDiariaPorViveiro = useMemo(() => {
     const totais = new Map<string, number>();
     const diasPorViveiro = new Map<string, Set<string>>();
+    const hojeStr = todayLocal();
+    const hojePorViveiro = new Map<string, number>();
     const seteDias = new Date();
     seteDias.setDate(seteDias.getDate() - 7);
     for (const l of lancamentos) {
+      if (l.data_lancamento === hojeStr) {
+        hojePorViveiro.set(
+          l.viveiro_id,
+          (hojePorViveiro.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0),
+        );
+      }
       if (new Date(`${l.data_lancamento}T00:00:00`) < seteDias) continue;
       totais.set(l.viveiro_id, (totais.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0));
       const set = diasPorViveiro.get(l.viveiro_id) ?? new Set<string>();
       set.add(l.data_lancamento);
       diasPorViveiro.set(l.viveiro_id, set);
     }
-    const media = new Map<string, number>();
-    for (const [vid, total] of totais) {
+    const media = new Map<string, { hoje: number; media7d: number }>();
+    const vids = new Set<string>([...totais.keys(), ...hojePorViveiro.keys()]);
+    for (const vid of vids) {
+      const total = totais.get(vid) ?? 0;
       const dias = diasPorViveiro.get(vid)?.size ?? 1;
-      media.set(vid, total / Math.max(1, dias));
+      media.set(vid, {
+        hoje: hojePorViveiro.get(vid) ?? 0,
+        media7d: total / Math.max(1, dias),
+      });
     }
     return media;
   }, [lancamentos]);
+
 
   const periodos: { key: PeriodoKey; label: string }[] = [
     { key: "hoje", label: "Hoje" },
@@ -652,7 +666,7 @@ function HistoricoBiometrias({
               cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
             }
             const viveiroId = grupo.rows[0].viveiro_id;
-            const racaoDia = racaoDiariaPorViveiro.get(viveiroId) ?? 0;
+            const racaoInfo = racaoDiariaPorViveiro.get(viveiroId) ?? { hoje: 0, media7d: 0 };
             const diasPov = grupo.data_povoamento
               ? Math.max(
                   0,
@@ -675,9 +689,11 @@ function HistoricoBiometrias({
                     />
                     <MiniInfo
                       icon={<Utensils className="size-3.5" />}
-                      label="Ração/dia"
-                      value={`${formatNumber(racaoDia)} kg`}
+                      label="Ração hoje"
+                      value={`${formatNumber(racaoInfo.hoje)} kg`}
+                      hint={`média 7d: ${formatNumber(racaoInfo.media7d)} kg`}
                     />
+
                     <MiniInfo
                       icon={<Calendar className="size-3.5" />}
                       label="Dias povoado"
@@ -767,10 +783,12 @@ function MiniInfo({
   icon,
   label,
   value,
+  hint,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  hint?: string;
 }) {
   return (
     <div className="min-w-0">
@@ -781,9 +799,11 @@ function MiniInfo({
       <p className="text-sm font-bold mt-0.5 truncate" style={{ wordBreak: "break-word" }}>
         {value}
       </p>
+      {hint ? <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</p> : null}
     </div>
   );
 }
+
 
 function formatNumber(value: number) {
   return Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
