@@ -515,59 +515,13 @@ function CaixaPage() {
         </button>
       </form>
 
-      {/* Histórico */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Histórico</h2>
-        {isLoading ? (
-          <p className="text-muted-foreground">Carregando...</p>
-        ) : lancamentos.length === 0 ? (
-          <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
-            Sem despesas ainda.
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {lancamentos.map((l) => {
-              const v = viveiros.find((x) => x.id === l.viveiro_id);
-              return (
-                <li
-                  key={l.id}
-                  className="flex items-center justify-between p-4 rounded-xl bg-card border gap-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold truncate">{l.descricao}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {l.viveiro_id ? v?.nome ?? "—" : "🔄 Todos (rateado)"} ·{" "}
-                      {fmtDate(l.data_lancamento)}
-                      {l.categoria && l.categoria !== "geral" ? ` · ${l.categoria}` : ""}
-                    </p>
-                  </div>
-                  <p className="text-sm font-bold tabular-nums shrink-0">
-                    {fmtBRL(Number(l.valor))}
-                  </p>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      onClick={() => setEditing(l)}
-                      className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
-                      aria-label="Editar"
-                    >
-                      <Pencil className="size-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Apagar "${l.descricao}"?`)) delMut.mutate(l.id);
-                      }}
-                      className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                      aria-label="Apagar"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      {!isLoading && lancamentos.length === 0 && (
+        <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
+          Sem despesas ainda.
+        </div>
+      )}
+
+
 
       {editing && (
         <EditModal
