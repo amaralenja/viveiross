@@ -228,6 +228,7 @@ function CaixaPage() {
       if (!userId) throw new Error("Sessão expirada.");
       if (!descricao.trim()) throw new Error("Informe a descrição.");
       if (!valorFinal || valorFinal <= 0) throw new Error("Informe o valor.");
+      const qNum = Number(qtd.replace(",", ".")) || 0;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: userId,
         viveiro_id: viveiroId === TODOS ? null : viveiroId,
@@ -236,6 +237,8 @@ function CaixaPage() {
         categoria: categoria.trim() || (tipo === "receita" ? "venda" : "geral"),
         valor: valorFinal,
         tipo,
+        quantidade: qNum > 0 ? qNum : null,
+        unidade: qNum > 0 ? unidade : null,
       });
       if (error) throw error;
     },
