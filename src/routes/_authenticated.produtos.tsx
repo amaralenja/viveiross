@@ -133,11 +133,24 @@ function ProdutosPage() {
     },
   });
 
+  const despesasQuery = useQuery({
+    queryKey: ["despesas_gerais"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("despesas_gerais")
+        .select("id, viveiro_id, descricao, categoria, valor, data_despesa, rateio, observacao")
+        .order("data_despesa", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Despesa[];
+    },
+  });
+
   const produtos = produtosQuery.data ?? [];
   const funcionarios = funcionariosQuery.data ?? [];
   const viveiros = viveirosQuery.data ?? [];
   const entradas = entradasQuery.data ?? [];
   const consumo = consumoQuery.data ?? [];
+  const despesas = despesasQuery.data ?? [];
 
   const saldoPorProduto = new Map<string, { entradas: number; saidas: number }>();
   for (const e of entradas) {
