@@ -321,8 +321,10 @@ function CaixaPage() {
                                 </span>
                               )}
                             </span>
-                            <span className="font-semibold tabular-nums shrink-0">
-                              {fmtBRL(h.valorMostrado)}
+                            <span
+                              className={`font-semibold tabular-nums shrink-0 ${h.l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
+                            >
+                              {h.l.tipo === "receita" ? "+" : "−"} {fmtBRL(Math.abs(h.valorMostrado))}
                             </span>
                             <div className="flex gap-0.5 shrink-0">
                               <button
