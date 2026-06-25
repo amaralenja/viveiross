@@ -160,7 +160,18 @@ function ProdutosPage() {
       toast.success("Funcionário removido");
     },
     onError: (err: Error) => toast.error(err.message),
+  const delEntradaMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("estoque_entradas").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      toast.success("Entrada removida");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
+
 
   const isProdTab = tab === "produtos";
 
