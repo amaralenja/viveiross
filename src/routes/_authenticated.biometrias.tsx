@@ -783,10 +783,12 @@ function MiniInfo({
   icon,
   label,
   value,
+  hint,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  hint?: string;
 }) {
   return (
     <div className="min-w-0">
@@ -797,9 +799,11 @@ function MiniInfo({
       <p className="text-sm font-bold mt-0.5 truncate" style={{ wordBreak: "break-word" }}>
         {value}
       </p>
+      {hint ? <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</p> : null}
     </div>
   );
 }
+
 
 function formatNumber(value: number) {
   return Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
