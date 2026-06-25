@@ -43,6 +43,17 @@ type EstoqueEntrada = {
 
 type ConsumoRow = { produto_id: string | null; quantidade: number };
 
+type Despesa = {
+  id: string;
+  viveiro_id: string | null;
+  descricao: string;
+  categoria: string | null;
+  valor: number;
+  data_despesa: string;
+  rateio: string;
+  observacao: string | null;
+};
+
 function formatBRL(v: number | null | undefined) {
   if (v == null) return null;
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -50,7 +61,7 @@ function formatBRL(v: number | null | undefined) {
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras" | "despesas">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
