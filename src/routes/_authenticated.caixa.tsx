@@ -276,28 +276,53 @@ function CaixaPage() {
 
                   <div className="border-t pt-2">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                      Últimas despesas
+                      Histórico
                     </p>
-                    {v.ultimos.length === 0 ? (
+                    {v.historico.length === 0 ? (
                       <p className="text-xs text-muted-foreground italic">
                         Nada lançado pra esse viveiro ainda.
                       </p>
                     ) : (
-                      <ul className="space-y-1">
-                        {v.ultimos.map((l) => (
+                      <ul className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                        {v.historico.map((h) => (
                           <li
-                            key={l.id}
-                            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 text-xs"
+                            key={`${v.id}-${h.l.id}`}
+                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0"
                           >
                             <span className="truncate">
                               <span className="text-muted-foreground">
-                                {fmtDate(l.data_lancamento)}
+                                {fmtDate(h.l.data_lancamento)}
                               </span>{" "}
-                              <span className="font-medium">{l.descricao}</span>
+                              <span className="font-medium">{h.l.descricao}</span>
+                              {h.rateado && (
+                                <span className="ml-1 text-[9px] uppercase tracking-wide text-primary/80">
+                                  · rateado
+                                </span>
+                              )}
                             </span>
                             <span className="font-semibold tabular-nums shrink-0">
-                              {fmtBRL(Number(l.valor))}
+                              {fmtBRL(h.valorMostrado)}
                             </span>
+                            <div className="flex gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setEditing(h.l)}
+                                className="size-6 rounded text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                                aria-label="Editar"
+                              >
+                                <Pencil className="size-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Apagar "${h.l.descricao}"?`)) delMut.mutate(h.l.id);
+                                }}
+                                className="size-6 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                                aria-label="Apagar"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </div>
                           </li>
                         ))}
                       </ul>
