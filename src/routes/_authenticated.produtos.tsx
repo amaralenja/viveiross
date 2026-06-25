@@ -201,9 +201,22 @@ function ProdutosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const delDespMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("despesas_gerais").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["despesas_gerais"] });
+      toast.success("Despesa removida");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   function openNovo() {
     if (tab === "produtos") setOpenProd(true);
     else if (tab === "funcionarios") setOpenFunc(true);
+    else if (tab === "despesas") setOpenDesp(true);
     else setOpenEntrada(true); // estoque ou compras
   }
 
