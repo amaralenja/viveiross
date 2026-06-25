@@ -148,6 +148,59 @@ export type Database = {
         }
         Relationships: []
       }
+      estoque_entradas: {
+        Row: {
+          created_at: string
+          custo_total: number | null
+          data_entrada: string
+          fornecedor: string | null
+          id: string
+          observacao: string | null
+          preco_unidade: number | null
+          produto_id: string
+          quantidade: number
+          unidade: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custo_total?: number | null
+          data_entrada?: string
+          fornecedor?: string | null
+          id?: string
+          observacao?: string | null
+          preco_unidade?: number | null
+          produto_id: string
+          quantidade: number
+          unidade?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custo_total?: number | null
+          data_entrada?: string
+          fornecedor?: string | null
+          id?: string
+          observacao?: string | null
+          preco_unidade?: number | null
+          produto_id?: string
+          quantidade?: number
+          unidade?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_entradas_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fazendas: {
         Row: {
           cidade: string | null
