@@ -666,7 +666,7 @@ function HistoricoBiometrias({
               cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
             }
             const viveiroId = grupo.rows[0].viveiro_id;
-            const racaoDia = racaoDiariaPorViveiro.get(viveiroId) ?? 0;
+            const racaoInfo = racaoDiariaPorViveiro.get(viveiroId) ?? { hoje: 0, media7d: 0 };
             const diasPov = grupo.data_povoamento
               ? Math.max(
                   0,
@@ -689,9 +689,11 @@ function HistoricoBiometrias({
                     />
                     <MiniInfo
                       icon={<Utensils className="size-3.5" />}
-                      label="Ração/dia"
-                      value={`${formatNumber(racaoDia)} kg`}
+                      label="Ração hoje"
+                      value={`${formatNumber(racaoInfo.hoje)} kg`}
+                      hint={`média 7d: ${formatNumber(racaoInfo.media7d)} kg`}
                     />
+
                     <MiniInfo
                       icon={<Calendar className="size-3.5" />}
                       label="Dias povoado"
