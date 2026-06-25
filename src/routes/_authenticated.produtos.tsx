@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, X, Pencil, Users } from "lucide-react";
+import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
   head: () => ({ meta: [{ title: "Produtos & Funcionários" }] }),
@@ -28,6 +28,20 @@ type Funcionario = {
 
 type ViveiroOpt = { id: string; nome: string };
 
+type EstoqueEntrada = {
+  id: string;
+  produto_id: string;
+  quantidade: number;
+  unidade: string;
+  preco_unidade: number | null;
+  custo_total: number | null;
+  fornecedor: string | null;
+  data_entrada: string;
+  observacao: string | null;
+};
+
+type ConsumoRow = { produto_id: string | null; quantidade: number };
+
 function formatBRL(v: number | null | undefined) {
   if (v == null) return null;
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -35,11 +49,13 @@ function formatBRL(v: number | null | undefined) {
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
   const [editandoFunc, setEditandoFunc] = useState<Funcionario | null>(null);
+  const [openEntrada, setOpenEntrada] = useState(false);
+  const [editandoEntrada, setEditandoEntrada] = useState<EstoqueEntrada | null>(null);
 
   const produtosQuery = useQuery({
     queryKey: ["produtos"],
