@@ -425,6 +425,22 @@ function ProdutosPage() {
           }}
         />
       )}
+
+      {(openDesp || editandoDesp) && (
+        <DespesaModal
+          despesa={editandoDesp}
+          viveiros={viveiros}
+          onClose={() => {
+            setOpenDesp(false);
+            setEditandoDesp(null);
+          }}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["despesas_gerais"] });
+            setOpenDesp(false);
+            setEditandoDesp(null);
+          }}
+        />
+      )}
     </div>
   );
 }
