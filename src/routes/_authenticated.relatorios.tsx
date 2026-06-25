@@ -104,6 +104,18 @@ function RelatoriosPage() {
     },
   });
 
+  const { data: despesas = [] } = useQuery({
+    queryKey: ["despesas_gerais", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("despesas_gerais")
+        .select("id, viveiro_id, descricao, categoria, valor, data_despesa, rateio")
+        .order("data_despesa", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; viveiro_id: string | null; descricao: string; categoria: string | null; valor: number; data_despesa: string; rateio: string }>;
+    },
+  });
+
   const linhas = useMemo(() => {
     return viveiros.map((v) => {
       const lancs = lancamentos.filter((l) => l.viveiro_id === v.id);
