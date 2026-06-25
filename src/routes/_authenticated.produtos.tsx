@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, X, Pencil, Users } from "lucide-react";
+import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
   head: () => ({ meta: [{ title: "Produtos & Funcionários" }] }),
@@ -28,6 +28,20 @@ type Funcionario = {
 
 type ViveiroOpt = { id: string; nome: string };
 
+type EstoqueEntrada = {
+  id: string;
+  produto_id: string;
+  quantidade: number;
+  unidade: string;
+  preco_unidade: number | null;
+  custo_total: number | null;
+  fornecedor: string | null;
+  data_entrada: string;
+  observacao: string | null;
+};
+
+type ConsumoRow = { produto_id: string | null; quantidade: number };
+
 function formatBRL(v: number | null | undefined) {
   if (v == null) return null;
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -35,11 +49,13 @@ function formatBRL(v: number | null | undefined) {
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
   const [editandoFunc, setEditandoFunc] = useState<Funcionario | null>(null);
+  const [openEntrada, setOpenEntrada] = useState(false);
+  const [editandoEntrada, setEditandoEntrada] = useState<EstoqueEntrada | null>(null);
 
   const produtosQuery = useQuery({
     queryKey: ["produtos"],
@@ -78,9 +94,49 @@ function ProdutosPage() {
     },
   });
 
+  const entradasQuery = useQuery({
+    queryKey: ["estoque_entradas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("estoque_entradas")
+        .select("id, produto_id, quantidade, unidade, preco_unidade, custo_total, fornecedor, data_entrada, observacao")
+        .order("data_entrada", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as EstoqueEntrada[];
+    },
+  });
+
+  const consumoQuery = useQuery({
+    queryKey: ["estoque_consumo"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("produto_id, quantidade")
+        .eq("tipo", "racao")
+        .not("produto_id", "is", null);
+      if (error) throw error;
+      return (data ?? []) as ConsumoRow[];
+    },
+  });
+
   const produtos = produtosQuery.data ?? [];
   const funcionarios = funcionariosQuery.data ?? [];
   const viveiros = viveirosQuery.data ?? [];
+  const entradas = entradasQuery.data ?? [];
+  const consumo = consumoQuery.data ?? [];
+
+  const saldoPorProduto = new Map<string, { entradas: number; saidas: number }>();
+  for (const e of entradas) {
+    const cur = saldoPorProduto.get(e.produto_id) ?? { entradas: 0, saidas: 0 };
+    cur.entradas += Number(e.quantidade ?? 0);
+    saldoPorProduto.set(e.produto_id, cur);
+  }
+  for (const c of consumo) {
+    if (!c.produto_id) continue;
+    const cur = saldoPorProduto.get(c.produto_id) ?? { entradas: 0, saidas: 0 };
+    cur.saidas += Number(c.quantidade ?? 0);
+    saldoPorProduto.set(c.produto_id, cur);
+  }
 
   const delProdMut = useMutation({
     mutationFn: async (id: string) => {
@@ -106,7 +162,24 @@ function ProdutosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const isProdTab = tab === "produtos";
+  const delEntradaMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("estoque_entradas").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      toast.success("Entrada removida");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  function openNovo() {
+    if (tab === "produtos") setOpenProd(true);
+    else if (tab === "funcionarios") setOpenFunc(true);
+    else setOpenEntrada(true);
+  }
+
 
   return (
     <div className="space-y-6">
@@ -118,15 +191,16 @@ function ProdutosPage() {
           </p>
         </div>
         <button
-          onClick={() => (isProdTab ? setOpenProd(true) : setOpenFunc(true))}
+          onClick={openNovo}
           className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
         >
-          <Plus className="size-5" /> Novo
+          <Plus className="size-5" />
+          {tab === "estoque" ? "Entrada" : "Novo"}
         </button>
       </div>
 
       <div className="flex gap-2 p-1 rounded-xl bg-muted">
-        {(["produtos", "funcionarios"] as const).map((t) => (
+        {(["produtos", "funcionarios", "estoque"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -136,12 +210,12 @@ function ProdutosPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "produtos" ? "Produtos" : "Funcionários"}
+            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : "Estoque"}
           </button>
         ))}
       </div>
 
-      {isProdTab ? (
+      {tab === "produtos" ? (
         produtos.length === 0 ? (
           <Empty
             icon={<Package className="size-12 mx-auto text-muted-foreground" />}
@@ -185,48 +259,63 @@ function ProdutosPage() {
             ))}
           </ul>
         )
-      ) : funcionarios.length === 0 ? (
-        <Empty
-          icon={<Users className="size-12 mx-auto text-muted-foreground" />}
-          titulo="Nenhum funcionário ainda"
-          descricao="Cadastre o salário pra puxar automático no caixa."
-          onClick={() => setOpenFunc(true)}
-        />
+      ) : tab === "funcionarios" ? (
+        funcionarios.length === 0 ? (
+          <Empty
+            icon={<Users className="size-12 mx-auto text-muted-foreground" />}
+            titulo="Nenhum funcionário ainda"
+            descricao="Cadastre o salário pra puxar automático no caixa."
+            onClick={() => setOpenFunc(true)}
+          />
+        ) : (
+          <ul className="space-y-3">
+            {funcionarios.map((f) => {
+              const viv = viveiros.find((v) => v.id === f.viveiro_id);
+              return (
+                <li
+                  key={f.id}
+                  className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <Users className="size-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{f.nome}</p>
+                      <p className="text-sm text-muted-foreground">
+                        <span className="text-primary font-semibold">
+                          {formatBRL(Number(f.salario))}/mês
+                        </span>
+                        {" · "}
+                        {viv ? viv.nome : "rateado entre todos"}
+                      </p>
+                    </div>
+                  </div>
+                  <RowActions
+                    onEdit={() => setEditandoFunc(f)}
+                    onDel={() => {
+                      if (confirm(`Remover "${f.nome}"?`)) delFuncMut.mutate(f.id);
+                    }}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )
       ) : (
-        <ul className="space-y-3">
-          {funcionarios.map((f) => {
-            const viv = viveiros.find((v) => v.id === f.viveiro_id);
-            return (
-              <li
-                key={f.id}
-                className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Users className="size-6" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{f.nome}</p>
-                    <p className="text-sm text-muted-foreground">
-                      <span className="text-primary font-semibold">
-                        {formatBRL(Number(f.salario))}/mês
-                      </span>
-                      {" · "}
-                      {viv ? viv.nome : "rateado entre todos"}
-                    </p>
-                  </div>
-                </div>
-                <RowActions
-                  onEdit={() => setEditandoFunc(f)}
-                  onDel={() => {
-                    if (confirm(`Remover "${f.nome}"?`)) delFuncMut.mutate(f.id);
-                  }}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <EstoqueView
+          produtos={produtos}
+          entradas={entradas}
+          saldoPorProduto={saldoPorProduto}
+          onNovaEntrada={() => setOpenEntrada(true)}
+          onEditEntrada={(e) => setEditandoEntrada(e)}
+          onDelEntrada={(e) => {
+            if (confirm(`Remover entrada de ${formatNumber(e.quantidade)} ${e.unidade}?`))
+              delEntradaMut.mutate(e.id);
+          }}
+        />
       )}
+
 
       {(openProd || editandoProd) && (
         <ProdutoModal
@@ -259,9 +348,336 @@ function ProdutosPage() {
           }}
         />
       )}
+
+      {(openEntrada || editandoEntrada) && (
+        <EntradaEstoqueModal
+          entrada={editandoEntrada}
+          produtos={produtos}
+          onClose={() => {
+            setOpenEntrada(false);
+            setEditandoEntrada(null);
+          }}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+            setOpenEntrada(false);
+            setEditandoEntrada(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+
+function formatNumber(v: number) {
+  return Number(v || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
+function EstoqueView({
+  produtos,
+  entradas,
+  saldoPorProduto,
+  onNovaEntrada,
+  onEditEntrada,
+  onDelEntrada,
+}: {
+  produtos: Produto[];
+  entradas: EstoqueEntrada[];
+  saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
+  onNovaEntrada: () => void;
+  onEditEntrada: (e: EstoqueEntrada) => void;
+  onDelEntrada: (e: EstoqueEntrada) => void;
+}) {
+  if (produtos.length === 0) {
+    return (
+      <Empty
+        icon={<Boxes className="size-12 mx-auto text-muted-foreground" />}
+        titulo="Cadastre produtos antes"
+        descricao="Você precisa ter produtos cadastrados pra controlar o estoque."
+        onClick={onNovaEntrada}
+      />
+    );
+  }
+
+  const produtosOrdenados = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
+  const totalEstoque = produtosOrdenados.reduce((sum, p) => {
+    const s = saldoPorProduto.get(p.id);
+    return sum + Math.max(0, (s?.entradas ?? 0) - (s?.saidas ?? 0));
+  }, 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Saldo total</p>
+          <p className="text-2xl font-bold">{formatNumber(totalEstoque)} kg</p>
+        </div>
+        <button
+          onClick={onNovaEntrada}
+          className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2"
+        >
+          <ArrowDownToLine className="size-4" /> Entrada
+        </button>
+      </div>
+
+      <div>
+        <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-muted-foreground">
+          Saldo por produto
+        </h3>
+        <ul className="space-y-2">
+          {produtosOrdenados.map((p) => {
+            const s = saldoPorProduto.get(p.id) ?? { entradas: 0, saidas: 0 };
+            const saldo = s.entradas - s.saidas;
+            const baixo = saldo <= 0;
+            return (
+              <li
+                key={p.id}
+                className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{p.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Entradas {formatNumber(s.entradas)} · Saídas {formatNumber(s.saidas)} {p.unidade}
+                  </p>
+                </div>
+                <div
+                  className={`text-right shrink-0 ${baixo ? "text-destructive" : "text-foreground"}`}
+                >
+                  <p className="text-lg font-bold flex items-center gap-1 justify-end">
+                    {baixo && <AlertTriangle className="size-4" />}
+                    {formatNumber(saldo)} {p.unidade}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div>
+        <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-muted-foreground">
+          Últimas entradas
+        </h3>
+        {entradas.length === 0 ? (
+          <p className="rounded-xl border border-dashed p-6 text-center text-muted-foreground text-sm">
+            Nenhuma entrada registrada.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {entradas.slice(0, 20).map((e) => {
+              const p = produtos.find((x) => x.id === e.produto_id);
+              return (
+                <li
+                  key={e.id}
+                  className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{p?.nome ?? "Produto"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                      {" · "}
+                      {formatNumber(e.quantidade)} {e.unidade}
+                      {e.custo_total != null && ` · ${formatBRL(Number(e.custo_total))}`}
+                      {e.fornecedor && ` · ${e.fornecedor}`}
+                    </p>
+                  </div>
+                  <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EntradaEstoqueModal({
+  entrada,
+  produtos,
+  onClose,
+  onSaved,
+}: {
+  entrada: EstoqueEntrada | null;
+  produtos: Produto[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [produtoId, setProdutoId] = useState(entrada?.produto_id ?? produtos[0]?.id ?? "");
+  const [quantidade, setQuantidade] = useState(
+    entrada?.quantidade != null ? String(entrada.quantidade) : "",
+  );
+  const produtoSel = produtos.find((p) => p.id === produtoId);
+  const [unidade, setUnidade] = useState(entrada?.unidade ?? produtoSel?.unidade ?? "kg");
+  const [preco, setPreco] = useState(
+    entrada?.preco_unidade != null
+      ? String(entrada.preco_unidade)
+      : produtoSel?.preco_unidade != null
+        ? String(produtoSel.preco_unidade)
+        : "",
+  );
+  const [fornecedor, setFornecedor] = useState(entrada?.fornecedor ?? "");
+  const [data, setData] = useState(entrada?.data_entrada ?? new Date().toISOString().slice(0, 10));
+  const [observacao, setObservacao] = useState(entrada?.observacao ?? "");
+  const [loading, setLoading] = useState(false);
+
+  const qtdNum = Number(String(quantidade).replace(",", ".")) || 0;
+  const precoNum = preco.trim() === "" ? null : Number(String(preco).replace(",", "."));
+  const custoTotal = precoNum != null && qtdNum > 0 ? precoNum * qtdNum : null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData.user?.id;
+      if (!user_id) throw new Error("Sem sessão");
+      if (!produtoId) throw new Error("Selecione um produto");
+      if (!(qtdNum > 0)) throw new Error("Quantidade inválida");
+
+      const payload = {
+        produto_id: produtoId,
+        quantidade: qtdNum,
+        unidade: unidade.trim() || "kg",
+        preco_unidade: precoNum,
+        custo_total: custoTotal,
+        fornecedor: fornecedor.trim() || null,
+        data_entrada: data,
+        observacao: observacao.trim() || null,
+      };
+
+      if (entrada) {
+        const { error } = await supabase
+          .from("estoque_entradas")
+          .update(payload)
+          .eq("id", entrada.id);
+        if (error) throw error;
+        toast.success("Entrada atualizada!");
+      } else {
+        const { error } = await supabase
+          .from("estoque_entradas")
+          .insert({ ...payload, user_id });
+        if (error) throw error;
+        toast.success("Entrada registrada!");
+      }
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ModalShell title={entrada ? "Editar entrada" : "Entrada de mercadoria"} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Produto">
+          <select
+            required
+            value={produtoId}
+            onChange={(e) => {
+              setProdutoId(e.target.value);
+              const p = produtos.find((x) => x.id === e.target.value);
+              if (p) {
+                setUnidade(p.unidade);
+                if (p.preco_unidade != null && !preco) setPreco(String(p.preco_unidade));
+              }
+            }}
+            className="app-input"
+          >
+            <option value="">Selecione...</option>
+            {produtos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quantidade">
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.001"
+              inputMode="decimal"
+              value={quantidade}
+              onChange={(e) => setQuantidade(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+          <Field label="Unidade">
+            <input
+              required
+              value={unidade}
+              onChange={(e) => setUnidade(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={`Preço/${unidade || "un"} (R$)`}>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              value={preco}
+              onChange={(e) => setPreco(e.target.value)}
+              placeholder="0,00"
+              className="app-input"
+            />
+          </Field>
+          <Field label="Custo total (R$)">
+            <input
+              readOnly
+              value={custoTotal != null ? formatBRL(custoTotal) ?? "" : ""}
+              placeholder="auto"
+              className="app-input bg-muted"
+            />
+          </Field>
+        </div>
+
+        <Field label="Fornecedor (opcional)">
+          <input
+            value={fornecedor}
+            onChange={(e) => setFornecedor(e.target.value)}
+            placeholder="Ex: Nutricamp"
+            className="app-input"
+          />
+        </Field>
+
+        <Field label="Data">
+          <input
+            type="date"
+            required
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="app-input"
+          />
+        </Field>
+
+        <Field label="Observação (opcional)">
+          <textarea
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            className="app-input min-h-[60px]"
+          />
+        </Field>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? "Salvando..." : "Salvar"}
+        </button>
+      </form>
+    </ModalShell>
+  );
+}
+
 
 function Empty({
   icon,
