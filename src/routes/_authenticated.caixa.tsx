@@ -215,35 +215,41 @@ function CaixaPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold">Caixa</h1>
-          <p className="text-sm text-muted-foreground">Despesas por viveiro ou rateadas</p>
+          <p className="text-sm text-muted-foreground">Despesas e receitas por viveiro</p>
         </div>
       </div>
 
       {/* Resumo geral */}
-      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Resumo geral
-            </p>
-            <p className="text-2xl sm:text-3xl font-black text-primary tabular-nums break-words">
-              {fmtBRL(relatorio.totalGeral)}
-            </p>
-          </div>
-          {relatorio.despesasGerais > 0 && (
-            <div className="text-right shrink-0">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Rateado
-              </p>
-              <p className="text-sm font-bold tabular-nums">
-                {fmtBRL(relatorio.despesasGerais)}
-              </p>
-              <p className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
-                <Users className="size-3" /> {relatorio.nAtivos} viveiro(s)
-              </p>
-            </div>
-          )}
+      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Saldo geral
+          </p>
+          <p
+            className={`text-2xl sm:text-3xl font-black tabular-nums break-words ${relatorio.saldoGeral >= 0 ? "text-emerald-600" : "text-destructive"}`}
+          >
+            {fmtBRL(relatorio.saldoGeral)}
+          </p>
         </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-2">
+            <p className="flex items-center gap-1 text-[10px] uppercase font-bold opacity-80">
+              <TrendingUp className="size-3" /> Receitas
+            </p>
+            <p className="font-bold tabular-nums">{fmtBRL(relatorio.totalReceitas)}</p>
+          </div>
+          <div className="rounded-lg bg-destructive/10 text-destructive px-3 py-2">
+            <p className="flex items-center gap-1 text-[10px] uppercase font-bold opacity-80">
+              <TrendingDown className="size-3" /> Despesas
+            </p>
+            <p className="font-bold tabular-nums">{fmtBRL(relatorio.totalDespesas)}</p>
+          </div>
+        </div>
+        {(relatorio.despesasGerais > 0 || relatorio.receitasGerais > 0) && (
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Users className="size-3" /> Rateado entre {relatorio.nAtivos} viveiro(s)
+          </p>
+        )}
       </section>
 
       {/* Carrossel de caixas por viveiro */}
