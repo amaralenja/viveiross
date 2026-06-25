@@ -354,7 +354,7 @@ function ProdutosPage() {
               delEntradaMut.mutate(e.id);
           }}
         />
-      ) : (
+      ) : tab === "compras" ? (
         <ComprasView
           produtos={produtos}
           entradas={entradas}
@@ -363,6 +363,16 @@ function ProdutosPage() {
           onDelCompra={(e) => {
             if (confirm(`Remover compra de ${formatNumber(e.quantidade)} ${e.unidade}?`))
               delEntradaMut.mutate(e.id);
+          }}
+        />
+      ) : (
+        <DespesasView
+          despesas={despesas}
+          viveiros={viveiros}
+          onNova={() => setOpenDesp(true)}
+          onEdit={(d) => setEditandoDesp(d)}
+          onDel={(d) => {
+            if (confirm(`Remover "${d.descricao}"?`)) delDespMut.mutate(d.id);
           }}
         />
       )}
