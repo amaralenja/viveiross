@@ -609,10 +609,6 @@ function EntradaEstoqueModal({
   onClose,
   onSaved,
 }: {
-  produtos,
-  onClose,
-  onSaved,
-}: {
   entrada: EstoqueEntrada | null;
   produtos: Produto[];
   onClose: () => void;
