@@ -133,13 +133,14 @@ function CaixaPage() {
         viveiro_id: viveiroId === TODOS ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: categoria.trim() || "geral",
+        categoria: categoria.trim() || (tipo === "receita" ? "venda" : "geral"),
         valor: valorFinal,
+        tipo,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Despesa registrada");
+      toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada");
       setProdutoId("");
       setDescricao("");
       setCategoria("");
