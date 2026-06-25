@@ -117,6 +117,11 @@ function RelatoriosPage() {
   });
 
   const linhas = useMemo(() => {
+    const nViv = Math.max(1, viveiros.length);
+    const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
+    const despesasIndividuais = despesas.filter((d) => d.rateio !== "todos" && d.viveiro_id != null);
+    const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nViv;
+
     return viveiros.map((v) => {
       const lancs = lancamentos.filter((l) => l.viveiro_id === v.id);
       const lancsRacao = lancs.filter((l) => l.tipo === "racao");
@@ -124,7 +129,11 @@ function RelatoriosPage() {
 
       const racaoKg = lancsRacao.reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
       const custoRacao = lancsRacao.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
-      const custoOutros = lancsOutros.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
+      const custoOutrosLanc = lancsOutros.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
+      const despesasDoViveiro = despesasIndividuais.filter((d) => d.viveiro_id === v.id);
+      const custoDespIndiv = despesasDoViveiro.reduce((s, d) => s + Number(d.valor ?? 0), 0);
+      const custoDespRateio = custoRateioPorViveiro;
+      const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio;
       const custoTotal = custoRacao + custoOutros;
 
       const bios = biometrias.filter((b) => b.viveiro_id === v.id);
@@ -156,6 +165,11 @@ function RelatoriosPage() {
         .map(([data, r]) => ({ data, kg: r.kg, custo: r.custo }))
         .sort((a, b) => (a.data < b.data ? 1 : -1));
 
+      const despesasLista = [
+        ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
+        ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
+      ];
+
       return {
         id: v.id,
         viveiro: textValue(v.nome),
@@ -168,6 +182,8 @@ function RelatoriosPage() {
         racaoKg,
         custoRacao,
         custoOutros,
+        custoDespRateio,
+        custoDespIndiv,
         custoTotal,
         custoPorKg,
         pesoMedio,
@@ -180,9 +196,10 @@ function RelatoriosPage() {
         lancs,
         bios,
         racaoDiaria,
+        despesasLista,
       };
     });
-  }, [biometrias, lancamentos, viveiros]);
+  }, [biometrias, lancamentos, viveiros, despesas]);
 
   const totais = useMemo(() => {
     const base = linhas.reduce(
