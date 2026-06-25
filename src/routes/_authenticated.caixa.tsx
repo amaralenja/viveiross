@@ -631,7 +631,7 @@ function EditModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-bold">Editar despesa</h3>
+          <h3 className="font-bold">Editar lançamento</h3>
           <button
             onClick={onClose}
             className="size-8 rounded-lg hover:bg-muted flex items-center justify-center"
