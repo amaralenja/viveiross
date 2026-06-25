@@ -172,6 +172,50 @@ export type Database = {
         }
         Relationships: []
       }
+      funcionarios: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          observacao: string | null
+          salario: number
+          updated_at: string
+          user_id: string
+          viveiro_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          observacao?: string | null
+          salario?: number
+          updated_at?: string
+          user_id: string
+          viveiro_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          observacao?: string | null
+          salario?: number
+          updated_at?: string
+          user_id?: string
+          viveiro_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionarios_viveiro_id_fkey"
+            columns: ["viveiro_id"]
+            isOneToOne: false
+            referencedRelation: "viveiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lancamentos: {
         Row: {
           created_at: string
