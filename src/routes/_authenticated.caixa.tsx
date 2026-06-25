@@ -23,7 +23,15 @@ type Lanc = {
   valor: number;
   observacao: string | null;
   tipo: "despesa" | "receita";
+  quantidade: number | null;
+  unidade: string | null;
 };
+
+function fmtQtd(q: number | null, u: string | null) {
+  if (!q || q <= 0) return "—";
+  const n = Number(q).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+  return `${n}${u ? ` ${u}` : ""}`;
+}
 
 const TODOS = "__todos__";
 
