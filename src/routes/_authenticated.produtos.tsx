@@ -191,15 +191,16 @@ function ProdutosPage() {
           </p>
         </div>
         <button
-          onClick={() => (isProdTab ? setOpenProd(true) : setOpenFunc(true))}
+          onClick={openNovo}
           className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
         >
-          <Plus className="size-5" /> Novo
+          <Plus className="size-5" />
+          {tab === "estoque" ? "Entrada" : "Novo"}
         </button>
       </div>
 
       <div className="flex gap-2 p-1 rounded-xl bg-muted">
-        {(["produtos", "funcionarios"] as const).map((t) => (
+        {(["produtos", "funcionarios", "estoque"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -209,12 +210,12 @@ function ProdutosPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "produtos" ? "Produtos" : "Funcionários"}
+            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : "Estoque"}
           </button>
         ))}
       </div>
 
-      {isProdTab ? (
+      {tab === "produtos" ? (
         produtos.length === 0 ? (
           <Empty
             icon={<Package className="size-12 mx-auto text-muted-foreground" />}
@@ -258,48 +259,63 @@ function ProdutosPage() {
             ))}
           </ul>
         )
-      ) : funcionarios.length === 0 ? (
-        <Empty
-          icon={<Users className="size-12 mx-auto text-muted-foreground" />}
-          titulo="Nenhum funcionário ainda"
-          descricao="Cadastre o salário pra puxar automático no caixa."
-          onClick={() => setOpenFunc(true)}
-        />
+      ) : tab === "funcionarios" ? (
+        funcionarios.length === 0 ? (
+          <Empty
+            icon={<Users className="size-12 mx-auto text-muted-foreground" />}
+            titulo="Nenhum funcionário ainda"
+            descricao="Cadastre o salário pra puxar automático no caixa."
+            onClick={() => setOpenFunc(true)}
+          />
+        ) : (
+          <ul className="space-y-3">
+            {funcionarios.map((f) => {
+              const viv = viveiros.find((v) => v.id === f.viveiro_id);
+              return (
+                <li
+                  key={f.id}
+                  className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <Users className="size-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{f.nome}</p>
+                      <p className="text-sm text-muted-foreground">
+                        <span className="text-primary font-semibold">
+                          {formatBRL(Number(f.salario))}/mês
+                        </span>
+                        {" · "}
+                        {viv ? viv.nome : "rateado entre todos"}
+                      </p>
+                    </div>
+                  </div>
+                  <RowActions
+                    onEdit={() => setEditandoFunc(f)}
+                    onDel={() => {
+                      if (confirm(`Remover "${f.nome}"?`)) delFuncMut.mutate(f.id);
+                    }}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )
       ) : (
-        <ul className="space-y-3">
-          {funcionarios.map((f) => {
-            const viv = viveiros.find((v) => v.id === f.viveiro_id);
-            return (
-              <li
-                key={f.id}
-                className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Users className="size-6" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{f.nome}</p>
-                    <p className="text-sm text-muted-foreground">
-                      <span className="text-primary font-semibold">
-                        {formatBRL(Number(f.salario))}/mês
-                      </span>
-                      {" · "}
-                      {viv ? viv.nome : "rateado entre todos"}
-                    </p>
-                  </div>
-                </div>
-                <RowActions
-                  onEdit={() => setEditandoFunc(f)}
-                  onDel={() => {
-                    if (confirm(`Remover "${f.nome}"?`)) delFuncMut.mutate(f.id);
-                  }}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <EstoqueView
+          produtos={produtos}
+          entradas={entradas}
+          saldoPorProduto={saldoPorProduto}
+          onNovaEntrada={() => setOpenEntrada(true)}
+          onEditEntrada={(e) => setEditandoEntrada(e)}
+          onDelEntrada={(e) => {
+            if (confirm(`Remover entrada de ${formatNumber(e.quantidade)} ${e.unidade}?`))
+              delEntradaMut.mutate(e.id);
+          }}
+        />
       )}
+
 
       {(openProd || editandoProd) && (
         <ProdutoModal
