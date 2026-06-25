@@ -1276,9 +1276,15 @@ function DespesaModal({
   const [rateio, setRateio] = useState<"todos" | "individual">(
     despesa?.rateio === "individual" ? "individual" : "todos",
   );
-  const [viveiroId, setViveiroId] = useState(despesa?.viveiro_id ?? "");
+  const [viveiroIds, setViveiroIds] = useState<string[]>(
+    despesa?.viveiro_id ? [despesa.viveiro_id] : [],
+  );
   const [observacao, setObservacao] = useState(despesa?.observacao ?? "");
   const [saving, setSaving] = useState(false);
+
+  function toggleViveiro(id: string) {
+    setViveiroIds((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1286,8 +1292,8 @@ function DespesaModal({
       toast.error("Preencha descrição e valor.");
       return;
     }
-    if (rateio === "individual" && !viveiroId) {
-      toast.error("Selecione o viveiro.");
+    if (rateio === "individual" && viveiroIds.length === 0) {
+      toast.error("Selecione pelo menos um viveiro.");
       return;
     }
     setSaving(true);
@@ -1298,19 +1304,38 @@ function DespesaModal({
       setSaving(false);
       return;
     }
-    const payload = {
+    const base = {
       user_id: userId,
       descricao: descricao.trim(),
       categoria: categoria.trim() || null,
       valor: Number(valor),
       data_despesa: data,
-      rateio,
-      viveiro_id: rateio === "individual" ? viveiroId : null,
       observacao: observacao.trim() || null,
     };
-    const { error } = despesa
-      ? await supabase.from("despesas_gerais").update(payload).eq("id", despesa.id)
-      : await supabase.from("despesas_gerais").insert(payload);
+
+    let error: { message: string } | null = null;
+    if (despesa) {
+      const payload = {
+        ...base,
+        rateio,
+        viveiro_id: rateio === "individual" ? (viveiroIds[0] ?? null) : null,
+      };
+      const res = await supabase.from("despesas_gerais").update(payload).eq("id", despesa.id);
+      error = res.error;
+    } else if (rateio === "todos") {
+      const res = await supabase
+        .from("despesas_gerais")
+        .insert({ ...base, rateio: "todos", viveiro_id: null });
+      error = res.error;
+    } else {
+      const rows = viveiroIds.map((vid) => ({
+        ...base,
+        rateio: "individual",
+        viveiro_id: vid,
+      }));
+      const res = await supabase.from("despesas_gerais").insert(rows);
+      error = res.error;
+    }
     setSaving(false);
     if (error) {
       toast.error(error.message);
