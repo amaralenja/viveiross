@@ -98,8 +98,10 @@ function BiometriasPage() {
     const recentes = lancamentos.filter(
       (l) => l.viveiro_id === viveiroId && new Date(`${l.data_lancamento}T00:00:00`) >= seteDias,
     );
+    if (recentes.length === 0) return 0;
     const total = recentes.reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
-    return total / 7;
+    const diasComLanc = new Set(recentes.map((l) => l.data_lancamento)).size;
+    return total / Math.max(1, diasComLanc);
   }, [lancamentos, viveiroId]);
 
   const ultimaBiometria = useMemo(() => {
