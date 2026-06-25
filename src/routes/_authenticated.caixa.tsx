@@ -437,20 +437,31 @@ function CaixaPage() {
                       </p>
                       <p className="font-bold text-base truncate">{v.nome || "—"}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const doc = new jsPDF();
-                        buildViveiroPDF(doc, v, 20);
-                        openPdf(doc, `caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
-                        toast.success("PDF gerado");
-                      }}
-                      className="shrink-0 size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
-                      aria-label="Baixar PDF"
-                      title="Baixar PDF deste viveiro"
-                    >
-                      <Download className="size-4" />
-                    </button>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setDetailView(v)}
+                        className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
+                        aria-label="Ver detalhes"
+                        title="Ver relatório completo"
+                      >
+                        <Maximize2 className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const doc = new jsPDF();
+                          buildViveiroPDF(doc, v, 20);
+                          openPdf(doc, `caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
+                          toast.success("PDF gerado");
+                        }}
+                        className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
+                        aria-label="Baixar PDF"
+                        title="Baixar PDF deste viveiro"
+                      >
+                        <Download className="size-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div>
