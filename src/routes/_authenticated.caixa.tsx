@@ -366,7 +366,25 @@ function CaixaPage() {
         }}
         className="space-y-4 rounded-2xl bg-card border p-5"
       >
-        <h2 className="font-bold">Nova despesa</h2>
+        <h2 className="font-bold">Novo lançamento</h2>
+
+        <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
+          <button
+            type="button"
+            onClick={() => setTipo("despesa")}
+            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "despesa" ? "bg-destructive text-destructive-foreground shadow" : "text-muted-foreground"}`}
+          >
+            <TrendingDown className="size-4" /> Despesa
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipo("receita")}
+            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow" : "text-muted-foreground"}`}
+          >
+            <TrendingUp className="size-4" /> Receita
+          </button>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Viveiro">
             <select
