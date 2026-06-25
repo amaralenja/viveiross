@@ -164,22 +164,30 @@ function CaixaPage() {
   // Relatório: total por viveiro com rateio das despesas gerais
   const relatorio = useMemo(() => {
     const totalGeral = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const despesasGerais = lancamentos
-      .filter((l) => !l.viveiro_id)
-      .reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const rateados = lancamentos.filter((l) => !l.viveiro_id);
+    const despesasGerais = rateados.reduce((s, l) => s + Number(l.valor ?? 0), 0);
     const nAtivos = viveiros.length || 1;
     const rateio = despesasGerais / nAtivos;
 
     const porViveiro = viveiros.map((v) => {
       const diretos = lancamentos.filter((l) => l.viveiro_id === v.id);
       const direto = diretos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+      // Histórico combinado: diretos + rateados (com valor dividido)
+      const historico = [
+        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: Number(l.valor) })),
+        ...rateados.map((l) => ({
+          l,
+          rateado: true,
+          valorMostrado: Number(l.valor) / nAtivos,
+        })),
+      ].sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
       return {
         id: v.id,
         nome: v.nome,
         direto,
         rateio,
         total: direto + rateio,
-        ultimos: diretos.slice(0, 3),
+        historico,
       };
     });
 
