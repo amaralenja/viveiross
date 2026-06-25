@@ -164,37 +164,47 @@ function CaixaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Relatório: total por viveiro com rateio das despesas gerais
+  // Relatório: total por viveiro com rateio dos gerais (despesas E receitas)
   const relatorio = useMemo(() => {
-    const totalGeral = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const sign = (l: Lanc) => (l.tipo === "receita" ? 1 : -1);
+    const val = (l: Lanc) => Number(l.valor ?? 0);
+
+    const totalDespesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
+    const totalReceitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
+    const saldoGeral = totalReceitas - totalDespesas;
+
     const rateados = lancamentos.filter((l) => !l.viveiro_id);
-    const despesasGerais = rateados.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const despesasGerais = rateados.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
+    const receitasGerais = rateados.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
     const nAtivos = viveiros.length || 1;
-    const rateio = despesasGerais / nAtivos;
+    const rateioDesp = despesasGerais / nAtivos;
+    const rateioRec = receitasGerais / nAtivos;
 
     const porViveiro = viveiros.map((v) => {
       const diretos = lancamentos.filter((l) => l.viveiro_id === v.id);
-      const direto = diretos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
-      // Histórico combinado: diretos + rateados (com valor dividido)
+      const despDireto = diretos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
+      const recDireto = diretos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
       const historico = [
-        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: Number(l.valor) })),
+        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: val(l) * sign(l) })),
         ...rateados.map((l) => ({
           l,
           rateado: true,
-          valorMostrado: Number(l.valor) / nAtivos,
+          valorMostrado: (val(l) / nAtivos) * sign(l),
         })),
       ].sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
+      const despesaTotal = despDireto + rateioDesp;
+      const receitaTotal = recDireto + rateioRec;
       return {
         id: v.id,
         nome: v.nome,
-        direto,
-        rateio,
-        total: direto + rateio,
+        despesaTotal,
+        receitaTotal,
+        saldo: receitaTotal - despesaTotal,
         historico,
       };
     });
 
-    return { totalGeral, despesasGerais, porViveiro, nAtivos };
+    return { totalDespesas, totalReceitas, saldoGeral, despesasGerais, receitasGerais, porViveiro, nAtivos };
   }, [lancamentos, viveiros]);
 
   return (
