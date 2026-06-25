@@ -910,18 +910,18 @@ function EditLancModal({
 }
 
 function ResumoCard({
-  Icon,
+  icon,
   label,
   value,
 }: {
-  Icon: typeof FileText;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
   return (
     <div className="min-w-0 rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="size-4" /> {label}
+        {icon} {label}
       </div>
       <p className="mt-2 text-xl font-bold break-words">{value}</p>
     </div>
