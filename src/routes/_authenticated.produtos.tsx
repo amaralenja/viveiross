@@ -370,8 +370,8 @@ function ProdutosPage() {
           despesas={despesas}
           viveiros={viveiros}
           onNova={() => setOpenDesp(true)}
-          onEdit={(d) => setEditandoDesp(d)}
-          onDel={(d) => {
+          onEdit={(d: Despesa) => setEditandoDesp(d)}
+          onDel={(d: Despesa) => {
             if (confirm(`Remover "${d.descricao}"?`)) delDespMut.mutate(d.id);
           }}
         />
