@@ -164,22 +164,30 @@ function CaixaPage() {
   // Relatório: total por viveiro com rateio das despesas gerais
   const relatorio = useMemo(() => {
     const totalGeral = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const despesasGerais = lancamentos
-      .filter((l) => !l.viveiro_id)
-      .reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const rateados = lancamentos.filter((l) => !l.viveiro_id);
+    const despesasGerais = rateados.reduce((s, l) => s + Number(l.valor ?? 0), 0);
     const nAtivos = viveiros.length || 1;
     const rateio = despesasGerais / nAtivos;
 
     const porViveiro = viveiros.map((v) => {
       const diretos = lancamentos.filter((l) => l.viveiro_id === v.id);
       const direto = diretos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+      // Histórico combinado: diretos + rateados (com valor dividido)
+      const historico = [
+        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: Number(l.valor) })),
+        ...rateados.map((l) => ({
+          l,
+          rateado: true,
+          valorMostrado: Number(l.valor) / nAtivos,
+        })),
+      ].sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
       return {
         id: v.id,
         nome: v.nome,
         direto,
         rateio,
         total: direto + rateio,
-        ultimos: diretos.slice(0, 3),
+        historico,
       };
     });
 
@@ -268,28 +276,53 @@ function CaixaPage() {
 
                   <div className="border-t pt-2">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                      Últimas despesas
+                      Histórico
                     </p>
-                    {v.ultimos.length === 0 ? (
+                    {v.historico.length === 0 ? (
                       <p className="text-xs text-muted-foreground italic">
                         Nada lançado pra esse viveiro ainda.
                       </p>
                     ) : (
-                      <ul className="space-y-1">
-                        {v.ultimos.map((l) => (
+                      <ul className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                        {v.historico.map((h) => (
                           <li
-                            key={l.id}
-                            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 text-xs"
+                            key={`${v.id}-${h.l.id}`}
+                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0"
                           >
                             <span className="truncate">
                               <span className="text-muted-foreground">
-                                {fmtDate(l.data_lancamento)}
+                                {fmtDate(h.l.data_lancamento)}
                               </span>{" "}
-                              <span className="font-medium">{l.descricao}</span>
+                              <span className="font-medium">{h.l.descricao}</span>
+                              {h.rateado && (
+                                <span className="ml-1 text-[9px] uppercase tracking-wide text-primary/80">
+                                  · rateado
+                                </span>
+                              )}
                             </span>
                             <span className="font-semibold tabular-nums shrink-0">
-                              {fmtBRL(Number(l.valor))}
+                              {fmtBRL(h.valorMostrado)}
                             </span>
+                            <div className="flex gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setEditing(h.l)}
+                                className="size-6 rounded text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                                aria-label="Editar"
+                              >
+                                <Pencil className="size-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Apagar "${h.l.descricao}"?`)) delMut.mutate(h.l.id);
+                                }}
+                                className="size-6 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                                aria-label="Apagar"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -482,59 +515,13 @@ function CaixaPage() {
         </button>
       </form>
 
-      {/* Histórico */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Histórico</h2>
-        {isLoading ? (
-          <p className="text-muted-foreground">Carregando...</p>
-        ) : lancamentos.length === 0 ? (
-          <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
-            Sem despesas ainda.
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {lancamentos.map((l) => {
-              const v = viveiros.find((x) => x.id === l.viveiro_id);
-              return (
-                <li
-                  key={l.id}
-                  className="flex items-center justify-between p-4 rounded-xl bg-card border gap-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold truncate">{l.descricao}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {l.viveiro_id ? v?.nome ?? "—" : "🔄 Todos (rateado)"} ·{" "}
-                      {fmtDate(l.data_lancamento)}
-                      {l.categoria && l.categoria !== "geral" ? ` · ${l.categoria}` : ""}
-                    </p>
-                  </div>
-                  <p className="text-sm font-bold tabular-nums shrink-0">
-                    {fmtBRL(Number(l.valor))}
-                  </p>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      onClick={() => setEditing(l)}
-                      className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
-                      aria-label="Editar"
-                    >
-                      <Pencil className="size-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Apagar "${l.descricao}"?`)) delMut.mutate(l.id);
-                      }}
-                      className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                      aria-label="Apagar"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      {!isLoading && lancamentos.length === 0 && (
+        <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
+          Sem despesas ainda.
+        </div>
+      )}
+
+
 
       {editing && (
         <EditModal
