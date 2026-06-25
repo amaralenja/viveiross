@@ -465,11 +465,11 @@ function RelatoriosPage() {
 
 
       <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-5">
-        <ResumoCard Icon={FileText} label="Viveiros" value={String(totais.viveiros)} />
-        <ResumoCard Icon={Utensils} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
-        <ResumoCard Icon={Scale} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
-        <ResumoCard Icon={Scale} label="FCA geral" value={totais.fca != null ? formatNumber(totais.fca) : "—"} />
-        <ResumoCard Icon={DollarSign} label="Custo total" value={formatBRL(totais.custoTotal)} />
+        <ResumoCard icon={<FileText className="size-4" />} label="Viveiros" value={String(totais.viveiros)} />
+        <ResumoCard icon={<Utensils className="size-4" />} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
+        <ResumoCard icon={<Scale className="size-4" />} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
+        <ResumoCard icon={<Scale className="size-4" />} label="FCA geral" value={totais.fca != null ? formatNumber(totais.fca) : "—"} />
+        <ResumoCard icon={<DollarSign className="size-4" />} label="Custo total" value={formatBRL(totais.custoTotal)} />
       </div>
 
       {linhas.length === 0 ? (
