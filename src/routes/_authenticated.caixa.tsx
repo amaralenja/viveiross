@@ -78,6 +78,23 @@ function CaixaPage() {
     },
   });
 
+  const { data: funcionarios = [] } = useQuery({
+    queryKey: ["funcionarios", "caixa"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funcionarios")
+        .select("id, nome, salario, viveiro_id")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        nome: string;
+        salario: number;
+        viveiro_id: string | null;
+      }>;
+    },
+  });
+
   const { data: lancamentos = [], isLoading } = useQuery({
     queryKey: ["caixa", "lancamentos"],
     queryFn: async () => {
