@@ -402,7 +402,7 @@ function CaixaPage() {
               }
               y = buildViveiroPDF(doc, v, y) + 6;
             });
-            doc.save(`caixa-todos-${new Date().toISOString().slice(0, 10)}.pdf`);
+            openPdf(doc, `caixa-todos-${new Date().toISOString().slice(0, 10)}.pdf`);
             toast.success("PDF gerado");
           }}
           className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary/90"
