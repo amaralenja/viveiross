@@ -547,6 +547,8 @@ function RelatoriosPage() {
                 <Info label="Ração total" value={`${formatNumber(l.racaoKg)} kg`} />
                 <Info label="Custo ração" value={formatBRL(l.custoRacao)} />
                 <Info label="Custo outros" value={formatBRL(l.custoOutros)} />
+                <Info label="Despesas (rateadas)" value={formatBRL(l.custoDespRateio)} />
+                <Info label="Despesas (próprias)" value={formatBRL(l.custoDespIndiv)} />
                 <Info label="Custo total" value={formatBRL(l.custoTotal)} />
                 <Info label="R$/kg" value={l.custoPorKg ? formatBRL(l.custoPorKg) : "—"} />
                 <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
