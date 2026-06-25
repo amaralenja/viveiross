@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS caixa_lancamentos_despesa_id_key ON public.caixa_lancamentos (despesa_id) WHERE despesa_id IS NOT NULL;
