@@ -98,8 +98,10 @@ function BiometriasPage() {
     const recentes = lancamentos.filter(
       (l) => l.viveiro_id === viveiroId && new Date(`${l.data_lancamento}T00:00:00`) >= seteDias,
     );
+    if (recentes.length === 0) return 0;
     const total = recentes.reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
-    return total / 7;
+    const diasComLanc = new Set(recentes.map((l) => l.data_lancamento)).size;
+    return total / Math.max(1, diasComLanc);
   }, [lancamentos, viveiroId]);
 
   const ultimaBiometria = useMemo(() => {
@@ -549,14 +551,23 @@ function HistoricoBiometrias({
   }, [filtradas]);
 
   const racaoDiariaPorViveiro = useMemo(() => {
-    const map = new Map<string, number>();
+    const totais = new Map<string, number>();
+    const diasPorViveiro = new Map<string, Set<string>>();
     const seteDias = new Date();
     seteDias.setDate(seteDias.getDate() - 7);
     for (const l of lancamentos) {
       if (new Date(`${l.data_lancamento}T00:00:00`) < seteDias) continue;
-      map.set(l.viveiro_id, (map.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0));
+      totais.set(l.viveiro_id, (totais.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0));
+      const set = diasPorViveiro.get(l.viveiro_id) ?? new Set<string>();
+      set.add(l.data_lancamento);
+      diasPorViveiro.set(l.viveiro_id, set);
     }
-    return map;
+    const media = new Map<string, number>();
+    for (const [vid, total] of totais) {
+      const dias = diasPorViveiro.get(vid)?.size ?? 1;
+      media.set(vid, total / Math.max(1, dias));
+    }
+    return media;
   }, [lancamentos]);
 
   const periodos: { key: PeriodoKey; label: string }[] = [
@@ -641,7 +652,7 @@ function HistoricoBiometrias({
               cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
             }
             const viveiroId = grupo.rows[0].viveiro_id;
-            const racaoDia = (racaoDiariaPorViveiro.get(viveiroId) ?? 0) / 7;
+            const racaoDia = racaoDiariaPorViveiro.get(viveiroId) ?? 0;
             const diasPov = grupo.data_povoamento
               ? Math.max(
                   0,
