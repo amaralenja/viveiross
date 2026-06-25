@@ -104,7 +104,24 @@ function RelatoriosPage() {
     },
   });
 
+  const { data: despesas = [] } = useQuery({
+    queryKey: ["despesas_gerais", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("despesas_gerais")
+        .select("id, viveiro_id, descricao, categoria, valor, data_despesa, rateio")
+        .order("data_despesa", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; viveiro_id: string | null; descricao: string; categoria: string | null; valor: number; data_despesa: string; rateio: string }>;
+    },
+  });
+
   const linhas = useMemo(() => {
+    const nViv = Math.max(1, viveiros.length);
+    const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
+    const despesasIndividuais = despesas.filter((d) => d.rateio !== "todos" && d.viveiro_id != null);
+    const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nViv;
+
     return viveiros.map((v) => {
       const lancs = lancamentos.filter((l) => l.viveiro_id === v.id);
       const lancsRacao = lancs.filter((l) => l.tipo === "racao");
@@ -112,7 +129,11 @@ function RelatoriosPage() {
 
       const racaoKg = lancsRacao.reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
       const custoRacao = lancsRacao.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
-      const custoOutros = lancsOutros.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
+      const custoOutrosLanc = lancsOutros.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
+      const despesasDoViveiro = despesasIndividuais.filter((d) => d.viveiro_id === v.id);
+      const custoDespIndiv = despesasDoViveiro.reduce((s, d) => s + Number(d.valor ?? 0), 0);
+      const custoDespRateio = custoRateioPorViveiro;
+      const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio;
       const custoTotal = custoRacao + custoOutros;
 
       const bios = biometrias.filter((b) => b.viveiro_id === v.id);
@@ -144,6 +165,11 @@ function RelatoriosPage() {
         .map(([data, r]) => ({ data, kg: r.kg, custo: r.custo }))
         .sort((a, b) => (a.data < b.data ? 1 : -1));
 
+      const despesasLista = [
+        ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
+        ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
+      ];
+
       return {
         id: v.id,
         viveiro: textValue(v.nome),
@@ -156,6 +182,8 @@ function RelatoriosPage() {
         racaoKg,
         custoRacao,
         custoOutros,
+        custoDespRateio,
+        custoDespIndiv,
         custoTotal,
         custoPorKg,
         pesoMedio,
@@ -168,9 +196,10 @@ function RelatoriosPage() {
         lancs,
         bios,
         racaoDiaria,
+        despesasLista,
       };
     });
-  }, [biometrias, lancamentos, viveiros]);
+  }, [biometrias, lancamentos, viveiros, despesas]);
 
   const totais = useMemo(() => {
     const base = linhas.reduce(
@@ -465,11 +494,11 @@ function RelatoriosPage() {
 
 
       <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-5">
-        <ResumoCard Icon={FileText} label="Viveiros" value={String(totais.viveiros)} />
-        <ResumoCard Icon={Utensils} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
-        <ResumoCard Icon={Scale} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
-        <ResumoCard Icon={Scale} label="FCA geral" value={totais.fca != null ? formatNumber(totais.fca) : "—"} />
-        <ResumoCard Icon={DollarSign} label="Custo total" value={formatBRL(totais.custoTotal)} />
+        <ResumoCard icon={<FileText className="size-4" />} label="Viveiros" value={String(totais.viveiros)} />
+        <ResumoCard icon={<Utensils className="size-4" />} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
+        <ResumoCard icon={<Scale className="size-4" />} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
+        <ResumoCard icon={<Scale className="size-4" />} label="FCA geral" value={totais.fca != null ? formatNumber(totais.fca) : "—"} />
+        <ResumoCard icon={<DollarSign className="size-4" />} label="Custo total" value={formatBRL(totais.custoTotal)} />
       </div>
 
       {linhas.length === 0 ? (
@@ -518,6 +547,8 @@ function RelatoriosPage() {
                 <Info label="Ração total" value={`${formatNumber(l.racaoKg)} kg`} />
                 <Info label="Custo ração" value={formatBRL(l.custoRacao)} />
                 <Info label="Custo outros" value={formatBRL(l.custoOutros)} />
+                <Info label="Despesas (rateadas)" value={formatBRL(l.custoDespRateio)} />
+                <Info label="Despesas (próprias)" value={formatBRL(l.custoDespIndiv)} />
                 <Info label="Custo total" value={formatBRL(l.custoTotal)} />
                 <Info label="R$/kg" value={l.custoPorKg ? formatBRL(l.custoPorKg) : "—"} />
                 <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
@@ -627,6 +658,36 @@ function RelatoriosPage() {
                                 </button>
                               </div>
                             </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {l.despesasLista.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Despesas gerais</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-left">Descrição</th>
+                          <th className="p-2 text-left">Rateio</th>
+                          <th className="p-2 text-right">Valor total</th>
+                          <th className="p-2 text-right">Atribuído</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.despesasLista.map((d) => (
+                          <tr key={d.id} className="border-t">
+                            <td className="p-2">{formatDate(d.data_despesa)}</td>
+                            <td className="p-2">{textValue(d.descricao)}</td>
+                            <td className="p-2 capitalize">{d.tipoRateio === "rateado" ? "Rateado" : "Individual"}</td>
+                            <td className="p-2 text-right">{formatBRL(Number(d.valor ?? 0))}</td>
+                            <td className="p-2 text-right">{formatBRL(d.share)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -910,18 +971,18 @@ function EditLancModal({
 }
 
 function ResumoCard({
-  Icon,
+  icon,
   label,
   value,
 }: {
-  Icon: typeof FileText;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
   return (
     <div className="min-w-0 rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="size-4" /> {label}
+        {icon} {label}
       </div>
       <p className="mt-2 text-xl font-bold break-words">{value}</p>
     </div>

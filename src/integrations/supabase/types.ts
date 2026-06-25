@@ -154,6 +154,56 @@ export type Database = {
         }
         Relationships: []
       }
+      despesas_gerais: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          data_despesa: string
+          descricao: string
+          id: string
+          observacao: string | null
+          rateio: string
+          updated_at: string
+          user_id: string
+          valor: number
+          viveiro_id: string | null
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          data_despesa?: string
+          descricao: string
+          id?: string
+          observacao?: string | null
+          rateio?: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+          viveiro_id?: string | null
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          data_despesa?: string
+          descricao?: string
+          id?: string
+          observacao?: string | null
+          rateio?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+          viveiro_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "despesas_gerais_viveiro_id_fkey"
+            columns: ["viveiro_id"]
+            isOneToOne: false
+            referencedRelation: "viveiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estoque_entradas: {
         Row: {
           created_at: string
