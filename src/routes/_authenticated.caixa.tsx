@@ -154,15 +154,15 @@ function CaixaPage() {
     const rateio = despesasGerais / nAtivos;
 
     const porViveiro = viveiros.map((v) => {
-      const direto = lancamentos
-        .filter((l) => l.viveiro_id === v.id)
-        .reduce((s, l) => s + Number(l.valor ?? 0), 0);
+      const diretos = lancamentos.filter((l) => l.viveiro_id === v.id);
+      const direto = diretos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
       return {
         id: v.id,
         nome: v.nome,
         direto,
         rateio,
         total: direto + rateio,
+        ultimos: diretos.slice(0, 3),
       };
     });
 
@@ -181,8 +181,8 @@ function CaixaPage() {
         </div>
       </div>
 
-      {/* Resumo */}
-      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-4">
+      {/* Resumo geral */}
+      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -206,33 +206,84 @@ function CaixaPage() {
             </div>
           )}
         </div>
-
-        {relatorio.porViveiro.length > 0 ? (
-          <ul className="space-y-2">
-            {relatorio.porViveiro.map((v) => (
-              <li
-                key={v.id}
-                className="rounded-lg bg-background/70 px-3 py-2.5 space-y-1"
-              >
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
-                  <span className="font-semibold text-sm truncate">{v.nome}</span>
-                  <span className="text-base font-bold tabular-nums shrink-0">
-                    {fmtBRL(v.total)}
-                  </span>
-                </div>
-                {v.rateio > 0 && (
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
-                    <span>direto {fmtBRL(v.direto)}</span>
-                    <span>+ rateio {fmtBRL(v.rateio)}</span>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-xs text-muted-foreground">Cadastre viveiros para ver o rateio.</p>
-        )}
       </section>
+
+      {/* Carrossel de caixas por viveiro */}
+      {relatorio.porViveiro.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Caixa por viveiro
+            </h2>
+            <span className="text-[10px] text-muted-foreground">deslize →</span>
+          </div>
+          <div className="-mx-4 px-4 overflow-x-auto snap-x snap-mandatory scrollbar-none">
+            <ul className="flex gap-3 pb-2">
+              {relatorio.porViveiro.map((v) => (
+                <li
+                  key={v.id}
+                  className="snap-start shrink-0 w-[78%] sm:w-[300px] rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Viveiro
+                      </p>
+                      <p className="font-bold text-base truncate">{v.nome || "—"}</p>
+                    </div>
+                    <span className="shrink-0 size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                      <Wallet className="size-4" />
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Total
+                    </p>
+                    <p className="text-2xl font-black text-primary tabular-nums">
+                      {fmtBRL(v.total)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground tabular-nums">
+                      <span>direto {fmtBRL(v.direto)}</span>
+                      {v.rateio > 0 && <span>+ rateio {fmtBRL(v.rateio)}</span>}
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                      Últimas despesas
+                    </p>
+                    {v.ultimos.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        Nada lançado pra esse viveiro ainda.
+                      </p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {v.ultimos.map((l) => (
+                          <li
+                            key={l.id}
+                            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 text-xs"
+                          >
+                            <span className="truncate">
+                              <span className="text-muted-foreground">
+                                {fmtDate(l.data_lancamento)}
+                              </span>{" "}
+                              <span className="font-medium">{l.descricao}</span>
+                            </span>
+                            <span className="font-semibold tabular-nums shrink-0">
+                              {fmtBRL(Number(l.valor))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* Form */}
       <form
