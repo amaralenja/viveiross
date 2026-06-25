@@ -49,7 +49,7 @@ function formatBRL(v: number | null | undefined) {
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
