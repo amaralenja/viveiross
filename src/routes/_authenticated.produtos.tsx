@@ -395,6 +395,7 @@ function ProdutoModal({
             <option value="probiotico">Probiótico</option>
             <option value="medicamento">Medicamento</option>
             <option value="fertilizante">Fertilizante</option>
+            <option value="servico">Serviço (eletricista, frete, etc.)</option>
             <option value="outro">Outro</option>
           </select>
         </Field>
