@@ -652,7 +652,7 @@ function HistoricoBiometrias({
               cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
             }
             const viveiroId = grupo.rows[0].viveiro_id;
-            const racaoDia = (racaoDiariaPorViveiro.get(viveiroId) ?? 0) / 7;
+            const racaoDia = racaoDiariaPorViveiro.get(viveiroId) ?? 0;
             const diasPov = grupo.data_povoamento
               ? Math.max(
                   0,
