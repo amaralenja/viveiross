@@ -302,7 +302,7 @@ function ProdutosPage() {
             })}
           </ul>
         )
-      ) : (
+      ) : tab === "estoque" ? (
         <EstoqueView
           produtos={produtos}
           entradas={entradas}
@@ -311,6 +311,17 @@ function ProdutosPage() {
           onEditEntrada={(e) => setEditandoEntrada(e)}
           onDelEntrada={(e) => {
             if (confirm(`Remover entrada de ${formatNumber(e.quantidade)} ${e.unidade}?`))
+              delEntradaMut.mutate(e.id);
+          }}
+        />
+      ) : (
+        <ComprasView
+          produtos={produtos}
+          entradas={entradas}
+          onNovaCompra={() => setOpenEntrada(true)}
+          onEditCompra={(e) => setEditandoEntrada(e)}
+          onDelCompra={(e) => {
+            if (confirm(`Remover compra de ${formatNumber(e.quantidade)} ${e.unidade}?`))
               delEntradaMut.mutate(e.id);
           }}
         />
