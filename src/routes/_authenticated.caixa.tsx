@@ -759,6 +759,173 @@ function CaixaPage() {
           }}
         />
       )}
+
+      {detailView && (
+        <DetailModal
+          v={detailView}
+          onClose={() => setDetailView(null)}
+          onEdit={(l) => {
+            setDetailView(null);
+            setEditing(l);
+          }}
+          onDelete={(id) => {
+            if (confirm("Apagar este lançamento?")) delMut.mutate(id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DetailModal({
+  v,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  v: ViveiroRel;
+  onClose: () => void;
+  onEdit: (l: Lanc) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-2xl bg-card sm:rounded-2xl border shadow-xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b sticky top-0 bg-card z-10">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-bold">
+              Caixa do viveiro
+            </p>
+            <h3 className="font-bold text-xl truncate">{v.nome}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="size-10 rounded-xl hover:bg-muted flex items-center justify-center shrink-0"
+            aria-label="Fechar"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-4 sm:p-5 space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-emerald-500/10 p-3">
+              <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 opacity-80">
+                Receitas
+              </p>
+              <p className="font-black text-base sm:text-lg tabular-nums text-emerald-700 dark:text-emerald-400 break-words">
+                {fmtBRL(v.receitaTotal)}
+              </p>
+            </div>
+            <div className="rounded-xl bg-destructive/10 p-3">
+              <p className="text-[10px] uppercase font-bold text-destructive opacity-80">
+                Despesas
+              </p>
+              <p className="font-black text-base sm:text-lg tabular-nums text-destructive break-words">
+                {fmtBRL(v.despesaTotal)}
+              </p>
+            </div>
+            <div className={`rounded-xl p-3 ${v.saldo >= 0 ? "bg-emerald-500/10" : "bg-destructive/10"}`}>
+              <p className="text-[10px] uppercase font-bold opacity-80">Saldo</p>
+              <p
+                className={`font-black text-base sm:text-lg tabular-nums break-words ${v.saldo >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}
+              >
+                {fmtBRL(v.saldo)}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-sm uppercase tracking-wide text-muted-foreground mb-2">
+              Histórico completo ({v.historico.length})
+            </h4>
+            {v.historico.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic py-6 text-center">
+                Nada lançado pra esse viveiro ainda.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {v.historico.map((h) => (
+                  <li
+                    key={`det-${v.id}-${h.l.id}`}
+                    className="rounded-xl border bg-background p-3 sm:p-4 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            {fmtDate(h.l.data_lancamento)}
+                          </span>
+                          <span
+                            className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${h.l.tipo === "receita" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-destructive/15 text-destructive"}`}
+                          >
+                            {h.l.tipo}
+                          </span>
+                          {h.rateado && (
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                              rateado
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-bold text-base mt-1 break-words">{h.l.descricao}</p>
+                        {h.l.categoria && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Categoria: <span className="font-medium">{h.l.categoria}</span>
+                          </p>
+                        )}
+                        {h.l.quantidade && h.l.quantidade > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Qtd: <span className="font-medium">{fmtQtd(h.l.quantidade, h.l.unidade)}</span>
+                          </p>
+                        )}
+                        {h.l.observacao && (
+                          <p className="text-xs text-muted-foreground mt-1 italic break-words">
+                            "{h.l.observacao}"
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p
+                          className={`font-black text-lg tabular-nums ${h.l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
+                        >
+                          {h.l.tipo === "receita" ? "+" : "−"} {fmtBRL(Math.abs(h.valorMostrado))}
+                        </p>
+                        {h.rateado && (
+                          <p className="text-[10px] text-muted-foreground">
+                            total: {fmtBRL(Number(h.l.valor ?? 0))}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1 border-t">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(h.l)}
+                        className="flex-1 h-9 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 flex items-center justify-center gap-1.5"
+                      >
+                        <Pencil className="size-3.5" /> Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(h.l.id)}
+                        className="flex-1 h-9 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive hover:bg-destructive/20 flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="size-3.5" /> Apagar
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
