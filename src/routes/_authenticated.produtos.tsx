@@ -348,9 +348,336 @@ function ProdutosPage() {
           }}
         />
       )}
+
+      {(openEntrada || editandoEntrada) && (
+        <EntradaEstoqueModal
+          entrada={editandoEntrada}
+          produtos={produtos}
+          onClose={() => {
+            setOpenEntrada(false);
+            setEditandoEntrada(null);
+          }}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+            setOpenEntrada(false);
+            setEditandoEntrada(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+
+function formatNumber(v: number) {
+  return Number(v || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
+function EstoqueView({
+  produtos,
+  entradas,
+  saldoPorProduto,
+  onNovaEntrada,
+  onEditEntrada,
+  onDelEntrada,
+}: {
+  produtos: Produto[];
+  entradas: EstoqueEntrada[];
+  saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
+  onNovaEntrada: () => void;
+  onEditEntrada: (e: EstoqueEntrada) => void;
+  onDelEntrada: (e: EstoqueEntrada) => void;
+}) {
+  if (produtos.length === 0) {
+    return (
+      <Empty
+        icon={<Boxes className="size-12 mx-auto text-muted-foreground" />}
+        titulo="Cadastre produtos antes"
+        descricao="Você precisa ter produtos cadastrados pra controlar o estoque."
+        onClick={onNovaEntrada}
+      />
+    );
+  }
+
+  const produtosOrdenados = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
+  const totalEstoque = produtosOrdenados.reduce((sum, p) => {
+    const s = saldoPorProduto.get(p.id);
+    return sum + Math.max(0, (s?.entradas ?? 0) - (s?.saidas ?? 0));
+  }, 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Saldo total</p>
+          <p className="text-2xl font-bold">{formatNumber(totalEstoque)} kg</p>
+        </div>
+        <button
+          onClick={onNovaEntrada}
+          className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2"
+        >
+          <ArrowDownToLine className="size-4" /> Entrada
+        </button>
+      </div>
+
+      <div>
+        <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-muted-foreground">
+          Saldo por produto
+        </h3>
+        <ul className="space-y-2">
+          {produtosOrdenados.map((p) => {
+            const s = saldoPorProduto.get(p.id) ?? { entradas: 0, saidas: 0 };
+            const saldo = s.entradas - s.saidas;
+            const baixo = saldo <= 0;
+            return (
+              <li
+                key={p.id}
+                className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{p.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Entradas {formatNumber(s.entradas)} · Saídas {formatNumber(s.saidas)} {p.unidade}
+                  </p>
+                </div>
+                <div
+                  className={`text-right shrink-0 ${baixo ? "text-destructive" : "text-foreground"}`}
+                >
+                  <p className="text-lg font-bold flex items-center gap-1 justify-end">
+                    {baixo && <AlertTriangle className="size-4" />}
+                    {formatNumber(saldo)} {p.unidade}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div>
+        <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-muted-foreground">
+          Últimas entradas
+        </h3>
+        {entradas.length === 0 ? (
+          <p className="rounded-xl border border-dashed p-6 text-center text-muted-foreground text-sm">
+            Nenhuma entrada registrada.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {entradas.slice(0, 20).map((e) => {
+              const p = produtos.find((x) => x.id === e.produto_id);
+              return (
+                <li
+                  key={e.id}
+                  className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{p?.nome ?? "Produto"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                      {" · "}
+                      {formatNumber(e.quantidade)} {e.unidade}
+                      {e.custo_total != null && ` · ${formatBRL(Number(e.custo_total))}`}
+                      {e.fornecedor && ` · ${e.fornecedor}`}
+                    </p>
+                  </div>
+                  <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EntradaEstoqueModal({
+  entrada,
+  produtos,
+  onClose,
+  onSaved,
+}: {
+  entrada: EstoqueEntrada | null;
+  produtos: Produto[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [produtoId, setProdutoId] = useState(entrada?.produto_id ?? produtos[0]?.id ?? "");
+  const [quantidade, setQuantidade] = useState(
+    entrada?.quantidade != null ? String(entrada.quantidade) : "",
+  );
+  const produtoSel = produtos.find((p) => p.id === produtoId);
+  const [unidade, setUnidade] = useState(entrada?.unidade ?? produtoSel?.unidade ?? "kg");
+  const [preco, setPreco] = useState(
+    entrada?.preco_unidade != null
+      ? String(entrada.preco_unidade)
+      : produtoSel?.preco_unidade != null
+        ? String(produtoSel.preco_unidade)
+        : "",
+  );
+  const [fornecedor, setFornecedor] = useState(entrada?.fornecedor ?? "");
+  const [data, setData] = useState(entrada?.data_entrada ?? new Date().toISOString().slice(0, 10));
+  const [observacao, setObservacao] = useState(entrada?.observacao ?? "");
+  const [loading, setLoading] = useState(false);
+
+  const qtdNum = Number(String(quantidade).replace(",", ".")) || 0;
+  const precoNum = preco.trim() === "" ? null : Number(String(preco).replace(",", "."));
+  const custoTotal = precoNum != null && qtdNum > 0 ? precoNum * qtdNum : null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData.user?.id;
+      if (!user_id) throw new Error("Sem sessão");
+      if (!produtoId) throw new Error("Selecione um produto");
+      if (!(qtdNum > 0)) throw new Error("Quantidade inválida");
+
+      const payload = {
+        produto_id: produtoId,
+        quantidade: qtdNum,
+        unidade: unidade.trim() || "kg",
+        preco_unidade: precoNum,
+        custo_total: custoTotal,
+        fornecedor: fornecedor.trim() || null,
+        data_entrada: data,
+        observacao: observacao.trim() || null,
+      };
+
+      if (entrada) {
+        const { error } = await supabase
+          .from("estoque_entradas")
+          .update(payload)
+          .eq("id", entrada.id);
+        if (error) throw error;
+        toast.success("Entrada atualizada!");
+      } else {
+        const { error } = await supabase
+          .from("estoque_entradas")
+          .insert({ ...payload, user_id });
+        if (error) throw error;
+        toast.success("Entrada registrada!");
+      }
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ModalShell title={entrada ? "Editar entrada" : "Entrada de mercadoria"} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Produto">
+          <select
+            required
+            value={produtoId}
+            onChange={(e) => {
+              setProdutoId(e.target.value);
+              const p = produtos.find((x) => x.id === e.target.value);
+              if (p) {
+                setUnidade(p.unidade);
+                if (p.preco_unidade != null && !preco) setPreco(String(p.preco_unidade));
+              }
+            }}
+            className="app-input"
+          >
+            <option value="">Selecione...</option>
+            {produtos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quantidade">
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.001"
+              inputMode="decimal"
+              value={quantidade}
+              onChange={(e) => setQuantidade(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+          <Field label="Unidade">
+            <input
+              required
+              value={unidade}
+              onChange={(e) => setUnidade(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={`Preço/${unidade || "un"} (R$)`}>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              value={preco}
+              onChange={(e) => setPreco(e.target.value)}
+              placeholder="0,00"
+              className="app-input"
+            />
+          </Field>
+          <Field label="Custo total (R$)">
+            <input
+              readOnly
+              value={custoTotal != null ? formatBRL(custoTotal) ?? "" : ""}
+              placeholder="auto"
+              className="app-input bg-muted"
+            />
+          </Field>
+        </div>
+
+        <Field label="Fornecedor (opcional)">
+          <input
+            value={fornecedor}
+            onChange={(e) => setFornecedor(e.target.value)}
+            placeholder="Ex: Nutricamp"
+            className="app-input"
+          />
+        </Field>
+
+        <Field label="Data">
+          <input
+            type="date"
+            required
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="app-input"
+          />
+        </Field>
+
+        <Field label="Observação (opcional)">
+          <textarea
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            className="app-input min-h-[60px]"
+          />
+        </Field>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? "Salvando..." : "Salvar"}
+        </button>
+      </form>
+    </ModalShell>
+  );
+}
+
 
 function Empty({
   icon,
