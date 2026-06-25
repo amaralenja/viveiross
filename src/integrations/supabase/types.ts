@@ -70,6 +70,7 @@ export type Database = {
           created_at: string
           data_lancamento: string
           descricao: string
+          despesa_id: string | null
           id: string
           lancamento_id: string | null
           observacao: string | null
@@ -86,6 +87,7 @@ export type Database = {
           created_at?: string
           data_lancamento?: string
           descricao: string
+          despesa_id?: string | null
           id?: string
           lancamento_id?: string | null
           observacao?: string | null
@@ -102,6 +104,7 @@ export type Database = {
           created_at?: string
           data_lancamento?: string
           descricao?: string
+          despesa_id?: string | null
           id?: string
           lancamento_id?: string | null
           observacao?: string | null
@@ -114,6 +117,13 @@ export type Database = {
           viveiro_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "caixa_lancamentos_despesa_id_fkey"
+            columns: ["despesa_id"]
+            isOneToOne: false
+            referencedRelation: "despesas_gerais"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "caixa_lancamentos_lancamento_id_fkey"
             columns: ["lancamento_id"]

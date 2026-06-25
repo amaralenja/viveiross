@@ -1276,9 +1276,15 @@ function DespesaModal({
   const [rateio, setRateio] = useState<"todos" | "individual">(
     despesa?.rateio === "individual" ? "individual" : "todos",
   );
-  const [viveiroId, setViveiroId] = useState(despesa?.viveiro_id ?? "");
+  const [viveiroIds, setViveiroIds] = useState<string[]>(
+    despesa?.viveiro_id ? [despesa.viveiro_id] : [],
+  );
   const [observacao, setObservacao] = useState(despesa?.observacao ?? "");
   const [saving, setSaving] = useState(false);
+
+  function toggleViveiro(id: string) {
+    setViveiroIds((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1286,8 +1292,8 @@ function DespesaModal({
       toast.error("Preencha descrição e valor.");
       return;
     }
-    if (rateio === "individual" && !viveiroId) {
-      toast.error("Selecione o viveiro.");
+    if (rateio === "individual" && viveiroIds.length === 0) {
+      toast.error("Selecione pelo menos um viveiro.");
       return;
     }
     setSaving(true);
@@ -1298,19 +1304,38 @@ function DespesaModal({
       setSaving(false);
       return;
     }
-    const payload = {
+    const base = {
       user_id: userId,
       descricao: descricao.trim(),
       categoria: categoria.trim() || null,
       valor: Number(valor),
       data_despesa: data,
-      rateio,
-      viveiro_id: rateio === "individual" ? viveiroId : null,
       observacao: observacao.trim() || null,
     };
-    const { error } = despesa
-      ? await supabase.from("despesas_gerais").update(payload).eq("id", despesa.id)
-      : await supabase.from("despesas_gerais").insert(payload);
+
+    let error: { message: string } | null = null;
+    if (despesa) {
+      const payload = {
+        ...base,
+        rateio,
+        viveiro_id: rateio === "individual" ? (viveiroIds[0] ?? null) : null,
+      };
+      const res = await supabase.from("despesas_gerais").update(payload).eq("id", despesa.id);
+      error = res.error;
+    } else if (rateio === "todos") {
+      const res = await supabase
+        .from("despesas_gerais")
+        .insert({ ...base, rateio: "todos", viveiro_id: null });
+      error = res.error;
+    } else {
+      const rows = viveiroIds.map((vid) => ({
+        ...base,
+        rateio: "individual",
+        viveiro_id: vid,
+      }));
+      const res = await supabase.from("despesas_gerais").insert(rows);
+      error = res.error;
+    }
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -1391,19 +1416,35 @@ function DespesaModal({
             </div>
           </Field>
           {rateio === "individual" && (
-            <Field label="Viveiro">
-              <select
-                value={viveiroId}
-                onChange={(e) => setViveiroId(e.target.value)}
-                className="w-full h-11 px-3 rounded-lg border bg-background"
-              >
-                <option value="">Selecione...</option>
-                {viveiros.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nome}
-                  </option>
-                ))}
-              </select>
+            <Field label={`Viveiros (${viveiroIds.length} selecionado${viveiroIds.length === 1 ? "" : "s"})`}>
+              <div className="border rounded-lg bg-background max-h-48 overflow-y-auto divide-y">
+                {viveiros.length === 0 ? (
+                  <div className="p-3 text-sm text-muted-foreground">Nenhum viveiro cadastrado.</div>
+                ) : (
+                  viveiros.map((v) => {
+                    const checked = viveiroIds.includes(v.id);
+                    return (
+                      <label
+                        key={v.id}
+                        className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleViveiro(v.id)}
+                          className="size-4"
+                        />
+                        <span className="font-medium">{v.nome}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              {!despesa && viveiroIds.length > 1 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Será criada uma despesa para cada viveiro selecionado.
+                </p>
+              )}
             </Field>
           )}
           <Field label="Observação (opcional)">
