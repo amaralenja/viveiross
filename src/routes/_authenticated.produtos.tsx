@@ -160,6 +160,8 @@ function ProdutosPage() {
       toast.success("Funcionário removido");
     },
     onError: (err: Error) => toast.error(err.message),
+  });
+
   const delEntradaMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("estoque_entradas").delete().eq("id", id);
@@ -172,8 +174,12 @@ function ProdutosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  function openNovo() {
+    if (tab === "produtos") setOpenProd(true);
+    else if (tab === "funcionarios") setOpenFunc(true);
+    else setOpenEntrada(true);
+  }
 
-  const isProdTab = tab === "produtos";
 
   return (
     <div className="space-y-6">
