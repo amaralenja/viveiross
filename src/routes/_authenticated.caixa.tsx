@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download } from "lucide-react";
+import jsPDF from "jspdf";
 import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
@@ -32,6 +33,95 @@ function fmtBRL(n: number) {
 function fmtDate(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y.slice(2)}`;
+}
+
+type ViveiroRel = {
+  id: string;
+  nome: string;
+  despesaTotal: number;
+  receitaTotal: number;
+  saldo: number;
+  historico: { l: Lanc; rateado: boolean; valorMostrado: number }[];
+};
+
+function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  let y = startY;
+
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Caixa · ${v.nome}`, 14, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, y);
+  y += 8;
+
+  doc.setTextColor(0);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Receitas:", 14, y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0, 130, 70);
+  doc.text(fmtBRL(v.receitaTotal), 50, y);
+
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.text("Despesas:", 90, y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(180, 30, 30);
+  doc.text(fmtBRL(v.despesaTotal), 130, y);
+  y += 7;
+
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.text("Saldo:", 14, y);
+  doc.setTextColor(v.saldo >= 0 ? 0 : 180, v.saldo >= 0 ? 130 : 30, v.saldo >= 0 ? 70 : 30);
+  doc.text(fmtBRL(v.saldo), 50, y);
+  doc.setTextColor(0);
+  y += 10;
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Histórico", 14, y);
+  y += 6;
+
+  doc.setFontSize(9);
+  doc.setFillColor(240, 240, 240);
+  doc.rect(14, y - 4, pageW - 28, 6, "F");
+  doc.text("Data", 16, y);
+  doc.text("Descrição", 36, y);
+  doc.text("Tipo", 130, y);
+  doc.text("Valor", pageW - 16, y, { align: "right" });
+  y += 4;
+  doc.setFont("helvetica", "normal");
+
+  if (v.historico.length === 0) {
+    y += 6;
+    doc.setTextColor(120);
+    doc.text("Sem lançamentos.", 16, y);
+    doc.setTextColor(0);
+    y += 6;
+  } else {
+    for (const h of v.historico) {
+      if (y > pageH - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      y += 5;
+      doc.text(fmtDate(h.l.data_lancamento), 16, y);
+      const desc = h.l.descricao + (h.rateado ? " (rateado)" : "");
+      doc.text(desc.length > 55 ? desc.slice(0, 55) + "…" : desc, 36, y);
+      doc.text(h.l.tipo === "receita" ? "Receita" : "Despesa", 130, y);
+      const sign = h.l.tipo === "receita" ? "+" : "-";
+      doc.text(`${sign} ${fmtBRL(Math.abs(h.valorMostrado))}`, pageW - 16, y, { align: "right" });
+    }
+    y += 4;
+  }
+  return y;
 }
 
 function CaixaPage() {
@@ -250,7 +340,43 @@ function CaixaPage() {
             <Users className="size-3" /> Rateado entre {relatorio.nAtivos} viveiro(s)
           </p>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            const doc = new jsPDF();
+            const pageH = doc.internal.pageSize.getHeight();
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("Caixa · Todos os viveiros", 14, 18);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100);
+            doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 25);
+            doc.setTextColor(0);
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Saldo geral: ${fmtBRL(relatorio.saldoGeral)}`, 14, 34);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.text(`Receitas: ${fmtBRL(relatorio.totalReceitas)}  ·  Despesas: ${fmtBRL(relatorio.totalDespesas)}`, 14, 41);
+            let y = 50;
+            relatorio.porViveiro.forEach((v, i) => {
+              if (i > 0 || y > pageH - 60) {
+                doc.addPage();
+                y = 20;
+              }
+              y = buildViveiroPDF(doc, v, y) + 6;
+            });
+            doc.save(`caixa-todos-${new Date().toISOString().slice(0, 10)}.pdf`);
+            toast.success("PDF gerado");
+          }}
+          className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary/90"
+        >
+          <FileDown className="size-4" /> PDF geral (todos viveiros)
+        </button>
       </section>
+
+
 
       {/* Carrossel de caixas por viveiro */}
       {relatorio.porViveiro.length > 0 && (
@@ -275,9 +401,20 @@ function CaixaPage() {
                       </p>
                       <p className="font-bold text-base truncate">{v.nome || "—"}</p>
                     </div>
-                    <span className="shrink-0 size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <Wallet className="size-4" />
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const doc = new jsPDF();
+                        buildViveiroPDF(doc, v, 20);
+                        doc.save(`caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
+                        toast.success("PDF gerado");
+                      }}
+                      className="shrink-0 size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
+                      aria-label="Baixar PDF"
+                      title="Baixar PDF deste viveiro"
+                    >
+                      <Download className="size-4" />
+                    </button>
                   </div>
 
                   <div>
