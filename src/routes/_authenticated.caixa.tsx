@@ -23,7 +23,15 @@ type Lanc = {
   valor: number;
   observacao: string | null;
   tipo: "despesa" | "receita";
+  quantidade: number | null;
+  unidade: string | null;
 };
+
+function fmtQtd(q: number | null, u: string | null) {
+  if (!q || q <= 0) return "—";
+  const n = Number(q).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+  return `${n}${u ? ` ${u}` : ""}`;
+}
 
 const TODOS = "__todos__";
 
@@ -94,7 +102,8 @@ function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
   doc.rect(14, y - 4, pageW - 28, 6, "F");
   doc.text("Data", 16, y);
   doc.text("Descrição", 36, y);
-  doc.text("Tipo", 130, y);
+  doc.text("Qtd", 110, y);
+  doc.text("Tipo", 138, y);
   doc.text("Valor", pageW - 16, y, { align: "right" });
   y += 4;
   doc.setFont("helvetica", "normal");
@@ -114,8 +123,9 @@ function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
       y += 5;
       doc.text(fmtDate(h.l.data_lancamento), 16, y);
       const desc = h.l.descricao + (h.rateado ? " (rateado)" : "");
-      doc.text(desc.length > 55 ? desc.slice(0, 55) + "…" : desc, 36, y);
-      doc.text(h.l.tipo === "receita" ? "Receita" : "Despesa", 130, y);
+      doc.text(desc.length > 42 ? desc.slice(0, 42) + "…" : desc, 36, y);
+      doc.text(fmtQtd(h.l.quantidade, h.l.unidade), 110, y);
+      doc.text(h.l.tipo === "receita" ? "Receita" : "Despesa", 138, y);
       const sign = h.l.tipo === "receita" ? "+" : "-";
       doc.text(`${sign} ${fmtBRL(Math.abs(h.valorMostrado))}`, pageW - 16, y, { align: "right" });
     }
@@ -192,7 +202,7 @@ function CaixaPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade")
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -218,6 +228,7 @@ function CaixaPage() {
       if (!userId) throw new Error("Sessão expirada.");
       if (!descricao.trim()) throw new Error("Informe a descrição.");
       if (!valorFinal || valorFinal <= 0) throw new Error("Informe o valor.");
+      const qNum = Number(qtd.replace(",", ".")) || 0;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: userId,
         viveiro_id: viveiroId === TODOS ? null : viveiroId,
@@ -226,6 +237,8 @@ function CaixaPage() {
         categoria: categoria.trim() || (tipo === "receita" ? "venda" : "geral"),
         valor: valorFinal,
         tipo,
+        quantidade: qNum > 0 ? qNum : null,
+        unidade: qNum > 0 ? unidade : null,
       });
       if (error) throw error;
     },

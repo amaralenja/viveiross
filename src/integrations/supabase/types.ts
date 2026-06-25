@@ -73,7 +73,9 @@ export type Database = {
           id: string
           lancamento_id: string | null
           observacao: string | null
+          quantidade: number | null
           tipo: string
+          unidade: string | null
           updated_at: string
           user_id: string
           valor: number
@@ -87,7 +89,9 @@ export type Database = {
           id?: string
           lancamento_id?: string | null
           observacao?: string | null
+          quantidade?: number | null
           tipo?: string
+          unidade?: string | null
           updated_at?: string
           user_id: string
           valor: number
@@ -101,7 +105,9 @@ export type Database = {
           id?: string
           lancamento_id?: string | null
           observacao?: string | null
+          quantidade?: number | null
           tipo?: string
+          unidade?: string | null
           updated_at?: string
           user_id?: string
           valor?: number

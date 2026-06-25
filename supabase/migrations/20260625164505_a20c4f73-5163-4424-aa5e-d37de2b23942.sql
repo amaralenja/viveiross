@@ -1,0 +1,1 @@
+ALTER TABLE public.caixa_lancamentos ADD COLUMN IF NOT EXISTS quantidade numeric, ADD COLUMN IF NOT EXISTS unidade text;
