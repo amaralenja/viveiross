@@ -340,7 +340,43 @@ function CaixaPage() {
             <Users className="size-3" /> Rateado entre {relatorio.nAtivos} viveiro(s)
           </p>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            const doc = new jsPDF();
+            const pageH = doc.internal.pageSize.getHeight();
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("Caixa · Todos os viveiros", 14, 18);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100);
+            doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 25);
+            doc.setTextColor(0);
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Saldo geral: ${fmtBRL(relatorio.saldoGeral)}`, 14, 34);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.text(`Receitas: ${fmtBRL(relatorio.totalReceitas)}  ·  Despesas: ${fmtBRL(relatorio.totalDespesas)}`, 14, 41);
+            let y = 50;
+            relatorio.porViveiro.forEach((v, i) => {
+              if (i > 0 || y > pageH - 60) {
+                doc.addPage();
+                y = 20;
+              }
+              y = buildViveiroPDF(doc, v, y) + 6;
+            });
+            doc.save(`caixa-todos-${new Date().toISOString().slice(0, 10)}.pdf`);
+            toast.success("PDF gerado");
+          }}
+          className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary/90"
+        >
+          <FileDown className="size-4" /> PDF geral (todos viveiros)
+        </button>
       </section>
+
+
 
       {/* Carrossel de caixas por viveiro */}
       {relatorio.porViveiro.length > 0 && (
