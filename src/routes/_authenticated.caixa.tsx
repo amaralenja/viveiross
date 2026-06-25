@@ -102,7 +102,8 @@ function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
   doc.rect(14, y - 4, pageW - 28, 6, "F");
   doc.text("Data", 16, y);
   doc.text("Descrição", 36, y);
-  doc.text("Tipo", 130, y);
+  doc.text("Qtd", 110, y);
+  doc.text("Tipo", 138, y);
   doc.text("Valor", pageW - 16, y, { align: "right" });
   y += 4;
   doc.setFont("helvetica", "normal");
@@ -122,8 +123,9 @@ function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
       y += 5;
       doc.text(fmtDate(h.l.data_lancamento), 16, y);
       const desc = h.l.descricao + (h.rateado ? " (rateado)" : "");
-      doc.text(desc.length > 55 ? desc.slice(0, 55) + "…" : desc, 36, y);
-      doc.text(h.l.tipo === "receita" ? "Receita" : "Despesa", 130, y);
+      doc.text(desc.length > 42 ? desc.slice(0, 42) + "…" : desc, 36, y);
+      doc.text(fmtQtd(h.l.quantidade, h.l.unidade), 110, y);
+      doc.text(h.l.tipo === "receita" ? "Receita" : "Despesa", 138, y);
       const sign = h.l.tipo === "receita" ? "+" : "-";
       doc.text(`${sign} ${fmtBRL(Math.abs(h.valorMostrado))}`, pageW - 16, y, { align: "right" });
     }
