@@ -647,6 +647,16 @@ function EditModal({
           }}
           className="p-4 space-y-3"
         >
+          <Field label="Tipo">
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as "despesa" | "receita")}
+              className="app-input"
+            >
+              <option value="despesa">💸 Despesa</option>
+              <option value="receita">💰 Receita</option>
+            </select>
+          </Field>
           <Field label="Viveiro">
             <select
               value={viveiroId}
