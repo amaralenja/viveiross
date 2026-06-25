@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle } from "lucide-react";
+import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
   head: () => ({ meta: [{ title: "Produtos & Funcionários" }] }),
@@ -49,7 +49,7 @@ function formatBRL(v: number | null | undefined) {
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
@@ -177,7 +177,7 @@ function ProdutosPage() {
   function openNovo() {
     if (tab === "produtos") setOpenProd(true);
     else if (tab === "funcionarios") setOpenFunc(true);
-    else setOpenEntrada(true);
+    else setOpenEntrada(true); // estoque ou compras
   }
 
 
@@ -195,22 +195,22 @@ function ProdutosPage() {
           className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
         >
           <Plus className="size-5" />
-          {tab === "estoque" ? "Entrada" : "Novo"}
+          {tab === "estoque" || tab === "compras" ? (tab === "compras" ? "Compra" : "Entrada") : "Novo"}
         </button>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-xl bg-muted">
-        {(["produtos", "funcionarios", "estoque"] as const).map((t) => (
+      <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
+        {(["produtos", "funcionarios", "estoque", "compras"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 h-10 rounded-lg font-semibold text-sm transition ${
+            className={`flex-1 min-w-[88px] h-10 rounded-lg font-semibold text-sm transition ${
               tab === t
                 ? "bg-card shadow-sm text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : "Estoque"}
+            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : "Compras"}
           </button>
         ))}
       </div>
@@ -302,7 +302,7 @@ function ProdutosPage() {
             })}
           </ul>
         )
-      ) : (
+      ) : tab === "estoque" ? (
         <EstoqueView
           produtos={produtos}
           entradas={entradas}
@@ -311,6 +311,17 @@ function ProdutosPage() {
           onEditEntrada={(e) => setEditandoEntrada(e)}
           onDelEntrada={(e) => {
             if (confirm(`Remover entrada de ${formatNumber(e.quantidade)} ${e.unidade}?`))
+              delEntradaMut.mutate(e.id);
+          }}
+        />
+      ) : (
+        <ComprasView
+          produtos={produtos}
+          entradas={entradas}
+          onNovaCompra={() => setOpenEntrada(true)}
+          onEditCompra={(e) => setEditandoEntrada(e)}
+          onDelCompra={(e) => {
+            if (confirm(`Remover compra de ${formatNumber(e.quantidade)} ${e.unidade}?`))
               delEntradaMut.mutate(e.id);
           }}
         />
@@ -487,6 +498,107 @@ function EstoqueView({
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function ComprasView({
+  produtos,
+  entradas,
+  onNovaCompra,
+  onEditCompra,
+  onDelCompra,
+}: {
+  produtos: Produto[];
+  entradas: EstoqueEntrada[];
+  onNovaCompra: () => void;
+  onEditCompra: (e: EstoqueEntrada) => void;
+  onDelCompra: (e: EstoqueEntrada) => void;
+}) {
+  if (produtos.length === 0) {
+    return (
+      <Empty
+        icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
+        titulo="Cadastre produtos antes"
+        descricao="Você precisa ter produtos cadastrados pra lançar compras."
+        onClick={onNovaCompra}
+      />
+    );
+  }
+
+  const totalGasto = entradas.reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total gasto</p>
+          <p className="text-2xl font-bold truncate">
+            {formatBRL(totalGasto) ?? "R$ 0,00"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {entradas.length} {entradas.length === 1 ? "compra" : "compras"} · vai pro estoque
+          </p>
+        </div>
+        <button
+          onClick={onNovaCompra}
+          className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shrink-0"
+        >
+          <Plus className="size-4" /> Compra
+        </button>
+      </div>
+
+      {entradas.length === 0 ? (
+        <Empty
+          icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
+          titulo="Nenhuma compra ainda"
+          descricao="Lance a nota e o estoque atualiza sozinho."
+          onClick={onNovaCompra}
+        />
+      ) : (
+        <ul className="space-y-2">
+          {entradas.map((e) => {
+            const p = produtos.find((x) => x.id === e.produto_id);
+            return (
+              <li
+                key={e.id}
+                className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <ShoppingCart className="size-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{p?.nome ?? "Produto"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                      {" · "}
+                      {formatNumber(e.quantidade)} {e.unidade}
+                      {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade}`}
+                    </p>
+                    {(e.custo_total != null || e.fornecedor) && (
+                      <p className="text-xs mt-0.5">
+                        {e.custo_total != null && (
+                          <span className="text-primary font-semibold">
+                            {formatBRL(Number(e.custo_total))}
+                          </span>
+                        )}
+                        {e.fornecedor && (
+                          <span className="text-muted-foreground">
+                            {e.custo_total != null ? " · " : ""}
+                            {e.fornecedor}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <RowActions onEdit={() => onEditCompra(e)} onDel={() => onDelCompra(e)} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
