@@ -202,7 +202,7 @@ function CaixaPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade")
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
