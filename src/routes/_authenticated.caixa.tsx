@@ -159,6 +159,7 @@ function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
 function CaixaPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Lanc | null>(null);
+  const [detailView, setDetailView] = useState<ViveiroRel | null>(null);
 
   const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
