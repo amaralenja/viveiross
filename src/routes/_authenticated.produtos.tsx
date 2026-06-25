@@ -1190,3 +1190,238 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
+
+function DespesasView({
+  despesas,
+  viveiros,
+  onNova,
+  onEdit,
+  onDel,
+}: {
+  despesas: Despesa[];
+  viveiros: ViveiroOpt[];
+  onNova: () => void;
+  onEdit: (d: Despesa) => void;
+  onDel: (d: Despesa) => void;
+}) {
+  const total = despesas.reduce((s, d) => s + Number(d.valor ?? 0), 0);
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total registrado</p>
+          <p className="text-2xl font-bold">{formatBRL(total)}</p>
+        </div>
+        <button
+          onClick={onNova}
+          className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2"
+        >
+          <Receipt className="size-4" /> Nova despesa
+        </button>
+      </div>
+
+      {despesas.length === 0 ? (
+        <p className="rounded-xl border border-dashed p-6 text-center text-muted-foreground text-sm">
+          Nenhuma despesa registrada. As despesas entram nos relatórios dos viveiros (rateadas ou individuais).
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {despesas.map((d) => {
+            const viv = viveiros.find((v) => v.id === d.viveiro_id);
+            const rateioLabel = d.rateio === "todos" || !d.viveiro_id
+              ? `Rateado entre todos`
+              : `Só ${viv?.nome ?? "viveiro"}`;
+            return (
+              <li
+                key={d.id}
+                className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{d.descricao}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(`${d.data_despesa}T00:00:00`).toLocaleDateString("pt-BR")}
+                    {" · "}
+                    {rateioLabel}
+                    {d.categoria && ` · ${d.categoria}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-bold text-primary">{formatBRL(Number(d.valor ?? 0))}</span>
+                  <RowActions onEdit={() => onEdit(d)} onDel={() => onDel(d)} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DespesaModal({
+  despesa,
+  viveiros,
+  onClose,
+  onSaved,
+}: {
+  despesa: Despesa | null;
+  viveiros: ViveiroOpt[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [descricao, setDescricao] = useState(despesa?.descricao ?? "");
+  const [categoria, setCategoria] = useState(despesa?.categoria ?? "");
+  const [valor, setValor] = useState(despesa?.valor != null ? String(despesa.valor) : "");
+  const [data, setData] = useState(despesa?.data_despesa ?? todayLocal());
+  const [rateio, setRateio] = useState<"todos" | "individual">(
+    despesa?.rateio === "individual" ? "individual" : "todos",
+  );
+  const [viveiroId, setViveiroId] = useState(despesa?.viveiro_id ?? "");
+  const [observacao, setObservacao] = useState(despesa?.observacao ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!descricao.trim() || !valor) {
+      toast.error("Preencha descrição e valor.");
+      return;
+    }
+    if (rateio === "individual" && !viveiroId) {
+      toast.error("Selecione o viveiro.");
+      return;
+    }
+    setSaving(true);
+    const { data: user } = await supabase.auth.getUser();
+    const userId = user.user?.id;
+    if (!userId) {
+      toast.error("Sessão expirada.");
+      setSaving(false);
+      return;
+    }
+    const payload = {
+      user_id: userId,
+      descricao: descricao.trim(),
+      categoria: categoria.trim() || null,
+      valor: Number(valor),
+      data_despesa: data,
+      rateio,
+      viveiro_id: rateio === "individual" ? viveiroId : null,
+      observacao: observacao.trim() || null,
+    };
+    const { error } = despesa
+      ? await supabase.from("despesas_gerais").update(payload).eq("id", despesa.id)
+      : await supabase.from("despesas_gerais").insert(payload);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(despesa ? "Despesa atualizada" : "Despesa criada");
+    onSaved();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">{despesa ? "Editar despesa" : "Nova despesa"}</h2>
+          <button onClick={onClose} className="size-9 rounded-lg hover:bg-muted inline-flex items-center justify-center">
+            <X className="size-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <Field label="Descrição">
+            <input
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              className="w-full h-11 px-3 rounded-lg border bg-background"
+              placeholder="Ex: Energia, manutenção..."
+              autoFocus
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Valor (R$)">
+              <input
+                type="number"
+                step="0.01"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                className="w-full h-11 px-3 rounded-lg border bg-background"
+              />
+            </Field>
+            <Field label="Data">
+              <input
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                className="w-full h-11 px-3 rounded-lg border bg-background"
+              />
+            </Field>
+          </div>
+          <Field label="Categoria (opcional)">
+            <input
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              className="w-full h-11 px-3 rounded-lg border bg-background"
+              placeholder="Ex: energia, manutenção, combustível..."
+            />
+          </Field>
+          <Field label="Rateio">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setRateio("todos")}
+                className={`h-11 rounded-lg border font-semibold ${rateio === "todos" ? "bg-primary text-primary-foreground border-primary" : "bg-background"}`}
+              >
+                Todos os viveiros
+              </button>
+              <button
+                type="button"
+                onClick={() => setRateio("individual")}
+                className={`h-11 rounded-lg border font-semibold ${rateio === "individual" ? "bg-primary text-primary-foreground border-primary" : "bg-background"}`}
+              >
+                Um viveiro
+              </button>
+            </div>
+          </Field>
+          {rateio === "individual" && (
+            <Field label="Viveiro">
+              <select
+                value={viveiroId}
+                onChange={(e) => setViveiroId(e.target.value)}
+                className="w-full h-11 px-3 rounded-lg border bg-background"
+              >
+                <option value="">Selecione...</option>
+                {viveiros.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nome}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <Field label="Observação (opcional)">
+            <textarea
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border bg-background min-h-[60px]"
+            />
+          </Field>
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+          >
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
