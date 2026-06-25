@@ -94,9 +94,49 @@ function ProdutosPage() {
     },
   });
 
+  const entradasQuery = useQuery({
+    queryKey: ["estoque_entradas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("estoque_entradas")
+        .select("id, produto_id, quantidade, unidade, preco_unidade, custo_total, fornecedor, data_entrada, observacao")
+        .order("data_entrada", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as EstoqueEntrada[];
+    },
+  });
+
+  const consumoQuery = useQuery({
+    queryKey: ["estoque_consumo"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("produto_id, quantidade")
+        .eq("tipo", "racao")
+        .not("produto_id", "is", null);
+      if (error) throw error;
+      return (data ?? []) as ConsumoRow[];
+    },
+  });
+
   const produtos = produtosQuery.data ?? [];
   const funcionarios = funcionariosQuery.data ?? [];
   const viveiros = viveirosQuery.data ?? [];
+  const entradas = entradasQuery.data ?? [];
+  const consumo = consumoQuery.data ?? [];
+
+  const saldoPorProduto = new Map<string, { entradas: number; saidas: number }>();
+  for (const e of entradas) {
+    const cur = saldoPorProduto.get(e.produto_id) ?? { entradas: 0, saidas: 0 };
+    cur.entradas += Number(e.quantidade ?? 0);
+    saldoPorProduto.set(e.produto_id, cur);
+  }
+  for (const c of consumo) {
+    if (!c.produto_id) continue;
+    const cur = saldoPorProduto.get(c.produto_id) ?? { entradas: 0, saidas: 0 };
+    cur.saidas += Number(c.quantidade ?? 0);
+    saldoPorProduto.set(c.produto_id, cur);
+  }
 
   const delProdMut = useMutation({
     mutationFn: async (id: string) => {
