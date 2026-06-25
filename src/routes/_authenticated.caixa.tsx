@@ -38,6 +38,7 @@ function CaixaPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Lanc | null>(null);
 
+  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
   const [data, setData] = useState(todayLocal());
   const [produtoId, setProdutoId] = useState("");
