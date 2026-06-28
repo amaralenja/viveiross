@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { InstallPrompt } from "../components/InstallPrompt";
 
 function NotFoundComponent() {
   return (
@@ -78,24 +79,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "A SaaS platform for shrimp farm management." },
+      { title: "Viveiros" },
+      { name: "description", content: "Gestão simples de viveiros de camarão." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "A SaaS platform for shrimp farm management." },
+      { property: "og:title", content: "Viveiros" },
+      { property: "og:description", content: "Gestão simples de viveiros de camarão." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
-      { name: "twitter:description", content: "A SaaS platform for shrimp farm management." },
+      { name: "twitter:title", content: "Viveiros" },
+      { name: "twitter:description", content: "Gestão simples de viveiros de camarão." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c82ef6fd-b990-448d-8f21-3ba02b0a9bbe/id-preview-41b97baf--251126cf-9ada-41b1-aba2-31fa2f1c9666.lovable.app-1780187811041.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c82ef6fd-b990-448d-8f21-3ba02b0a9bbe/id-preview-41b97baf--251126cf-9ada-41b1-aba2-31fa2f1c9666.lovable.app-1780187811041.png" },
+      { name: "theme-color", content: "#2563eb" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Viveiros" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
+      { rel: "icon", type: "image/png", href: "/icon-192.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -124,6 +129,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <InstallPrompt />
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );
