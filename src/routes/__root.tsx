@@ -79,8 +79,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "A SaaS platform for shrimp farm management." },
+      { title: "Viveiros" },
+      { name: "description", content: "Gestão simples de viveiros de camarão." },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Viveiros" },
       { property: "og:description", content: "Gestão simples de viveiros de camarão." },
