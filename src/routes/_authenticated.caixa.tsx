@@ -405,6 +405,19 @@ function CaixaPage() {
     },
   });
 
+  const desativarMut = useMutation({
+    mutationFn: async (v: { id: string; nome: string }) => {
+      const { error } = await supabase.from("viveiros").update({ status: "inativo" }).eq("id", v.id);
+      if (error) throw error;
+      return v;
+    },
+    onSuccess: (v) => {
+      qc.invalidateQueries({ queryKey: ["viveiros"] });
+      toast.success(`Viveiro "${v.nome}" desativado. Ative novamente na aba Viveiros.`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const { data: produtos = [] } = useQuery({
     queryKey: ["produtos", "caixa"],
     queryFn: async () => {
