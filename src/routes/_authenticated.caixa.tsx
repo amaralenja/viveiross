@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2 } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
+import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
@@ -154,6 +155,225 @@ function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
     y += 4;
   }
   return y;
+}
+
+// === Excel export (estilizado) ===
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function buildViveiroSheet(wb: ExcelJS.Workbook, v: ViveiroRel) {
+  // limita nome da aba: max 31 chars, sem : \ / ? * [ ]
+  const safe = (v.nome || "Viveiro").replace(/[:\\/?*\[\]]/g, " ").slice(0, 31) || "Viveiro";
+  const ws = wb.addWorksheet(safe, {
+    properties: { defaultRowHeight: 18 },
+    views: [{ state: "frozen", ySplit: 6 }],
+  });
+
+  ws.columns = [
+    { width: 14 },
+    { width: 42 },
+    { width: 16 },
+    { width: 14 },
+    { width: 14 },
+    { width: 18 },
+    { width: 32 },
+  ];
+
+  // Título
+  ws.mergeCells("A1:G1");
+  const title = ws.getCell("A1");
+  title.value = `Caixa · ${v.nome}`;
+  title.font = { name: "Calibri", size: 18, bold: true, color: { argb: "FFFFFFFF" } };
+  title.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+  ws.getRow(1).height = 32;
+
+  // Subtítulo
+  ws.mergeCells("A2:G2");
+  const sub = ws.getCell("A2");
+  sub.value = `Gerado em ${new Date().toLocaleString("pt-BR")}`;
+  sub.font = { italic: true, color: { argb: "FF6B7280" }, size: 10 };
+  sub.alignment = { horizontal: "left", indent: 1 };
+
+  // Resumo
+  const resumo: Array<[string, number, string]> = [
+    ["Receitas", v.receitaTotal, "FF059669"],
+    ["Despesas", v.despesaTotal, "FFDC2626"],
+    ["Saldo", v.saldo, v.saldo >= 0 ? "FF059669" : "FFDC2626"],
+  ];
+  resumo.forEach(([label, val, color], i) => {
+    const col = ["A", "C", "E"][i];
+    const valCol = ["B", "D", "F"][i];
+    const labelCell = ws.getCell(`${col}4`);
+    labelCell.value = label;
+    labelCell.font = { bold: true, size: 10, color: { argb: "FF374151" } };
+    labelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } };
+    labelCell.alignment = { horizontal: "left", indent: 1 };
+    const valueCell = ws.getCell(`${valCol}4`);
+    valueCell.value = val;
+    valueCell.numFmt = '"R$" #,##0.00';
+    valueCell.font = { bold: true, size: 12, color: { argb: color } };
+    valueCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } };
+    valueCell.alignment = { horizontal: "right", indent: 1 };
+  });
+  ws.getRow(4).height = 24;
+
+  // Cabeçalho histórico
+  const headerRow = ws.getRow(6);
+  headerRow.values = ["Data", "Descrição", "Categoria", "Tipo", "Qtd", "Valor (R$)", "Observação"];
+  headerRow.height = 22;
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.border = {
+      top: { style: "thin", color: { argb: "FFE5E7EB" } },
+      bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+      left: { style: "thin", color: { argb: "FFE5E7EB" } },
+      right: { style: "thin", color: { argb: "FFE5E7EB" } },
+    };
+  });
+
+  // Linhas
+  v.historico.forEach((h, idx) => {
+    const r = ws.addRow([
+      (() => {
+        const [y, m, d] = h.l.data_lancamento.split("-");
+        return `${d}/${m}/${y}`;
+      })(),
+      h.l.descricao + (h.rateado ? " (rateado)" : ""),
+      h.l.categoria || "",
+      h.l.tipo === "receita" ? "Receita" : "Despesa",
+      h.l.quantidade ? `${Number(h.l.quantidade).toLocaleString("pt-BR")}${h.l.unidade ? ` ${h.l.unidade}` : ""}` : "",
+      Math.abs(h.valorMostrado) * (h.l.tipo === "receita" ? 1 : -1),
+      h.l.observacao || "",
+    ]);
+    const bg = idx % 2 === 0 ? "FFFFFFFF" : "FFF9FAFB";
+    r.eachCell((cell, col) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      cell.border = {
+        bottom: { style: "hair", color: { argb: "FFE5E7EB" } },
+      };
+      cell.alignment = { vertical: "middle", wrapText: true };
+      if (col === 6) {
+        cell.numFmt = '"R$" #,##0.00;[Red]-"R$" #,##0.00';
+        cell.font = {
+          bold: true,
+          color: { argb: h.l.tipo === "receita" ? "FF059669" : "FFDC2626" },
+        };
+        cell.alignment = { horizontal: "right" };
+      }
+      if (col === 4) {
+        cell.alignment = { horizontal: "center" };
+        cell.font = {
+          bold: true,
+          color: { argb: h.l.tipo === "receita" ? "FF059669" : "FFDC2626" },
+        };
+      }
+    });
+    r.height = 20;
+  });
+
+  // Linha de total
+  if (v.historico.length > 0) {
+    const totalRow = ws.addRow(["", "", "", "", "TOTAL", v.saldo, ""]);
+    totalRow.height = 26;
+    totalRow.eachCell((cell, col) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+      if (col === 5) cell.alignment = { horizontal: "right" };
+      if (col === 6) {
+        cell.numFmt = '"R$" #,##0.00;[Red]-"R$" #,##0.00';
+        cell.alignment = { horizontal: "right" };
+      }
+    });
+  }
+}
+
+async function exportViveiroXLSX(v: ViveiroRel) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Viveiros";
+  wb.created = new Date();
+  await buildViveiroSheet(wb, v);
+  const buf = await wb.xlsx.writeBuffer();
+  triggerDownload(
+    new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    `caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+  );
+}
+
+async function exportAllXLSX(viveiros: ViveiroRel[], resumo: { totalReceitas: number; totalDespesas: number; saldoGeral: number }) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Viveiros";
+  wb.created = new Date();
+
+  // aba resumo
+  const ws = wb.addWorksheet("Resumo geral", { views: [{ state: "frozen", ySplit: 4 }] });
+  ws.columns = [{ width: 30 }, { width: 20 }, { width: 20 }, { width: 20 }];
+  ws.mergeCells("A1:D1");
+  const title = ws.getCell("A1");
+  title.value = "Caixa · Todos os viveiros";
+  title.font = { size: 18, bold: true, color: { argb: "FFFFFFFF" } };
+  title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+  title.alignment = { vertical: "middle", indent: 1 };
+  ws.getRow(1).height = 32;
+
+  ws.mergeCells("A2:D2");
+  ws.getCell("A2").value = `Gerado em ${new Date().toLocaleString("pt-BR")}`;
+  ws.getCell("A2").font = { italic: true, color: { argb: "FF6B7280" } };
+
+  const header = ws.getRow(4);
+  header.values = ["Viveiro", "Receitas", "Despesas", "Saldo"];
+  header.height = 22;
+  header.eachCell((c) => {
+    c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
+    c.alignment = { horizontal: "center", vertical: "middle" };
+  });
+
+  viveiros.forEach((v, idx) => {
+    const r = ws.addRow([v.nome, v.receitaTotal, v.despesaTotal, v.saldo]);
+    const bg = idx % 2 === 0 ? "FFFFFFFF" : "FFF9FAFB";
+    r.eachCell((cell, col) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      if (col >= 2) {
+        cell.numFmt = '"R$" #,##0.00;[Red]-"R$" #,##0.00';
+        cell.alignment = { horizontal: "right" };
+      }
+      if (col === 4) {
+        cell.font = { bold: true, color: { argb: v.saldo >= 0 ? "FF059669" : "FFDC2626" } };
+      }
+    });
+  });
+
+  const totalRow = ws.addRow(["TOTAL GERAL", resumo.totalReceitas, resumo.totalDespesas, resumo.saldoGeral]);
+  totalRow.height = 26;
+  totalRow.eachCell((cell, col) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+    if (col >= 2) {
+      cell.numFmt = '"R$" #,##0.00;[Red]-"R$" #,##0.00';
+      cell.alignment = { horizontal: "right" };
+    }
+  });
+
+  for (const v of viveiros) {
+    await buildViveiroSheet(wb, v);
+  }
+
+  const buf = await wb.xlsx.writeBuffer();
+  triggerDownload(
+    new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    `caixa-todos-${new Date().toISOString().slice(0, 10)}.xlsx`,
+  );
 }
 
 function CaixaPage() {
@@ -410,6 +630,24 @@ function CaixaPage() {
         >
           <FileDown className="size-4" /> PDF geral (todos viveiros)
         </button>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await exportAllXLSX(relatorio.porViveiro, {
+                totalReceitas: relatorio.totalReceitas,
+                totalDespesas: relatorio.totalDespesas,
+                saldoGeral: relatorio.saldoGeral,
+              });
+              toast.success("Planilha gerada");
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          }}
+          className="w-full h-10 rounded-xl bg-emerald-600 text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-emerald-700"
+        >
+          <FileSpreadsheet className="size-4" /> Planilha Excel (todos viveiros)
+        </button>
       </section>
 
 
@@ -460,6 +698,22 @@ function CaixaPage() {
                         title="Baixar PDF deste viveiro"
                       >
                         <Download className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await exportViveiroXLSX(v);
+                            toast.success("Planilha gerada");
+                          } catch (e) {
+                            toast.error((e as Error).message);
+                          }
+                        }}
+                        className="size-9 rounded-xl bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-600/20"
+                        aria-label="Baixar planilha"
+                        title="Baixar planilha Excel deste viveiro"
+                      >
+                        <FileSpreadsheet className="size-4" />
                       </button>
                     </div>
                   </div>
