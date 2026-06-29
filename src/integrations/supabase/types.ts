@@ -461,6 +461,47 @@ export type Database = {
         }
         Relationships: []
       }
+      vales: {
+        Row: {
+          created_at: string
+          data_vale: string
+          funcionario_id: string
+          id: string
+          motivo: string | null
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data_vale?: string
+          funcionario_id: string
+          id?: string
+          motivo?: string | null
+          updated_at?: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          data_vale?: string
+          funcionario_id?: string
+          id?: string
+          motivo?: string | null
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vales_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       viveiros: {
         Row: {
           created_at: string
