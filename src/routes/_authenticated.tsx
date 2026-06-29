@@ -101,8 +101,55 @@ function AuthLayout() {
               </Link>
             );
           })}
+          {(() => {
+            const active = MAIS.some((m) => location.pathname.startsWith(m.to));
+            return (
+              <button
+                type="button"
+                onClick={() => setMaisOpen(true)}
+                className={`flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition ${
+                  active ? "text-primary" : "text-muted-foreground"
+                } min-w-0`}
+              >
+                <Plus className={`size-5 ${active ? "stroke-[2.5]" : ""}`} />
+                <span className="max-w-full truncate px-0.5 text-[9px] sm:text-[11px] leading-none">Mais</span>
+              </button>
+            );
+          })()}
         </div>
       </nav>
+
+      <Sheet open={maisOpen} onOpenChange={setMaisOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Mais opções</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            {MAIS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.to}
+                  onClick={(e) => {
+                    setMaisOpen(false);
+                    if (item.to !== "/dashboard" && !unlocked) {
+                      e.preventDefault();
+                      setPending(item.to);
+                      return;
+                    }
+                    navigate({ to: item.to });
+                  }}
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-6 hover:bg-accent transition"
+                >
+                  <Icon className="size-7 text-primary" />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
 
       {pending && (
         <PasswordLock
