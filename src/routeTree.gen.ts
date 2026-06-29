@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
+import { Route as AuthenticatedValesRouteImport } from './routes/_authenticated.vales'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated.produtos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
@@ -36,6 +37,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedViveirosRoute = AuthenticatedViveirosRouteImport.update({
   id: '/viveiros',
   path: '/viveiros',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedValesRoute = AuthenticatedValesRouteImport.update({
+  id: '/vales',
+  path: '/vales',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRoutesByTo {
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRoutesById {
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/vales': typeof AuthenticatedValesRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
 }
 export interface FileRouteTypes {
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/produtos'
     | '/relatorios'
+    | '/vales'
     | '/viveiros'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/produtos'
     | '/relatorios'
+    | '/vales'
     | '/viveiros'
   id:
     | '__root__'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/produtos'
     | '/_authenticated/relatorios'
+    | '/_authenticated/vales'
     | '/_authenticated/viveiros'
   fileRoutesById: FileRoutesById
 }
@@ -164,6 +176,13 @@ declare module '@tanstack/react-router' {
       path: '/viveiros'
       fullPath: '/viveiros'
       preLoaderRoute: typeof AuthenticatedViveirosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/vales': {
+      id: '/_authenticated/vales'
+      path: '/vales'
+      fullPath: '/vales'
+      preLoaderRoute: typeof AuthenticatedValesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/relatorios': {
@@ -210,6 +229,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedValesRoute: typeof AuthenticatedValesRoute
   AuthenticatedViveirosRoute: typeof AuthenticatedViveirosRoute
 }
 
@@ -219,6 +239,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedValesRoute: AuthenticatedValesRoute,
   AuthenticatedViveirosRoute: AuthenticatedViveirosRoute,
 }
 

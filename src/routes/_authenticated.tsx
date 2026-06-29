@@ -1,9 +1,10 @@
 import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, HandCoins } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -20,7 +21,11 @@ const NAV = [
   { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/biometrias", label: "Biometria", icon: FlaskConical },
   { to: "/caixa", label: "Caixa", icon: Wallet },
+] as const;
+
+const MAIS = [
   { to: "/relatorios", label: "Relatórios", icon: FileText },
+  { to: "/vales", label: "Vales", icon: HandCoins },
 ] as const;
 
 function AuthLayout() {
