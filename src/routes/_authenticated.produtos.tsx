@@ -992,14 +992,9 @@ function ProdutoModal({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Unidade">
-            <input
-              required
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value)}
-              placeholder="kg"
-              className="app-input"
-            />
+            <UnidadeSelect value={unidade} onChange={setUnidade} />
           </Field>
+
           <Field label={`Preço por ${unidade || "un"} (R$)`}>
             <input
               type="number"
