@@ -699,6 +699,22 @@ function CaixaPage() {
                       >
                         <Download className="size-4" />
                       </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await exportViveiroXLSX(v);
+                            toast.success("Planilha gerada");
+                          } catch (e) {
+                            toast.error((e as Error).message);
+                          }
+                        }}
+                        className="size-9 rounded-xl bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-600/20"
+                        aria-label="Baixar planilha"
+                        title="Baixar planilha Excel deste viveiro"
+                      >
+                        <FileSpreadsheet className="size-4" />
+                      </button>
                     </div>
                   </div>
 
