@@ -34,6 +34,7 @@ function AuthLayout() {
   const location = useLocation();
   const [unlocked, setUnlocked] = useState(() => isUnlocked());
   const [pending, setPending] = useState<string | null>(null);
+  const [maisOpen, setMaisOpen] = useState(false);
 
   const needsLock = location.pathname !== "/dashboard" && !unlocked;
 
