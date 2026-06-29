@@ -785,13 +785,9 @@ function EntradaEstoqueModal({
             />
           </Field>
           <Field label="Unidade">
-            <input
-              required
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value)}
-              className="app-input"
-            />
+            <UnidadeSelect value={unidade} onChange={setUnidade} />
           </Field>
+
         </div>
 
         <div className="grid grid-cols-2 gap-3">
