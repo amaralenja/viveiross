@@ -630,6 +630,24 @@ function CaixaPage() {
         >
           <FileDown className="size-4" /> PDF geral (todos viveiros)
         </button>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await exportAllXLSX(relatorio.porViveiro, {
+                totalReceitas: relatorio.totalReceitas,
+                totalDespesas: relatorio.totalDespesas,
+                saldoGeral: relatorio.saldoGeral,
+              });
+              toast.success("Planilha gerada");
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          }}
+          className="w-full h-10 rounded-xl bg-emerald-600 text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-emerald-700"
+        >
+          <FileSpreadsheet className="size-4" /> Planilha Excel (todos viveiros)
+        </button>
       </section>
 
 
