@@ -132,7 +132,7 @@ function AuthLayout() {
                   key={item.to}
                   onClick={(e) => {
                     setMaisOpen(false);
-                    if (item.to !== "/dashboard" && !unlocked) {
+                    if (!unlocked) {
                       e.preventDefault();
                       setPending(item.to);
                       return;
