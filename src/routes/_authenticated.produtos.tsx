@@ -59,6 +59,47 @@ function formatBRL(v: number | null | undefined) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const UNIDADES = ["kg", "g", "saco", "unidade", "pacote", "caixa", "litro", "ml"];
+
+function UnidadeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const isOutro = value !== "" && !UNIDADES.includes(value);
+  const [outro, setOutro] = useState(isOutro);
+  return (
+    <div className="flex gap-2">
+      <select
+        required
+        value={outro ? "__outro__" : value}
+        onChange={(e) => {
+          if (e.target.value === "__outro__") {
+            setOutro(true);
+            onChange("");
+          } else {
+            setOutro(false);
+            onChange(e.target.value);
+          }
+        }}
+        className="app-input flex-1"
+      >
+        <option value="" disabled>Selecione…</option>
+        {UNIDADES.map((u) => (
+          <option key={u} value={u}>{u}</option>
+        ))}
+        <option value="__outro__">Outro…</option>
+      </select>
+      {outro && (
+        <input
+          required
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="ex: fardo"
+          className="app-input flex-1"
+        />
+      )}
+    </div>
+  );
+}
+
+
 function ProdutosPage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras" | "despesas">("produtos");
@@ -785,13 +826,9 @@ function EntradaEstoqueModal({
             />
           </Field>
           <Field label="Unidade">
-            <input
-              required
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value)}
-              className="app-input"
-            />
+            <UnidadeSelect value={unidade} onChange={setUnidade} />
           </Field>
+
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -996,14 +1033,9 @@ function ProdutoModal({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Unidade">
-            <input
-              required
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value)}
-              placeholder="kg"
-              className="app-input"
-            />
+            <UnidadeSelect value={unidade} onChange={setUnidade} />
           </Field>
+
           <Field label={`Preço por ${unidade || "un"} (R$)`}>
             <input
               type="number"
