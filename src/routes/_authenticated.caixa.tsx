@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power } from "lucide-react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -405,6 +405,19 @@ function CaixaPage() {
     },
   });
 
+  const desativarMut = useMutation({
+    mutationFn: async (v: { id: string; nome: string }) => {
+      const { error } = await supabase.from("viveiros").update({ status: "inativo" }).eq("id", v.id);
+      if (error) throw error;
+      return v;
+    },
+    onSuccess: (v) => {
+      qc.invalidateQueries({ queryKey: ["viveiros"] });
+      toast.success(`Viveiro "${v.nome}" desativado. Ative novamente na aba Viveiros.`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const { data: produtos = [] } = useQuery({
     queryKey: ["produtos", "caixa"],
     queryFn: async () => {
@@ -714,6 +727,19 @@ function CaixaPage() {
                         title="Baixar planilha Excel deste viveiro"
                       >
                         <FileSpreadsheet className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Desativar viveiro "${v.nome}"? Você pode reativar depois na aba Viveiros.`)) {
+                            desativarMut.mutate({ id: v.id, nome: v.nome });
+                          }
+                        }}
+                        className="size-9 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center hover:bg-amber-500/20"
+                        aria-label="Desativar viveiro"
+                        title="Desativar viveiro"
+                      >
+                        <Power className="size-4" />
                       </button>
                     </div>
                   </div>
