@@ -309,7 +309,7 @@ function RelatoriosPage() {
     return { ...base, fca: base.biomassa > 0 ? base.racaoKg / base.biomassa : null };
   }, [linhas]);
 
-  async function exportPdf(ids?: string[]) {
+  async function exportPdf(ids?: string[], mode: "save" | "blob" = "save"): Promise<{ blob: Blob; filename: string } | void> {
     const alvo = ids && ids.length > 0 ? linhas.filter((l) => ids.includes(l.id)) : linhas;
     if (alvo.length === 0) {
       toast.error("Nada para exportar.");
