@@ -803,12 +803,20 @@ function RelatoriosPage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => exportPdf([l.id])}
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-secondary px-3 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
-                >
-                  <FileDown className="size-4" /> PDF
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    onClick={() => gerarLink([l.id], l.viveiro)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-xs font-semibold hover:bg-accent"
+                  >
+                    <LinkIcon className="size-3.5" /> Link
+                  </button>
+                  <button
+                    onClick={() => exportPdf([l.id])}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-secondary px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
+                  >
+                    <FileDown className="size-3.5" /> PDF
+                  </button>
+                </div>
 
               </div>
 
