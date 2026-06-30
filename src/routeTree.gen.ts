@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
 import { Route as AuthenticatedValesRouteImport } from './routes/_authenticated.vales'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
@@ -19,6 +20,7 @@ import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedCaixaRouteImport } from './routes/_authenticated.caixa'
 import { Route as AuthenticatedBiometriasRouteImport } from './routes/_authenticated.biometrias'
+import { Route as ApiPublicRelatorioTokenRouteImport } from './routes/api/public/relatorio.$token'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -32,6 +34,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RTokenRoute = RTokenRouteImport.update({
+  id: '/r/$token',
+  path: '/r/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedViveirosRoute = AuthenticatedViveirosRouteImport.update({
@@ -69,6 +76,11 @@ const AuthenticatedBiometriasRoute = AuthenticatedBiometriasRouteImport.update({
   path: '/biometrias',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicRelatorioTokenRoute = ApiPublicRelatorioTokenRouteImport.update({
+  id: '/api/public/relatorio/$token',
+  path: '/api/public/relatorio/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,6 +92,8 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
+  '/r/$token': typeof RTokenRoute
+  '/api/public/relatorio/$token': typeof ApiPublicRelatorioTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,6 +105,8 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
+  '/r/$token': typeof RTokenRoute
+  '/api/public/relatorio/$token': typeof ApiPublicRelatorioTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +120,8 @@ export interface FileRoutesById {
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/vales': typeof AuthenticatedValesRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
+  '/r/$token': typeof RTokenRoute
+  '/api/public/relatorio/$token': typeof ApiPublicRelatorioTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +135,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/vales'
     | '/viveiros'
+    | '/r/$token'
+    | '/api/public/relatorio/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,6 +148,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/vales'
     | '/viveiros'
+    | '/r/$token'
+    | '/api/public/relatorio/$token'
   id:
     | '__root__'
     | '/'
@@ -140,12 +162,16 @@ export interface FileRouteTypes {
     | '/_authenticated/relatorios'
     | '/_authenticated/vales'
     | '/_authenticated/viveiros'
+    | '/r/$token'
+    | '/api/public/relatorio/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  RTokenRoute: typeof RTokenRoute
+  ApiPublicRelatorioTokenRoute: typeof ApiPublicRelatorioTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -169,6 +195,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/r/$token': {
+      id: '/r/$token'
+      path: '/r/$token'
+      fullPath: '/r/$token'
+      preLoaderRoute: typeof RTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/viveiros': {
@@ -220,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBiometriasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/relatorio/$token': {
+      id: '/api/public/relatorio/$token'
+      path: '/api/public/relatorio/$token'
+      fullPath: '/api/public/relatorio/$token'
+      preLoaderRoute: typeof ApiPublicRelatorioTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -251,6 +291,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  RTokenRoute: RTokenRoute,
+  ApiPublicRelatorioTokenRoute: ApiPublicRelatorioTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

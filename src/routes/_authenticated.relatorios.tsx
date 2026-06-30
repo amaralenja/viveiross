@@ -2,7 +2,7 @@ import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
-import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X } from "lucide-react";
+import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -695,6 +695,33 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
+  async function gerarLink(viveiroIds: string[] | null, titulo: string | null) {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      toast.error("Sessão expirada.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("relatorio_shares")
+      .insert({ user_id: u.user.id, viveiro_ids: viveiroIds, titulo })
+      .select("token")
+      .single();
+    if (error || !data) {
+      toast.error(error?.message ?? "Falha ao gerar link.");
+      return;
+    }
+    const url = `${window.location.origin}/r/${data.token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado!", { description: url });
+    } catch {
+      window.prompt("Copie o link:", url);
+    }
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try { await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> }).share({ url, title: titulo ?? "Relatório de Viveiros" }); } catch { /* user cancelled */ }
+    }
+  }
+
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -702,13 +729,27 @@ function RelatoriosPage() {
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="mt-1 text-muted-foreground break-words">Extrato por viveiro</p>
         </div>
-        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+          <button
+            onClick={() => gerarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`)}
+            disabled={selecionados.size === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
+          >
+            <LinkIcon className="size-4" /> Link selecionados
+          </button>
+          <button
+            onClick={() => gerarLink(null, "Todos os viveiros")}
+            disabled={linhas.length === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
+          >
+            <LinkIcon className="size-4" /> Link de tudo
+          </button>
           <button
             onClick={() => exportPdf(Array.from(selecionados))}
             disabled={selecionados.size === 0}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
           >
-            <FileDown className="size-5" /> PDF dos selecionados {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+            <FileDown className="size-5" /> PDF selecionados {selecionados.size > 0 ? `(${selecionados.size})` : ""}
           </button>
           <button
             onClick={() => exportPdf()}
@@ -762,12 +803,20 @@ function RelatoriosPage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => exportPdf([l.id])}
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-secondary px-3 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
-                >
-                  <FileDown className="size-4" /> PDF
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    onClick={() => gerarLink([l.id], l.viveiro)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-xs font-semibold hover:bg-accent"
+                  >
+                    <LinkIcon className="size-3.5" /> Link
+                  </button>
+                  <button
+                    onClick={() => exportPdf([l.id])}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-secondary px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
+                  >
+                    <FileDown className="size-3.5" /> PDF
+                  </button>
+                </div>
 
               </div>
 
