@@ -581,7 +581,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_relatorio_share_bundle: { Args: { _token: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
