@@ -789,7 +789,85 @@ function RelatoriosPage() {
                 <Info label="Lançamentos" value={String(l.nLancamentos)} />
                 <Info label="Biometrias" value={String(l.nBiometrias)} />
                 <Info label="Última biometria" value={l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"} />
+                <Info label="Receitas" value={formatBRL(l.receitas)} />
+                <Info label="Lucro estimado" value={formatBRL(l.lucro)} />
+                <Info label="Saldo caixa" value={formatBRL(l.saldoCaixa)} />
+                <Info label="Funcionários" value={String(l.funcionarios.length)} />
+                <Info label="Salários (soma)" value={formatBRL(l.totalSalarios)} />
+                <Info label="Vales totais" value={formatBRL(l.totalValesViv)} />
               </div>
+
+              {l.funcionarios.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Funcionários e vales</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Nome</th>
+                          <th className="p-2 text-right">Salário</th>
+                          <th className="p-2 text-right">Vales (total)</th>
+                          <th className="p-2 text-left">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.funcionarios.map((f) => (
+                          <tr key={f.id} className="border-t">
+                            <td className="p-2">{f.nome}</td>
+                            <td className="p-2 text-right">{formatBRL(Number(f.salario ?? 0))}</td>
+                            <td className="p-2 text-right">{formatBRL(f.totalVales)}</td>
+                            <td className="p-2">{f.ativo ? "Ativo" : "Inativo"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2">Total</td>
+                          <td className="p-2 text-right">{formatBRL(l.totalSalarios)}</td>
+                          <td className="p-2 text-right">{formatBRL(l.totalValesViv)}</td>
+                          <td className="p-2"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {l.receitasLista.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Receitas</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-left">Descrição</th>
+                          <th className="p-2 text-left">Categoria</th>
+                          <th className="p-2 text-right">Qtd</th>
+                          <th className="p-2 text-right">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.receitasLista.map((c) => (
+                          <tr key={c.id} className="border-t">
+                            <td className="p-2">{formatDate(c.data_lancamento)}</td>
+                            <td className="p-2">{c.descricao}</td>
+                            <td className="p-2">{c.categoria}</td>
+                            <td className="p-2 text-right">{c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—"}</td>
+                            <td className="p-2 text-right">{formatBRL(Number(c.valor ?? 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2" colSpan={4}>Total</td>
+                          <td className="p-2 text-right">{formatBRL(l.receitas)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {l.bios.length > 0 && (
                 <div className="mt-5">
