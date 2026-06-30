@@ -659,7 +659,43 @@ function RelatoriosPage() {
     const nome = ids && ids.length === 1
       ? `relatorio-${alvo[0].viveiro.replace(/\s+/g, "-").toLowerCase()}-${todayLocal()}.pdf`
       : `relatorio-viveiros-${todayLocal()}.pdf`;
+    if (mode === "blob") {
+      const blob = doc.output("blob");
+      return { blob, filename: nome };
+    }
     doc.save(nome);
+  }
+
+  async function gerarLinkPdf(ids?: string[]) {
+    const tid = toast.loading("Gerando PDF...");
+    try {
+      const result = await exportPdf(ids && ids.length > 0 ? ids : undefined, "blob");
+      if (!result) { toast.dismiss(tid); return; }
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { toast.error("Sessão expirada.", { id: tid }); return; }
+      const path = `${u.user.id}/${Date.now()}-${result.filename}`;
+      const { error: upErr } = await supabase.storage
+        .from("relatorios-pdf")
+        .upload(path, result.blob, { contentType: "application/pdf", upsert: true });
+      if (upErr) { toast.error(upErr.message, { id: tid }); return; }
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("relatorios-pdf")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (sErr || !signed) { toast.error(sErr?.message ?? "Falha ao gerar link.", { id: tid }); return; }
+      const url = signed.signedUrl;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link do PDF copiado!", { id: tid, description: url });
+      } catch {
+        toast.dismiss(tid);
+        window.prompt("Copie o link do PDF:", url);
+      }
+      if (typeof navigator !== "undefined" && "share" in navigator) {
+        try { await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> }).share({ url, title: result.filename }); } catch { /* user cancelled */ }
+      }
+    } catch (e) {
+      toast.error((e as Error).message ?? "Falha ao gerar PDF.", { id: tid });
+    }
   }
 
   const delLanc = useMutation({
