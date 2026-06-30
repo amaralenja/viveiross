@@ -35,6 +35,33 @@ type BiometriaRelatorio = {
   amostras: number | null;
   sobrevivencia_percent: number | null;
 };
+type FuncionarioRel = {
+  id: string;
+  nome: string;
+  salario: number | null;
+  ativo: boolean;
+  viveiro_id: string | null;
+  observacao: string | null;
+};
+type ValeRel = {
+  id: string;
+  funcionario_id: string;
+  valor: number;
+  motivo: string | null;
+  data_vale: string;
+};
+type CaixaRel = {
+  id: string;
+  viveiro_id: string | null;
+  data_lancamento: string;
+  descricao: string;
+  categoria: string;
+  tipo: string;
+  valor: number;
+  quantidade: number | null;
+  unidade: string | null;
+  observacao: string | null;
+};
 
 function textValue(value: unknown, fallback = "—"): string {
   if (value == null || value === "") return fallback;
@@ -116,6 +143,42 @@ function RelatoriosPage() {
     },
   });
 
+  const { data: funcionarios = [] } = useQuery({
+    queryKey: ["funcionarios", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funcionarios")
+        .select("id, nome, salario, ativo, viveiro_id, observacao")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as FuncionarioRel[];
+    },
+  });
+
+  const { data: vales = [] } = useQuery({
+    queryKey: ["vales", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vales")
+        .select("id, funcionario_id, valor, motivo, data_vale")
+        .order("data_vale", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ValeRel[];
+    },
+  });
+
+  const { data: caixa = [] } = useQuery({
+    queryKey: ["caixa_lancamentos", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("caixa_lancamentos")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, tipo, valor, quantidade, unidade, observacao")
+        .order("data_lancamento", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as CaixaRel[];
+    },
+  });
+
   const linhas = useMemo(() => {
     const nViv = Math.max(1, viveiros.length);
     const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
@@ -170,6 +233,25 @@ function RelatoriosPage() {
         ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
       ];
 
+      // Funcionários ligados a este viveiro + total de vales por funcionário
+      const funcsDoViveiro = funcionarios.filter((f) => f.viveiro_id === v.id);
+      const funcsComVales = funcsDoViveiro.map((f) => {
+        const meus = vales.filter((vv) => vv.funcionario_id === f.id);
+        const totalVales = meus.reduce((s, x) => s + Number(x.valor ?? 0), 0);
+        return { ...f, vales: meus, totalVales };
+      });
+      const totalSalarios = funcsDoViveiro.reduce((s, f) => s + Number(f.salario ?? 0), 0);
+      const totalValesViv = funcsComVales.reduce((s, f) => s + f.totalVales, 0);
+
+      // Caixa: receitas/despesas atribuídas a este viveiro
+      const caixaDoViv = caixa.filter((c) => c.viveiro_id === v.id);
+      const receitasLista = caixaDoViv.filter((c) => c.tipo === "receita");
+      const despesasCaixa = caixaDoViv.filter((c) => c.tipo !== "receita");
+      const receitas = receitasLista.reduce((s, c) => s + Number(c.valor ?? 0), 0);
+      const despesasCaixaTot = despesasCaixa.reduce((s, c) => s + Number(c.valor ?? 0), 0);
+      const saldoCaixa = receitas - despesasCaixaTot;
+      const lucro = receitas - custoTotal;
+
       return {
         id: v.id,
         viveiro: textValue(v.nome),
@@ -197,9 +279,18 @@ function RelatoriosPage() {
         bios,
         racaoDiaria,
         despesasLista,
+        funcionarios: funcsComVales,
+        totalSalarios,
+        totalValesViv,
+        receitas,
+        despesasCaixaTot,
+        saldoCaixa,
+        lucro,
+        receitasLista,
+        caixaDoViv,
       };
     });
-  }, [biometrias, lancamentos, viveiros, despesas]);
+  }, [biometrias, lancamentos, viveiros, despesas, funcionarios, vales, caixa]);
 
   const totais = useMemo(() => {
     const base = linhas.reduce(
@@ -208,8 +299,12 @@ function RelatoriosPage() {
         racaoKg: acc.racaoKg + l.racaoKg,
         biomassa: acc.biomassa + l.biomassa,
         custoTotal: acc.custoTotal + l.custoTotal,
+        receitas: acc.receitas + l.receitas,
+        lucro: acc.lucro + l.lucro,
+        vales: acc.vales + l.totalValesViv,
+        salarios: acc.salarios + l.totalSalarios,
       }),
-      { viveiros: 0, racaoKg: 0, biomassa: 0, custoTotal: 0 },
+      { viveiros: 0, racaoKg: 0, biomassa: 0, custoTotal: 0, receitas: 0, lucro: 0, vales: 0, salarios: 0 },
     );
     return { ...base, fca: base.biomassa > 0 ? base.racaoKg / base.biomassa : null };
   }, [linhas]);
@@ -338,12 +433,23 @@ function RelatoriosPage() {
         ["Ração total", `${formatNumber(l.racaoKg)} kg`],
         ["Custo ração", formatBRL(l.custoRacao)],
         ["Custo outros", formatBRL(l.custoOutros)],
+        ["Despesas rateadas", formatBRL(l.custoDespRateio)],
+        ["Despesas próprias", formatBRL(l.custoDespIndiv)],
         ["Custo total", formatBRL(l.custoTotal)],
         ["R$ por kg", l.custoPorKg ? formatBRL(l.custoPorKg) : "—"],
         ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
         ["Sobrevivência", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
         ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
         ["FCA", l.fca != null ? formatNumber(l.fca) : "—"],
+        ["Receitas", formatBRL(l.receitas)],
+        ["Lucro estimado", formatBRL(l.lucro)],
+        ["Saldo caixa", formatBRL(l.saldoCaixa)],
+        ["Funcionários", String(l.funcionarios.length)],
+        ["Salários (soma)", formatBRL(l.totalSalarios)],
+        ["Vales totais", formatBRL(l.totalValesViv)],
+        ["Lançamentos", String(l.nLancamentos)],
+        ["Biometrias", String(l.nBiometrias)],
+        ["Última biometria", l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"],
       ];
       const cols = 4;
       const mW = (pageW - 28 - (cols - 1) * 3) / cols;
@@ -424,6 +530,128 @@ function RelatoriosPage() {
           alternateRowStyles: { fillColor: [248, 250, 252] },
           margin: { left: 14, right: 14 },
         });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.despesasLista.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Despesas gerais", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Descrição", "Categoria", "Rateio", "Valor total", "Atribuído"]],
+          body: l.despesasLista.map((d) => [
+            formatDate(d.data_despesa),
+            textValue(d.descricao),
+            textValue(d.categoria, "—"),
+            d.tipoRateio === "rateado" ? "Rateado" : "Individual",
+            formatBRL(Number(d.valor ?? 0)),
+            formatBRL(d.share),
+          ]),
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.funcionarios.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Funcionários", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Nome", "Salário", "Vales (total)", "Status"]],
+          body: l.funcionarios.map((f) => [
+            f.nome,
+            formatBRL(Number(f.salario ?? 0)),
+            formatBRL(f.totalVales),
+            f.ativo ? "Ativo" : "Inativo",
+          ]),
+          foot: [["Total", formatBRL(l.totalSalarios), formatBRL(l.totalValesViv), ""]],
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+
+        const valesDetalhe = l.funcionarios.flatMap((f) => f.vales.map((v) => ({ f: f.nome, v })));
+        if (valesDetalhe.length > 0) {
+          if (y > pageH - 40) { doc.addPage(); y = 20; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(11);
+          doc.text("Vales (detalhe)", 14, y);
+          y += 2;
+          at(doc, {
+            startY: y,
+            head: [["Data", "Funcionário", "Motivo", "Valor"]],
+            body: valesDetalhe.map(({ f, v }) => [formatDate(v.data_vale), f, v.motivo ?? "—", formatBRL(Number(v.valor ?? 0))]),
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fillColor: TEAL, textColor: 255 },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            margin: { left: 14, right: 14 },
+          });
+          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+        }
+      }
+
+      if (l.receitasLista.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Receitas", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Descrição", "Categoria", "Qtd", "Valor"]],
+          body: l.receitasLista.map((c) => [
+            formatDate(c.data_lancamento),
+            c.descricao,
+            c.categoria,
+            c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—",
+            formatBRL(Number(c.valor ?? 0)),
+          ]),
+          foot: [["Total", "", "", "", formatBRL(l.receitas)]],
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: [16, 185, 129], textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.caixaDoViv.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Caixa (todos os lançamentos)", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Tipo", "Descrição", "Categoria", "Qtd", "Valor"]],
+          body: l.caixaDoViv.map((c) => [
+            formatDate(c.data_lancamento),
+            c.tipo,
+            c.descricao,
+            c.categoria,
+            c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—",
+            `${c.tipo === "receita" ? "+" : "-"} ${formatBRL(Number(c.valor ?? 0))}`,
+          ]),
+          foot: [["", "", "", "", "Saldo", formatBRL(l.saldoCaixa)]],
+          styles: { fontSize: 8, cellPadding: 1.8 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
       }
     }
 
@@ -493,12 +721,15 @@ function RelatoriosPage() {
       </div>
 
 
-      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <ResumoCard icon={<FileText className="size-4" />} label="Viveiros" value={String(totais.viveiros)} />
         <ResumoCard icon={<Utensils className="size-4" />} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
         <ResumoCard icon={<Scale className="size-4" />} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
         <ResumoCard icon={<Scale className="size-4" />} label="FCA geral" value={totais.fca != null ? formatNumber(totais.fca) : "—"} />
         <ResumoCard icon={<DollarSign className="size-4" />} label="Custo total" value={formatBRL(totais.custoTotal)} />
+        <ResumoCard icon={<DollarSign className="size-4" />} label="Receitas" value={formatBRL(totais.receitas)} />
+        <ResumoCard icon={<DollarSign className="size-4" />} label="Lucro" value={formatBRL(totais.lucro)} />
+        <ResumoCard icon={<DollarSign className="size-4" />} label="Vales" value={formatBRL(totais.vales)} />
       </div>
 
       {linhas.length === 0 ? (
@@ -558,7 +789,85 @@ function RelatoriosPage() {
                 <Info label="Lançamentos" value={String(l.nLancamentos)} />
                 <Info label="Biometrias" value={String(l.nBiometrias)} />
                 <Info label="Última biometria" value={l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"} />
+                <Info label="Receitas" value={formatBRL(l.receitas)} />
+                <Info label="Lucro estimado" value={formatBRL(l.lucro)} />
+                <Info label="Saldo caixa" value={formatBRL(l.saldoCaixa)} />
+                <Info label="Funcionários" value={String(l.funcionarios.length)} />
+                <Info label="Salários (soma)" value={formatBRL(l.totalSalarios)} />
+                <Info label="Vales totais" value={formatBRL(l.totalValesViv)} />
               </div>
+
+              {l.funcionarios.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Funcionários e vales</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Nome</th>
+                          <th className="p-2 text-right">Salário</th>
+                          <th className="p-2 text-right">Vales (total)</th>
+                          <th className="p-2 text-left">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.funcionarios.map((f) => (
+                          <tr key={f.id} className="border-t">
+                            <td className="p-2">{f.nome}</td>
+                            <td className="p-2 text-right">{formatBRL(Number(f.salario ?? 0))}</td>
+                            <td className="p-2 text-right">{formatBRL(f.totalVales)}</td>
+                            <td className="p-2">{f.ativo ? "Ativo" : "Inativo"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2">Total</td>
+                          <td className="p-2 text-right">{formatBRL(l.totalSalarios)}</td>
+                          <td className="p-2 text-right">{formatBRL(l.totalValesViv)}</td>
+                          <td className="p-2"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {l.receitasLista.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Receitas</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-left">Descrição</th>
+                          <th className="p-2 text-left">Categoria</th>
+                          <th className="p-2 text-right">Qtd</th>
+                          <th className="p-2 text-right">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.receitasLista.map((c) => (
+                          <tr key={c.id} className="border-t">
+                            <td className="p-2">{formatDate(c.data_lancamento)}</td>
+                            <td className="p-2">{c.descricao}</td>
+                            <td className="p-2">{c.categoria}</td>
+                            <td className="p-2 text-right">{c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—"}</td>
+                            <td className="p-2 text-right">{formatBRL(Number(c.valor ?? 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2" colSpan={4}>Total</td>
+                          <td className="p-2 text-right">{formatBRL(l.receitas)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {l.bios.length > 0 && (
                 <div className="mt-5">
