@@ -530,6 +530,128 @@ function RelatoriosPage() {
           alternateRowStyles: { fillColor: [248, 250, 252] },
           margin: { left: 14, right: 14 },
         });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.despesasLista.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Despesas gerais", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Descrição", "Categoria", "Rateio", "Valor total", "Atribuído"]],
+          body: l.despesasLista.map((d) => [
+            formatDate(d.data_despesa),
+            textValue(d.descricao),
+            textValue(d.categoria, "—"),
+            d.tipoRateio === "rateado" ? "Rateado" : "Individual",
+            formatBRL(Number(d.valor ?? 0)),
+            formatBRL(d.share),
+          ]),
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.funcionarios.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Funcionários", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Nome", "Salário", "Vales (total)", "Status"]],
+          body: l.funcionarios.map((f) => [
+            f.nome,
+            formatBRL(Number(f.salario ?? 0)),
+            formatBRL(f.totalVales),
+            f.ativo ? "Ativo" : "Inativo",
+          ]),
+          foot: [["Total", formatBRL(l.totalSalarios), formatBRL(l.totalValesViv), ""]],
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+
+        const valesDetalhe = l.funcionarios.flatMap((f) => f.vales.map((v) => ({ f: f.nome, v })));
+        if (valesDetalhe.length > 0) {
+          if (y > pageH - 40) { doc.addPage(); y = 20; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(11);
+          doc.text("Vales (detalhe)", 14, y);
+          y += 2;
+          at(doc, {
+            startY: y,
+            head: [["Data", "Funcionário", "Motivo", "Valor"]],
+            body: valesDetalhe.map(({ f, v }) => [formatDate(v.data_vale), f, v.motivo ?? "—", formatBRL(Number(v.valor ?? 0))]),
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fillColor: TEAL, textColor: 255 },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            margin: { left: 14, right: 14 },
+          });
+          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+        }
+      }
+
+      if (l.receitasLista.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Receitas", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Descrição", "Categoria", "Qtd", "Valor"]],
+          body: l.receitasLista.map((c) => [
+            formatDate(c.data_lancamento),
+            c.descricao,
+            c.categoria,
+            c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—",
+            formatBRL(Number(c.valor ?? 0)),
+          ]),
+          foot: [["Total", "", "", "", formatBRL(l.receitas)]],
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: [16, 185, 129], textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (l.caixaDoViv.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Caixa (todos os lançamentos)", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Tipo", "Descrição", "Categoria", "Qtd", "Valor"]],
+          body: l.caixaDoViv.map((c) => [
+            formatDate(c.data_lancamento),
+            c.tipo,
+            c.descricao,
+            c.categoria,
+            c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—",
+            `${c.tipo === "receita" ? "+" : "-"} ${formatBRL(Number(c.valor ?? 0))}`,
+          ]),
+          foot: [["", "", "", "", "Saldo", formatBRL(l.saldoCaixa)]],
+          styles: { fontSize: 8, cellPadding: 1.8 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 14, right: 14 },
+        });
       }
     }
 
