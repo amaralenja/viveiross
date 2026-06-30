@@ -23,6 +23,7 @@ type Bundle = RelatorioBundle & { titulo: string | null; createdAt: string };
 
 function PublicReport() {
   const { token } = Route.useParams();
+  const { pdf } = Route.useSearch();
   const { data, isLoading, error } = useQuery({
     queryKey: ["public-relatorio", token],
     queryFn: async (): Promise<Bundle> => {
@@ -31,6 +32,14 @@ function PublicReport() {
       return res.json();
     },
   });
+
+  useEffect(() => {
+    if (pdf && data) {
+      const t = setTimeout(() => window.print(), 600);
+      return () => clearTimeout(t);
+    }
+  }, [pdf, data]);
+
 
   if (isLoading) {
     return (
