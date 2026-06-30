@@ -35,6 +35,33 @@ type BiometriaRelatorio = {
   amostras: number | null;
   sobrevivencia_percent: number | null;
 };
+type FuncionarioRel = {
+  id: string;
+  nome: string;
+  salario: number | null;
+  ativo: boolean;
+  viveiro_id: string | null;
+  observacao: string | null;
+};
+type ValeRel = {
+  id: string;
+  funcionario_id: string;
+  valor: number;
+  motivo: string | null;
+  data_vale: string;
+};
+type CaixaRel = {
+  id: string;
+  viveiro_id: string | null;
+  data_lancamento: string;
+  descricao: string;
+  categoria: string;
+  tipo: string;
+  valor: number;
+  quantidade: number | null;
+  unidade: string | null;
+  observacao: string | null;
+};
 
 function textValue(value: unknown, fallback = "—"): string {
   if (value == null || value === "") return fallback;
