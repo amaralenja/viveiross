@@ -695,7 +695,7 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
-  async function gerarLink(viveiroIds: string[] | null, titulo: string | null) {
+  async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false) {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
       toast.error("Sessão expirada.");
@@ -710,10 +710,10 @@ function RelatoriosPage() {
       toast.error(error?.message ?? "Falha ao gerar link.");
       return;
     }
-    const url = `${window.location.origin}/r/${data.token}`;
+    const url = `${window.location.origin}/r/${data.token}${asPdf ? "?pdf=1" : ""}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copiado!", { description: url });
+      toast.success(asPdf ? "Link do PDF copiado!" : "Link copiado!", { description: url });
     } catch {
       window.prompt("Copie o link:", url);
     }
@@ -721,6 +721,7 @@ function RelatoriosPage() {
       try { await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> }).share({ url, title: titulo ?? "Relatório de Viveiros" }); } catch { /* user cancelled */ }
     }
   }
+
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
