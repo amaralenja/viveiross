@@ -695,6 +695,33 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
+  async function gerarLink(viveiroIds: string[] | null, titulo: string | null) {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      toast.error("Sessão expirada.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("relatorio_shares")
+      .insert({ user_id: u.user.id, viveiro_ids: viveiroIds, titulo })
+      .select("token")
+      .single();
+    if (error || !data) {
+      toast.error(error?.message ?? "Falha ao gerar link.");
+      return;
+    }
+    const url = `${window.location.origin}/r/${data.token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado!", { description: url });
+    } catch {
+      window.prompt("Copie o link:", url);
+    }
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try { await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> }).share({ url, title: titulo ?? "Relatório de Viveiros" }); } catch { /* user cancelled */ }
+    }
+  }
+
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
