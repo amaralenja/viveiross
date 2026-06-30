@@ -143,6 +143,42 @@ function RelatoriosPage() {
     },
   });
 
+  const { data: funcionarios = [] } = useQuery({
+    queryKey: ["funcionarios", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funcionarios")
+        .select("id, nome, salario, ativo, viveiro_id, observacao")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as FuncionarioRel[];
+    },
+  });
+
+  const { data: vales = [] } = useQuery({
+    queryKey: ["vales", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vales")
+        .select("id, funcionario_id, valor, motivo, data_vale")
+        .order("data_vale", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ValeRel[];
+    },
+  });
+
+  const { data: caixa = [] } = useQuery({
+    queryKey: ["caixa_lancamentos", "relatorio"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("caixa_lancamentos")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, tipo, valor, quantidade, unidade, observacao")
+        .order("data_lancamento", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as CaixaRel[];
+    },
+  });
+
   const linhas = useMemo(() => {
     const nViv = Math.max(1, viveiros.length);
     const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
