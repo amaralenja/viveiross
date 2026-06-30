@@ -233,6 +233,25 @@ function RelatoriosPage() {
         ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
       ];
 
+      // Funcionários ligados a este viveiro + total de vales por funcionário
+      const funcsDoViveiro = funcionarios.filter((f) => f.viveiro_id === v.id);
+      const funcsComVales = funcsDoViveiro.map((f) => {
+        const meus = vales.filter((vv) => vv.funcionario_id === f.id);
+        const totalVales = meus.reduce((s, x) => s + Number(x.valor ?? 0), 0);
+        return { ...f, vales: meus, totalVales };
+      });
+      const totalSalarios = funcsDoViveiro.reduce((s, f) => s + Number(f.salario ?? 0), 0);
+      const totalValesViv = funcsComVales.reduce((s, f) => s + f.totalVales, 0);
+
+      // Caixa: receitas/despesas atribuídas a este viveiro
+      const caixaDoViv = caixa.filter((c) => c.viveiro_id === v.id);
+      const receitasLista = caixaDoViv.filter((c) => c.tipo === "receita");
+      const despesasCaixa = caixaDoViv.filter((c) => c.tipo !== "receita");
+      const receitas = receitasLista.reduce((s, c) => s + Number(c.valor ?? 0), 0);
+      const despesasCaixaTot = despesasCaixa.reduce((s, c) => s + Number(c.valor ?? 0), 0);
+      const saldoCaixa = receitas - despesasCaixaTot;
+      const lucro = receitas - custoTotal;
+
       return {
         id: v.id,
         viveiro: textValue(v.nome),
@@ -260,9 +279,18 @@ function RelatoriosPage() {
         bios,
         racaoDiaria,
         despesasLista,
+        funcionarios: funcsComVales,
+        totalSalarios,
+        totalValesViv,
+        receitas,
+        despesasCaixaTot,
+        saldoCaixa,
+        lucro,
+        receitasLista,
+        caixaDoViv,
       };
     });
-  }, [biometrias, lancamentos, viveiros, despesas]);
+  }, [biometrias, lancamentos, viveiros, despesas, funcionarios, vales, caixa]);
 
   const totais = useMemo(() => {
     const base = linhas.reduce(
