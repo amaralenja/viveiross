@@ -299,8 +299,12 @@ function RelatoriosPage() {
         racaoKg: acc.racaoKg + l.racaoKg,
         biomassa: acc.biomassa + l.biomassa,
         custoTotal: acc.custoTotal + l.custoTotal,
+        receitas: acc.receitas + l.receitas,
+        lucro: acc.lucro + l.lucro,
+        vales: acc.vales + l.totalValesViv,
+        salarios: acc.salarios + l.totalSalarios,
       }),
-      { viveiros: 0, racaoKg: 0, biomassa: 0, custoTotal: 0 },
+      { viveiros: 0, racaoKg: 0, biomassa: 0, custoTotal: 0, receitas: 0, lucro: 0, vales: 0, salarios: 0 },
     );
     return { ...base, fca: base.biomassa > 0 ? base.racaoKg / base.biomassa : null };
   }, [linhas]);
