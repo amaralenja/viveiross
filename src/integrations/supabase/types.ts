@@ -407,6 +407,30 @@ export type Database = {
           },
         ]
       }
+      pdf_shares: {
+        Row: {
+          created_at: string
+          filename: string | null
+          signed_url: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          filename?: string | null
+          signed_url: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          filename?: string | null
+          signed_url?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           categoria: string
@@ -581,6 +605,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_pdf_share: { Args: { _token: string }; Returns: Json }
       get_relatorio_share_bundle: { Args: { _token: string }; Returns: Json }
     }
     Enums: {
