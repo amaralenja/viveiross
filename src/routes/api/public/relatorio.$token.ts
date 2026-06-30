@@ -3,6 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import type { RelatorioBundle } from "@/lib/relatorios-calc";
 import type { Database } from "@/integrations/supabase/types";
 
+type RelatorioRpcClient = {
+  rpc: (
+    fn: "get_relatorio_share_bundle",
+    args: { _token: string },
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
+
 export const Route = createFileRoute("/api/public/relatorio/$token")({
   server: {
     handlers: {
@@ -21,7 +28,7 @@ export const Route = createFileRoute("/api/public/relatorio/$token")({
           auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
         });
 
-        const { data: bundle, error } = await supabasePublic.rpc("get_relatorio_share_bundle", {
+        const { data: bundle, error } = await (supabasePublic as unknown as RelatorioRpcClient).rpc("get_relatorio_share_bundle", {
           _token: token,
         });
 
