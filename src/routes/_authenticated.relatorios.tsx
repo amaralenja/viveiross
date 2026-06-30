@@ -682,7 +682,12 @@ function RelatoriosPage() {
         .from("relatorios-pdf")
         .createSignedUrl(path, 60 * 60 * 24 * 365);
       if (sErr || !signed) { toast.error(sErr?.message ?? "Falha ao gerar link.", { id: tid }); return; }
-      const url = signed.signedUrl;
+      const token = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+      const { error: insErr } = await supabase.from("pdf_shares").insert({
+        token, user_id: u.user.id, signed_url: signed.signedUrl, filename: result.filename,
+      });
+      if (insErr) { toast.error(insErr.message, { id: tid }); return; }
+      const url = `${window.location.origin}/p/${token}`;
       try {
         await navigator.clipboard.writeText(url);
         toast.success("Link do PDF copiado!", { id: tid, description: url });

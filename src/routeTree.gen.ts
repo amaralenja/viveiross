@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RTokenRouteImport } from './routes/r.$token'
+import { Route as PTokenRouteImport } from './routes/p.$token'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
 import { Route as AuthenticatedValesRouteImport } from './routes/_authenticated.vales'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
@@ -39,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
 const RTokenRoute = RTokenRouteImport.update({
   id: '/r/$token',
   path: '/r/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PTokenRoute = PTokenRouteImport.update({
+  id: '/p/$token',
+  path: '/p/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedViveirosRoute = AuthenticatedViveirosRouteImport.update({
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
+  '/p/$token': typeof PTokenRoute
   '/r/$token': typeof RTokenRoute
   '/api/public/relatorio/$token': typeof ApiPublicRelatorioTokenRoute
 }
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
+  '/p/$token': typeof PTokenRoute
   '/r/$token': typeof RTokenRoute
   '/api/public/relatorio/$token': typeof ApiPublicRelatorioTokenRoute
 }
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/vales': typeof AuthenticatedValesRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
+  '/p/$token': typeof PTokenRoute
   '/r/$token': typeof RTokenRoute
   '/api/public/relatorio/$token': typeof ApiPublicRelatorioTokenRoute
 }
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/vales'
     | '/viveiros'
+    | '/p/$token'
     | '/r/$token'
     | '/api/public/relatorio/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/vales'
     | '/viveiros'
+    | '/p/$token'
     | '/r/$token'
     | '/api/public/relatorio/$token'
   id:
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/_authenticated/relatorios'
     | '/_authenticated/vales'
     | '/_authenticated/viveiros'
+    | '/p/$token'
     | '/r/$token'
     | '/api/public/relatorio/$token'
   fileRoutesById: FileRoutesById
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PTokenRoute: typeof PTokenRoute
   RTokenRoute: typeof RTokenRoute
   ApiPublicRelatorioTokenRoute: typeof ApiPublicRelatorioTokenRoute
 }
@@ -202,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/r/$token'
       fullPath: '/r/$token'
       preLoaderRoute: typeof RTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$token': {
+      id: '/p/$token'
+      path: '/p/$token'
+      fullPath: '/p/$token'
+      preLoaderRoute: typeof PTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/viveiros': {
@@ -291,6 +311,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  PTokenRoute: PTokenRoute,
   RTokenRoute: RTokenRoute,
   ApiPublicRelatorioTokenRoute: ApiPublicRelatorioTokenRoute,
 }
