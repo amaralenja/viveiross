@@ -309,7 +309,7 @@ function RelatoriosPage() {
     return { ...base, fca: base.biomassa > 0 ? base.racaoKg / base.biomassa : null };
   }, [linhas]);
 
-  async function exportPdf(ids?: string[]) {
+  async function exportPdf(ids?: string[], mode: "save" | "blob" = "save"): Promise<{ blob: Blob; filename: string } | void> {
     const alvo = ids && ids.length > 0 ? linhas.filter((l) => ids.includes(l.id)) : linhas;
     if (alvo.length === 0) {
       toast.error("Nada para exportar.");
@@ -659,7 +659,43 @@ function RelatoriosPage() {
     const nome = ids && ids.length === 1
       ? `relatorio-${alvo[0].viveiro.replace(/\s+/g, "-").toLowerCase()}-${todayLocal()}.pdf`
       : `relatorio-viveiros-${todayLocal()}.pdf`;
+    if (mode === "blob") {
+      const blob = doc.output("blob");
+      return { blob, filename: nome };
+    }
     doc.save(nome);
+  }
+
+  async function gerarLinkPdf(ids?: string[]) {
+    const tid = toast.loading("Gerando PDF...");
+    try {
+      const result = await exportPdf(ids && ids.length > 0 ? ids : undefined, "blob");
+      if (!result) { toast.dismiss(tid); return; }
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { toast.error("Sessão expirada.", { id: tid }); return; }
+      const path = `${u.user.id}/${Date.now()}-${result.filename}`;
+      const { error: upErr } = await supabase.storage
+        .from("relatorios-pdf")
+        .upload(path, result.blob, { contentType: "application/pdf", upsert: true });
+      if (upErr) { toast.error(upErr.message, { id: tid }); return; }
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("relatorios-pdf")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (sErr || !signed) { toast.error(sErr?.message ?? "Falha ao gerar link.", { id: tid }); return; }
+      const url = signed.signedUrl;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link do PDF copiado!", { id: tid, description: url });
+      } catch {
+        toast.dismiss(tid);
+        window.prompt("Copie o link do PDF:", url);
+      }
+      if (typeof navigator !== "undefined" && "share" in navigator) {
+        try { await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> }).share({ url, title: result.filename }); } catch { /* user cancelled */ }
+      }
+    } catch (e) {
+      toast.error((e as Error).message ?? "Falha ao gerar PDF.", { id: tid });
+    }
   }
 
   const delLanc = useMutation({
@@ -746,14 +782,14 @@ function RelatoriosPage() {
             <LinkIcon className="size-4" /> Link de tudo
           </button>
           <button
-            onClick={() => gerarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`, true)}
+            onClick={() => gerarLinkPdf(Array.from(selecionados))}
             disabled={selecionados.size === 0}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
           >
             <LinkIcon className="size-4" /> Link PDF selec.
           </button>
           <button
-            onClick={() => gerarLink(null, "Todos os viveiros", true)}
+            onClick={() => gerarLinkPdf()}
             disabled={linhas.length === 0}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
           >
