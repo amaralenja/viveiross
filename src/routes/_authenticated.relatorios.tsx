@@ -433,12 +433,23 @@ function RelatoriosPage() {
         ["Ração total", `${formatNumber(l.racaoKg)} kg`],
         ["Custo ração", formatBRL(l.custoRacao)],
         ["Custo outros", formatBRL(l.custoOutros)],
+        ["Despesas rateadas", formatBRL(l.custoDespRateio)],
+        ["Despesas próprias", formatBRL(l.custoDespIndiv)],
         ["Custo total", formatBRL(l.custoTotal)],
         ["R$ por kg", l.custoPorKg ? formatBRL(l.custoPorKg) : "—"],
         ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
         ["Sobrevivência", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
         ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
         ["FCA", l.fca != null ? formatNumber(l.fca) : "—"],
+        ["Receitas", formatBRL(l.receitas)],
+        ["Lucro estimado", formatBRL(l.lucro)],
+        ["Saldo caixa", formatBRL(l.saldoCaixa)],
+        ["Funcionários", String(l.funcionarios.length)],
+        ["Salários (soma)", formatBRL(l.totalSalarios)],
+        ["Vales totais", formatBRL(l.totalValesViv)],
+        ["Lançamentos", String(l.nLancamentos)],
+        ["Biometrias", String(l.nBiometrias)],
+        ["Última biometria", l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"],
       ];
       const cols = 4;
       const mW = (pageW - 28 - (cols - 1) * 3) / cols;
