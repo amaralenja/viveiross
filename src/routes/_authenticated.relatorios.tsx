@@ -746,6 +746,21 @@ function RelatoriosPage() {
             <LinkIcon className="size-4" /> Link de tudo
           </button>
           <button
+            onClick={() => gerarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`, true)}
+            disabled={selecionados.size === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
+          >
+            <LinkIcon className="size-4" /> Link PDF selec.
+          </button>
+          <button
+            onClick={() => gerarLink(null, "Todos os viveiros", true)}
+            disabled={linhas.length === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
+          >
+            <LinkIcon className="size-4" /> Link PDF tudo
+          </button>
+
+          <button
             onClick={() => exportPdf(Array.from(selecionados))}
             disabled={selecionados.size === 0}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-secondary px-3 font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4"
