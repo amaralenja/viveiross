@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
   computeLinhas,
   computeTotais,
@@ -10,10 +11,11 @@ import {
   type LinhaRel,
   type RelatorioBundle,
 } from "@/lib/relatorios-calc";
-import { Fish, Scale, Utensils, DollarSign, TrendingUp, Wallet, Users, Calendar } from "lucide-react";
+import { Fish, Scale, Utensils, DollarSign, TrendingUp, Wallet, Users, Calendar, Printer } from "lucide-react";
 
 export const Route = createFileRoute("/r/$token")({
   head: () => ({ meta: [{ title: "Relatório de Viveiros" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({ pdf: s.pdf === "1" || s.pdf === 1 || s.pdf === true ? 1 : undefined }),
   component: PublicReport,
 });
 
