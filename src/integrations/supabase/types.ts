@@ -461,6 +461,33 @@ export type Database = {
         }
         Relationships: []
       }
+      relatorio_shares: {
+        Row: {
+          created_at: string
+          id: string
+          titulo: string | null
+          token: string
+          user_id: string
+          viveiro_ids: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          titulo?: string | null
+          token?: string
+          user_id: string
+          viveiro_ids?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          titulo?: string | null
+          token?: string
+          user_id?: string
+          viveiro_ids?: string[] | null
+        }
+        Relationships: []
+      }
       vales: {
         Row: {
           created_at: string
