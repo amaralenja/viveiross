@@ -695,7 +695,7 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
-  async function gerarLink(viveiroIds: string[] | null, titulo: string | null) {
+  async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false) {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
       toast.error("Sessão expirada.");
@@ -710,10 +710,10 @@ function RelatoriosPage() {
       toast.error(error?.message ?? "Falha ao gerar link.");
       return;
     }
-    const url = `${window.location.origin}/r/${data.token}`;
+    const url = `${window.location.origin}/r/${data.token}${asPdf ? "?pdf=1" : ""}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copiado!", { description: url });
+      toast.success(asPdf ? "Link do PDF copiado!" : "Link copiado!", { description: url });
     } catch {
       window.prompt("Copie o link:", url);
     }
@@ -721,6 +721,7 @@ function RelatoriosPage() {
       try { await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> }).share({ url, title: titulo ?? "Relatório de Viveiros" }); } catch { /* user cancelled */ }
     }
   }
+
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
@@ -744,6 +745,21 @@ function RelatoriosPage() {
           >
             <LinkIcon className="size-4" /> Link de tudo
           </button>
+          <button
+            onClick={() => gerarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`, true)}
+            disabled={selecionados.size === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
+          >
+            <LinkIcon className="size-4" /> Link PDF selec.
+          </button>
+          <button
+            onClick={() => gerarLink(null, "Todos os viveiros", true)}
+            disabled={linhas.length === 0}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-3 text-sm font-semibold hover:bg-accent disabled:opacity-50"
+          >
+            <LinkIcon className="size-4" /> Link PDF tudo
+          </button>
+
           <button
             onClick={() => exportPdf(Array.from(selecionados))}
             disabled={selecionados.size === 0}

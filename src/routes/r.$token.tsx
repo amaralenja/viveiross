@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
   computeLinhas,
   computeTotais,
@@ -10,10 +11,11 @@ import {
   type LinhaRel,
   type RelatorioBundle,
 } from "@/lib/relatorios-calc";
-import { Fish, Scale, Utensils, DollarSign, TrendingUp, Wallet, Users, Calendar } from "lucide-react";
+import { Fish, Scale, Utensils, DollarSign, TrendingUp, Wallet, Users, Calendar, Printer } from "lucide-react";
 
 export const Route = createFileRoute("/r/$token")({
   head: () => ({ meta: [{ title: "Relatório de Viveiros" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({ pdf: s.pdf === "1" || s.pdf === 1 || s.pdf === true ? 1 : undefined }),
   component: PublicReport,
 });
 
@@ -21,6 +23,7 @@ type Bundle = RelatorioBundle & { titulo: string | null; createdAt: string };
 
 function PublicReport() {
   const { token } = Route.useParams();
+  const { pdf } = Route.useSearch();
   const { data, isLoading, error } = useQuery({
     queryKey: ["public-relatorio", token],
     queryFn: async (): Promise<Bundle> => {
@@ -29,6 +32,14 @@ function PublicReport() {
       return res.json();
     },
   });
+
+  useEffect(() => {
+    if (pdf && data) {
+      const t = setTimeout(() => window.print(), 600);
+      return () => clearTimeout(t);
+    }
+  }, [pdf, data]);
+
 
   if (isLoading) {
     return (
@@ -53,23 +64,33 @@ function PublicReport() {
   const hoje = new Date().toLocaleDateString("pt-BR");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50">
-      <header className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 print:bg-white">
+      <style>{`@media print { .no-print { display: none !important; } body { background: white !important; } }`}</style>
+      <header className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white print:bg-white print:text-slate-900">
         <div className="mx-auto max-w-6xl px-5 py-10">
-          <div className="flex items-center gap-3">
-            <div className="size-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center">
-              <Fish className="size-7" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="size-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center print:bg-teal-50">
+                <Fish className="size-7" />
+              </div>
+              <div>
+                <p className="text-sm text-white/80 print:text-slate-500">Relatório de Viveiros</p>
+                <h1 className="text-3xl font-bold">{data.titulo ?? "Extrato completo"}</h1>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-white/80">Relatório de Viveiros</p>
-              <h1 className="text-3xl font-bold">{data.titulo ?? "Extrato completo"}</h1>
-            </div>
+            <button
+              onClick={() => window.print()}
+              className="no-print inline-flex items-center gap-2 rounded-xl bg-white/20 hover:bg-white/30 px-4 py-2 text-sm font-semibold backdrop-blur"
+            >
+              <Printer className="size-4" /> Baixar PDF
+            </button>
           </div>
-          <p className="mt-4 text-sm text-white/80 flex items-center gap-2">
+          <p className="mt-4 text-sm text-white/80 print:text-slate-500 flex items-center gap-2">
             <Calendar className="size-4" /> Gerado em {hoje} · {linhas.length} viveiro{linhas.length === 1 ? "" : "s"}
           </p>
         </div>
       </header>
+
 
       <main className="mx-auto max-w-6xl px-5 py-8 space-y-8">
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
