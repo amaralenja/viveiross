@@ -328,10 +328,7 @@ function CaixaSimplesPage() {
           <CardTitle className="flex items-center gap-2 text-base"><Plus className="size-4" /> Novo lançamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant={tipo === "despesa" ? "default" : "outline"} onClick={() => setTipo("despesa")}>Despesa</Button>
-            <Button type="button" variant={tipo === "receita" ? "default" : "outline"} onClick={() => setTipo("receita")}>Receita</Button>
-          </div>
+
 
           <div>
             <Label>Descrição do produto/serviço</Label>
