@@ -822,6 +822,11 @@ function CaixaPage() {
                                   · rateado
                                 </span>
                               )}
+                              {h.l.socio_id && socioMap.get(h.l.socio_id) && (
+                                <span className="ml-1 text-[10px] text-primary/80">
+                                  · {socioMap.get(h.l.socio_id)}
+                                </span>
+                              )}
                             </span>
                             <span
                               className={`font-semibold tabular-nums shrink-0 ${h.l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
