@@ -185,9 +185,25 @@ function CaixaSimplesPage() {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Sessão expirada.");
-      if (!descricao.trim()) throw new Error("Informe a descrição.");
       const v = Number(valor.replace(",", ".")) || 0;
       if (v <= 0) throw new Error("Informe o valor.");
+
+      if (modo === "vale" || modo === "vale_extra") {
+        if (!funcionarioId) throw new Error("Selecione o funcionário.");
+        const motivoBase = descricao.trim() || (modo === "vale_extra" ? "Vale extra" : "Vale");
+        const motivo = modo === "vale_extra" ? `${EXTRA_TAG} ${motivoBase}`.trim() : motivoBase;
+        const { error } = await supabase.from("vales").insert({
+          user_id: u.user.id,
+          funcionario_id: funcionarioId,
+          valor: v,
+          motivo,
+          data_vale: data,
+        });
+        if (error) throw error;
+        return;
+      }
+
+      if (!descricao.trim()) throw new Error("Informe a descrição.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
       const isInterno = viveiroId === INTERNO;
       const { error } = await supabase.from("caixa_lancamentos").insert({
@@ -206,10 +222,11 @@ function CaixaSimplesPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Despesa registrada");
+      toast.success(modo === "vale_extra" ? "Vale extra registrado" : modo === "vale" ? "Vale registrado" : "Despesa registrada");
       setDescricao(""); setValor(""); setQtd(""); setObservacao("");
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["vales"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
