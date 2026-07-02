@@ -196,14 +196,15 @@ function CaixaSimplesPage() {
         quantidade: qNum > 0 ? qNum : null,
         unidade: qNum > 0 ? unidade : null,
         socio_id: socioId || null,
-        observacao: observacao.trim() || null,
+        observacao: `${CS_TAG} ${observacao.trim()}`.trim(),
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada");
       setDescricao(""); setValor(""); setQtd(""); setObservacao("");
-      qc.invalidateQueries({ queryKey: ["caixa", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -215,7 +216,9 @@ function CaixaSimplesPage() {
     },
     onSuccess: () => {
       toast.success("Lançamento removido");
-      qc.invalidateQueries({ queryKey: ["caixa", "lancamentos"] });
+      setSelectedIds((prev) => { const n = new Set(prev); return n; });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
