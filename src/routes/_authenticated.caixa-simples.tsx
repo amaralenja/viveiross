@@ -436,18 +436,23 @@ function CaixaSimplesPage() {
         <CardHeader>
           <CardTitle className="text-base">Compartilhar / Exportar</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {selectedIds.size > 0
+              ? `Exportando ${selectedIds.size} lançamento(s) selecionado(s)`
+              : "Sem seleção: exporta todos os lançamentos"}
+          </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Button size="sm" variant="outline" disabled={busy || lancamentos.length === 0} onClick={copiarLink}>
+            <Button size="sm" variant="outline" disabled={busy || exportRows.length === 0} onClick={copiarLink}>
               <Link2 className="size-4 mr-1" /> Link
             </Button>
-            <Button size="sm" variant="outline" disabled={busy || lancamentos.length === 0} onClick={compartilharWhats}>
+            <Button size="sm" variant="outline" disabled={busy || exportRows.length === 0} onClick={compartilharWhats}>
               <MessageCircle className="size-4 mr-1" /> WhatsApp
             </Button>
-            <Button size="sm" variant="outline" disabled={lancamentos.length === 0} onClick={baixarPdf}>
+            <Button size="sm" variant="outline" disabled={exportRows.length === 0} onClick={baixarPdf}>
               <FileDown className="size-4 mr-1" /> PDF
             </Button>
-            <Button size="sm" variant="outline" disabled={lancamentos.length === 0} onClick={imprimir}>
+            <Button size="sm" variant="outline" disabled={exportRows.length === 0} onClick={imprimir}>
               <Printer className="size-4 mr-1" /> Imprimir
             </Button>
           </div>
@@ -455,15 +460,29 @@ function CaixaSimplesPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Últimos lançamentos</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Últimos lançamentos</CardTitle>
+          {lancamentos.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={toggleAll}>
+              {selectedIds.size === lancamentos.length ? "Limpar seleção" : "Selecionar todos"}
+            </Button>
+          )}
+        </CardHeader>
         <CardContent>
           {lancamentos.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum lançamento ainda.</p>
           ) : (
             <ul className="space-y-2">
-              {lancamentos.map((l) => (
-                <li key={l.id} className="flex items-start justify-between gap-2 border-b pb-2 last:border-0">
-                  <div className="min-w-0">
+              {lancamentos.map((l) => {
+                const obs = stripTag(l.observacao);
+                return (
+                <li key={l.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
+                  <Checkbox
+                    checked={selectedIds.has(l.id)}
+                    onCheckedChange={() => toggleSelect(l.id)}
+                    className="mt-1"
+                  />
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold ${l.tipo === "receita" ? "text-emerald-600" : "text-red-600"}`}>
                         {l.tipo === "receita" ? "+" : "-"} {brl(Number(l.valor))}
@@ -477,13 +496,14 @@ function CaixaSimplesPage() {
                       {l.socio_id && socioMap.get(l.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(l.socio_id)}</span></>)}
                       {l.quantidade != null && (<><span>·</span><span>{l.quantidade} {l.unidade}</span></>)}
                     </div>
-                    {l.observacao && <div className="text-xs text-muted-foreground mt-1 italic">{l.observacao}</div>}
+                    {obs && <div className="text-xs text-muted-foreground mt-1 italic">{obs}</div>}
                   </div>
                   <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover lançamento?")) removeMut.mutate(l.id); }}>
                     <Trash2 className="size-4" />
                   </Button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </CardContent>
