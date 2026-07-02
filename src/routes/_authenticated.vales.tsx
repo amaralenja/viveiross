@@ -108,6 +108,19 @@ function ValesPage() {
     load();
   }
 
+  async function removerFuncionario(f: Funcionario) {
+    if (!confirm(`Tem certeza que deseja apagar o funcionário "${f.nome}"?\n\nTodos os vales dele também serão removidos.`)) return;
+    setBusyId(f.id);
+    const { error: vErr } = await supabase.from("vales").delete().eq("funcionario_id", f.id);
+    if (vErr) { setBusyId(null); return toast.error(vErr.message); }
+    const { error } = await supabase.from("funcionarios").delete().eq("id", f.id);
+    setBusyId(null);
+    if (error) return toast.error(error.message);
+    toast.success("Funcionário removido");
+    load();
+  }
+
+
   async function gerarPdfLink(func: Funcionario, list: Vale[]): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) { toast.error("Sessão expirada."); return null; }
