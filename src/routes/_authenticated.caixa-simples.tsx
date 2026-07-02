@@ -390,6 +390,7 @@ function CaixaSimplesPage() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={TODOS}>Rateado entre todos os viveiros</SelectItem>
+                <SelectItem value={INTERNO}>Gasto interno (não vai pra nenhum viveiro)</SelectItem>
                 {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
               </SelectContent>
             </Select>
