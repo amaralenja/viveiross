@@ -353,11 +353,28 @@ function CaixaSimplesPage() {
           <CardTitle className="flex items-center gap-2 text-base"><Plus className="size-4" /> Novo lançamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <Button type="button" size="sm" variant={modo === "despesa" ? "default" : "outline"} onClick={() => setModo("despesa")}>Despesa</Button>
+            <Button type="button" size="sm" variant={modo === "vale" ? "default" : "outline"} onClick={() => setModo("vale")}>Vale</Button>
+            <Button type="button" size="sm" variant={modo === "vale_extra" ? "default" : "outline"} onClick={() => setModo("vale_extra")}>Vale extra</Button>
+          </div>
 
+          {modo !== "despesa" && (
+            <div>
+              <Label>Funcionário</Label>
+              <Select value={funcionarioId || "__none__"} onValueChange={(v) => setFuncionarioId(v === "__none__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— selecione —</SelectItem>
+                  {funcionarios.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
-            <Label>Descrição do produto/serviço</Label>
-            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: Tinta pro viveiro" />
+            <Label>{modo === "despesa" ? "Descrição do produto/serviço" : "Motivo (opcional)"}</Label>
+            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={modo === "despesa" ? "Ex: Tinta pro viveiro" : "Ex: adiantamento"} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
