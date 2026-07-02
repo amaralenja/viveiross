@@ -987,6 +987,33 @@ function CaixaPage() {
           />
         </Field>
 
+        <Field label={tipo === "receita" ? "Quem recebeu (sócio)" : "Quem pagou (sócio)"}>
+          <div className="flex gap-2">
+            <select
+              value={socioId}
+              onChange={(e) => setSocioId(e.target.value)}
+              className="app-input flex-1"
+            >
+              <option value="">— nenhum —</option>
+              {socios.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="app-input w-auto px-3 whitespace-nowrap"
+              onClick={() => {
+                const nome = window.prompt("Nome do novo sócio:");
+                if (nome && nome.trim()) addSocioMut.mutate(nome.trim());
+              }}
+            >
+              + Novo
+            </button>
+          </div>
+        </Field>
+
+
+
         <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
           <p className="text-xs font-semibold uppercase text-muted-foreground">
             Calcular por preço × quantidade (opcional)
