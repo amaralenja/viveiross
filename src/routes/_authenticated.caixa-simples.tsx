@@ -85,7 +85,7 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
 
 function CaixaSimplesPage() {
   const qc = useQueryClient();
-  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
+  const tipo = "despesa" as const;
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [qtd, setQtd] = useState("");
@@ -190,7 +190,7 @@ function CaixaSimplesPage() {
         viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: isInterno ? "interno" : (tipo === "receita" ? "venda" : "geral"),
+        categoria: isInterno ? "interno" : "geral",
         valor: v,
         tipo,
         quantidade: qNum > 0 ? qNum : null,
@@ -201,7 +201,7 @@ function CaixaSimplesPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada");
+      toast.success("Despesa registrada");
       setDescricao(""); setValor(""); setQtd(""); setObservacao("");
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
@@ -313,9 +313,8 @@ function CaixaSimplesPage() {
         <CardHeader><CardTitle className="text-base">Resumo geral</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Kpi label="Receitas" value={brl(totais.receitas)} tone="ok" />
             <Kpi label="Despesas" value={brl(totais.despesas)} tone="bad" />
-            <Kpi label="Saldo" value={brl(totais.saldo)} tone={totais.saldo >= 0 ? "ok" : "bad"} />
+
             <Kpi label="Vales (total)" value={brl(totais.vales)} />
             <Kpi label="Vales do mês" value={brl(totais.valesMes)} />
             <Kpi label="Salários base" value={brl(totais.salarios)} />
@@ -328,10 +327,7 @@ function CaixaSimplesPage() {
           <CardTitle className="flex items-center gap-2 text-base"><Plus className="size-4" /> Novo lançamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant={tipo === "despesa" ? "default" : "outline"} onClick={() => setTipo("despesa")}>Despesa</Button>
-            <Button type="button" variant={tipo === "receita" ? "default" : "outline"} onClick={() => setTipo("receita")}>Receita</Button>
-          </div>
+
 
           <div>
             <Label>Descrição do produto/serviço</Label>
@@ -370,7 +366,7 @@ function CaixaSimplesPage() {
           </div>
 
           <div>
-            <Label>{tipo === "receita" ? "Quem recebeu (sócio)" : "Quem pagou (sócio)"}</Label>
+            <Label>Quem pagou (sócio)</Label>
             <div className="flex gap-2">
               <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
                 <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
