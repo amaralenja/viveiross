@@ -2,7 +2,7 @@ import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
-import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, Link as LinkIcon } from "lucide-react";
+import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, Link as LinkIcon, MessageCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -736,11 +736,11 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
-  async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false) {
+  async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
       toast.error("Sessão expirada.");
-      return;
+      return null;
     }
     const { data, error } = await supabase
       .from("relatorio_shares")
@@ -749,9 +749,14 @@ function RelatoriosPage() {
       .single();
     if (error || !data) {
       toast.error(error?.message ?? "Falha ao gerar link.");
-      return;
+      return null;
     }
-    const url = `${window.location.origin}/r/${data.token}${asPdf ? "?pdf=1" : ""}`;
+    return `${window.location.origin}/r/${data.token}${asPdf ? "?pdf=1" : ""}`;
+  }
+
+  async function copiarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false) {
+    const url = await gerarLink(viveiroIds, titulo, asPdf);
+    if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
       toast.success(asPdf ? "Link do PDF copiado!" : "Link copiado!", { description: url });
@@ -763,6 +768,24 @@ function RelatoriosPage() {
     }
   }
 
+  async function compartilharWhatsapp(viveiroIds: string[] | null, titulo: string | null) {
+    const tid = toast.loading("Gerando link...");
+    const url = await gerarLink(viveiroIds, titulo, false);
+    toast.dismiss(tid);
+    if (!url) return;
+    const texto = `${titulo ?? "Relatório de Viveiros"}\n${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+  }
+
+  async function imprimirRelatorio(viveiroIds: string[] | null, titulo: string | null) {
+    const tid = toast.loading("Abrindo impressão...");
+    const url = await gerarLink(viveiroIds, titulo, true);
+    toast.dismiss(tid);
+    if (!url) return;
+    window.open(url, "_blank");
+  }
+
+
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
@@ -773,14 +796,14 @@ function RelatoriosPage() {
         </div>
         <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <button
-            onClick={() => gerarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`)}
+            onClick={() => copiarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`)}
             disabled={selecionados.size === 0}
             className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
           >
             <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link selec.</span>
           </button>
           <button
-            onClick={() => gerarLink(null, "Todos os viveiros")}
+            onClick={() => copiarLink(null, "Todos os viveiros")}
             disabled={linhas.length === 0}
             className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
           >
@@ -815,8 +838,24 @@ function RelatoriosPage() {
           >
             <FileDown className="size-4 shrink-0 sm:size-5" /> <span className="truncate">PDF de tudo</span>
           </button>
+
+          <button
+            onClick={() => compartilharWhatsapp(selecionados.size > 0 ? Array.from(selecionados) : null, selecionados.size > 0 ? (selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`) : "Todos os viveiros")}
+            disabled={linhas.length === 0}
+            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-2 text-xs font-semibold text-white shadow-md hover:opacity-90 disabled:opacity-50 sm:px-3 sm:text-sm"
+          >
+            <MessageCircle className="size-4 shrink-0" /> <span className="truncate">WhatsApp</span>
+          </button>
+          <button
+            onClick={() => imprimirRelatorio(selecionados.size > 0 ? Array.from(selecionados) : null, selecionados.size > 0 ? (selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`) : "Todos os viveiros")}
+            disabled={linhas.length === 0}
+            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
+          >
+            <Printer className="size-4 shrink-0" /> <span className="truncate">Imprimir</span>
+          </button>
         </div>
       </div>
+
 
 
       <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
@@ -862,7 +901,7 @@ function RelatoriosPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <button
-                    onClick={() => gerarLink([l.id], l.viveiro)}
+                    onClick={() => copiarLink([l.id], l.viveiro)}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-xs font-semibold hover:bg-accent"
                   >
                     <LinkIcon className="size-3.5" /> Link
