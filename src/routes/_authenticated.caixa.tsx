@@ -1130,11 +1130,13 @@ function CaixaPage() {
 
 function DetailModal({
   v,
+  socioMap,
   onClose,
   onEdit,
   onDelete,
 }: {
   v: ViveiroRel;
+  socioMap: Map<string, string>;
   onClose: () => void;
   onEdit: (l: Lanc) => void;
   onDelete: (id: string) => void;
