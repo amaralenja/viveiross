@@ -503,10 +503,10 @@ function RelatoriosPage() {
           startY: y,
           head: [["Data", "Peso médio (g)"]],
           body: l.bios.map((b) => [formatDate(b.data_biometria), formatNumber(Number(b.peso_medio_g ?? 0))]),
-          styles: { fontSize: 9, cellPadding: 2 },
+          styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: TEAL, textColor: 255 },
           alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 14, right: 14 },
+          margin: { left: 10, right: 10 },
         });
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
@@ -522,11 +522,11 @@ function RelatoriosPage() {
           head: [["Data", "Ração (kg)", "Custo"]],
           body: l.racaoDiaria.map((r) => [formatDate(r.data), formatNumber(r.kg), formatBRL(r.custo)]),
           foot: [["Total", formatNumber(l.racaoKg), formatBRL(l.custoRacao)]],
-          styles: { fontSize: 9, cellPadding: 2 },
+          styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: TEAL, textColor: 255 },
           footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
           alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 14, right: 14 },
+          margin: { left: 10, right: 10 },
         });
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
@@ -547,10 +547,10 @@ function RelatoriosPage() {
             `${formatNumber(Number(x.quantidade ?? 0))} ${x.unidade}`,
             formatBRL(Number(x.custo_total ?? 0)),
           ]),
-          styles: { fontSize: 9, cellPadding: 2 },
+          styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: TEAL, textColor: 255 },
           alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 14, right: 14 },
+          margin: { left: 10, right: 10 },
         });
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
@@ -572,10 +572,10 @@ function RelatoriosPage() {
             formatBRL(Number(d.valor ?? 0)),
             formatBRL(d.share),
           ]),
-          styles: { fontSize: 9, cellPadding: 2 },
+          styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: TEAL, textColor: 255 },
           alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 14, right: 14 },
+          margin: { left: 10, right: 10 },
         });
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
@@ -596,11 +596,11 @@ function RelatoriosPage() {
             f.ativo ? "Ativo" : "Inativo",
           ]),
           foot: [["Total", formatBRL(l.totalSalarios), formatBRL(l.totalValesViv), ""]],
-          styles: { fontSize: 9, cellPadding: 2 },
+          styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: TEAL, textColor: 255 },
           footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
           alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 14, right: 14 },
+          margin: { left: 10, right: 10 },
         });
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
@@ -615,10 +615,10 @@ function RelatoriosPage() {
             startY: y,
             head: [["Data", "Funcionário", "Motivo", "Valor"]],
             body: valesDetalhe.map(({ f, v }) => [formatDate(v.data_vale), f, v.motivo ?? "—", formatBRL(Number(v.valor ?? 0))]),
-            styles: { fontSize: 9, cellPadding: 2 },
+            styles: { fontSize: 8, cellPadding: 1.5 },
             headStyles: { fillColor: TEAL, textColor: 255 },
             alternateRowStyles: { fillColor: [248, 250, 252] },
-            margin: { left: 14, right: 14 },
+            margin: { left: 10, right: 10 },
           });
           y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
         }
@@ -641,11 +641,11 @@ function RelatoriosPage() {
             formatBRL(Number(c.valor ?? 0)),
           ]),
           foot: [["Total", "", "", "", formatBRL(l.receitas)]],
-          styles: { fontSize: 9, cellPadding: 2 },
+          styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: [16, 185, 129], textColor: 255 },
           footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
           alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 14, right: 14 },
+          margin: { left: 10, right: 10 },
         });
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
@@ -672,7 +672,7 @@ function RelatoriosPage() {
           headStyles: { fillColor: TEAL, textColor: 255 },
           footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
           alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 14, right: 14 },
+          margin: { left: 10, right: 10 },
         });
       }
     }
