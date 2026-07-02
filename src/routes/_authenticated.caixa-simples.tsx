@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_authenticated/caixa-simples")({
 });
 
 const TODOS = "__todos__";
+const INTERNO = "__interno__";
 
 type Socio = { id: string; nome: string };
 type Viveiro = { id: string; nome: string };
@@ -177,12 +178,13 @@ function CaixaSimplesPage() {
       const v = Number(valor.replace(",", ".")) || 0;
       if (v <= 0) throw new Error("Informe o valor.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
+      const isInterno = viveiroId === INTERNO;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: u.user.id,
-        viveiro_id: viveiroId === TODOS ? null : viveiroId,
+        viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: tipo === "receita" ? "venda" : "geral",
+        categoria: isInterno ? "interno" : (tipo === "receita" ? "venda" : "geral"),
         valor: v,
         tipo,
         quantidade: qNum > 0 ? qNum : null,
@@ -388,6 +390,7 @@ function CaixaSimplesPage() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={TODOS}>Rateado entre todos os viveiros</SelectItem>
+                <SelectItem value={INTERNO}>Gasto interno (não vai pra nenhum viveiro)</SelectItem>
                 {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -445,7 +448,7 @@ function CaixaSimplesPage() {
                     <div className="text-xs text-muted-foreground mt-0.5 space-x-1">
                       <span>{fmtDate(l.data_lancamento)}</span>
                       <span>·</span>
-                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : "Rateado"}</span>
+                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : (l.categoria === "interno" ? "Interno" : "Rateado")}</span>
                       {l.socio_id && socioMap.get(l.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(l.socio_id)}</span></>)}
                       {l.quantidade != null && (<><span>·</span><span>{l.quantidade} {l.unidade}</span></>)}
                     </div>
