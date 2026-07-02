@@ -223,10 +223,11 @@ function ViveiroBlock({ l }: { l: LinhaRel }) {
         {l.despesasLista.length > 0 && (
           <Block title="Despesas gerais">
             <SimpleTable
-              head={["Data", "Descrição", "Rateio", "Valor", "Atribuído"]}
+              head={["Data", "Descrição", "Categoria", "Rateio", "Valor", "Atribuído"]}
               rows={l.despesasLista.map((d) => [
                 formatDate(d.data_despesa),
                 textValue(d.descricao),
+                textValue(d.categoria, "—"),
                 d.tipoRateio === "rateado" ? "Rateado" : "Individual",
                 formatBRL(Number(d.valor ?? 0)),
                 formatBRL(d.share),
@@ -250,6 +251,23 @@ function ViveiroBlock({ l }: { l: LinhaRel }) {
           </Block>
         )}
 
+        {l.funcionarios.some((f) => f.vales.length > 0) && (
+          <Block title="Vales (detalhe)">
+            <SimpleTable
+              head={["Data", "Funcionário", "Motivo", "Valor"]}
+              rows={l.funcionarios.flatMap((f) =>
+                f.vales.map((v) => [
+                  formatDate(v.data_vale),
+                  f.nome,
+                  textValue(v.motivo, "—"),
+                  formatBRL(Number(v.valor ?? 0)),
+                ]),
+              )}
+              foot={["", "", "Total", formatBRL(l.totalValesViv)]}
+            />
+          </Block>
+        )}
+
         {l.receitasLista.length > 0 && (
           <Block title="Receitas">
             <SimpleTable
@@ -269,14 +287,17 @@ function ViveiroBlock({ l }: { l: LinhaRel }) {
         {l.caixaDoViv.length > 0 && (
           <Block title="Caixa (todos os lançamentos)">
             <SimpleTable
-              head={["Data", "Tipo", "Descrição", "Valor"]}
+              head={["Data", "Tipo", "Descrição", "Categoria", "Qtd", "Obs.", "Valor"]}
               rows={l.caixaDoViv.map((c) => [
                 formatDate(c.data_lancamento),
                 c.tipo,
                 c.descricao,
+                textValue(c.categoria, "—"),
+                c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—",
+                textValue(c.observacao, "—"),
                 `${c.tipo === "receita" ? "+" : "-"} ${formatBRL(Number(c.valor ?? 0))}`,
               ])}
-              foot={["", "", "Saldo", formatBRL(l.saldoCaixa)]}
+              foot={["", "", "", "", "", "Saldo", formatBRL(l.saldoCaixa)]}
             />
           </Block>
         )}
