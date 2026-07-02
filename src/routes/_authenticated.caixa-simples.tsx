@@ -9,7 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap } from "lucide-react";
+
+const CS_TAG = "[cs]";
+const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\]\s*/, "").trim();
 
 export const Route = createFileRoute("/_authenticated/caixa-simples")({
   head: () => ({ meta: [{ title: "Caixa Simples" }] }),
@@ -93,6 +97,7 @@ function CaixaSimplesPage() {
   const [busy, setBusy] = useState(false);
   const [showNovoSocio, setShowNovoSocio] = useState(false);
   const [novoSocioNome, setNovoSocioNome] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
 
   const { data: viveiros = [] } = useQuery({
@@ -114,13 +119,14 @@ function CaixaSimplesPage() {
   });
 
   const { data: lancamentos = [] } = useQuery({
-    queryKey: ["caixa", "lancamentos"],
+    queryKey: ["caixa-simples", "lancamentos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
         .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade, socio_id, lancamento_id, despesa_id")
         .is("lancamento_id", null)
         .is("despesa_id", null)
+        .like("observacao", `${CS_TAG}%`)
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(200);
@@ -190,14 +196,15 @@ function CaixaSimplesPage() {
         quantidade: qNum > 0 ? qNum : null,
         unidade: qNum > 0 ? unidade : null,
         socio_id: socioId || null,
-        observacao: observacao.trim() || null,
+        observacao: `${CS_TAG} ${observacao.trim()}`.trim(),
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada");
       setDescricao(""); setValor(""); setQtd(""); setObservacao("");
-      qc.invalidateQueries({ queryKey: ["caixa", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -209,7 +216,9 @@ function CaixaSimplesPage() {
     },
     onSuccess: () => {
       toast.success("Lançamento removido");
-      qc.invalidateQueries({ queryKey: ["caixa", "lancamentos"] });
+      setSelectedIds((prev) => { const n = new Set(prev); return n; });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -224,10 +233,26 @@ function CaixaSimplesPage() {
     return { receitas, despesas, saldo: receitas - despesas, vales: totalVales, valesMes, salarios };
   }, [lancamentos, vales, funcionarios]);
 
+  const exportRows = useMemo(() => {
+    const rows = selectedIds.size > 0 ? lancamentos.filter((l) => selectedIds.has(l.id)) : lancamentos;
+    return rows.map((l) => ({ ...l, observacao: stripTag(l.observacao) || null }));
+  }, [lancamentos, selectedIds]);
+
+  const exportTotais = useMemo(() => {
+    const receitas = exportRows.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const despesas = exportRows.filter((l) => l.tipo !== "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    return { receitas, despesas, saldo: receitas - despesas, vales: totais.vales, salarios: totais.salarios };
+  }, [exportRows, totais]);
+
+  const toggleSelect = (id: string) => setSelectedIds((prev) => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const toggleAll = () => setSelectedIds((prev) => prev.size === lancamentos.length ? new Set() : new Set(lancamentos.map((l) => l.id)));
+
   async function gerarPdfLink(): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) { toast.error("Sessão expirada."); return null; }
-    const { blob, filename } = await buildPdfBlob(lancamentos, socioMap, viveiroMap, totais);
+    const { blob, filename } = await buildPdfBlob(exportRows, socioMap, viveiroMap, exportTotais);
     const path = `${u.user.id}/caixa-simples/${Date.now()}-${filename}`;
     const { error: upErr } = await supabase.storage.from("relatorios-pdf").upload(path, blob, { contentType: "application/pdf", upsert: true });
     if (upErr) { toast.error(upErr.message); return null; }
@@ -240,7 +265,7 @@ function CaixaSimplesPage() {
   }
 
   async function copiarLink() {
-    if (lancamentos.length === 0) return toast.error("Sem lançamentos");
+    if (exportRows.length === 0) return toast.error("Sem lançamentos");
     setBusy(true);
     const tid = toast.loading("Gerando link...");
     try {
@@ -251,27 +276,27 @@ function CaixaSimplesPage() {
     } finally { setBusy(false); }
   }
   async function compartilharWhats() {
-    if (lancamentos.length === 0) return toast.error("Sem lançamentos");
+    if (exportRows.length === 0) return toast.error("Sem lançamentos");
     setBusy(true);
     const tid = toast.loading("Gerando link...");
     try {
       const url = await gerarPdfLink();
       toast.dismiss(tid);
       if (!url) return;
-      const texto = `Caixa Simples\nReceitas: ${brl(totais.receitas)}\nDespesas: ${brl(totais.despesas)}\nSaldo: ${brl(totais.saldo)}\n${url}`;
+      const texto = `Caixa Simples\nReceitas: ${brl(exportTotais.receitas)}\nDespesas: ${brl(exportTotais.despesas)}\nSaldo: ${brl(exportTotais.saldo)}\n${url}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
     } finally { setBusy(false); }
   }
   async function baixarPdf() {
-    if (lancamentos.length === 0) return toast.error("Sem lançamentos");
-    const { blob, filename } = await buildPdfBlob(lancamentos, socioMap, viveiroMap, totais);
+    if (exportRows.length === 0) return toast.error("Sem lançamentos");
+    const { blob, filename } = await buildPdfBlob(exportRows, socioMap, viveiroMap, exportTotais);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function imprimir() {
-    if (lancamentos.length === 0) return toast.error("Sem lançamentos");
-    const { blob } = await buildPdfBlob(lancamentos, socioMap, viveiroMap, totais);
+    if (exportRows.length === 0) return toast.error("Sem lançamentos");
+    const { blob } = await buildPdfBlob(exportRows, socioMap, viveiroMap, exportTotais);
     const url = URL.createObjectURL(blob);
     const w = window.open(url, "_blank");
     if (w) w.addEventListener("load", () => { try { w.print(); } catch { /* ignore */ } });
@@ -411,18 +436,23 @@ function CaixaSimplesPage() {
         <CardHeader>
           <CardTitle className="text-base">Compartilhar / Exportar</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {selectedIds.size > 0
+              ? `Exportando ${selectedIds.size} lançamento(s) selecionado(s)`
+              : "Sem seleção: exporta todos os lançamentos"}
+          </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Button size="sm" variant="outline" disabled={busy || lancamentos.length === 0} onClick={copiarLink}>
+            <Button size="sm" variant="outline" disabled={busy || exportRows.length === 0} onClick={copiarLink}>
               <Link2 className="size-4 mr-1" /> Link
             </Button>
-            <Button size="sm" variant="outline" disabled={busy || lancamentos.length === 0} onClick={compartilharWhats}>
+            <Button size="sm" variant="outline" disabled={busy || exportRows.length === 0} onClick={compartilharWhats}>
               <MessageCircle className="size-4 mr-1" /> WhatsApp
             </Button>
-            <Button size="sm" variant="outline" disabled={lancamentos.length === 0} onClick={baixarPdf}>
+            <Button size="sm" variant="outline" disabled={exportRows.length === 0} onClick={baixarPdf}>
               <FileDown className="size-4 mr-1" /> PDF
             </Button>
-            <Button size="sm" variant="outline" disabled={lancamentos.length === 0} onClick={imprimir}>
+            <Button size="sm" variant="outline" disabled={exportRows.length === 0} onClick={imprimir}>
               <Printer className="size-4 mr-1" /> Imprimir
             </Button>
           </div>
@@ -430,15 +460,29 @@ function CaixaSimplesPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Últimos lançamentos</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Últimos lançamentos</CardTitle>
+          {lancamentos.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={toggleAll}>
+              {selectedIds.size === lancamentos.length ? "Limpar seleção" : "Selecionar todos"}
+            </Button>
+          )}
+        </CardHeader>
         <CardContent>
           {lancamentos.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum lançamento ainda.</p>
           ) : (
             <ul className="space-y-2">
-              {lancamentos.map((l) => (
-                <li key={l.id} className="flex items-start justify-between gap-2 border-b pb-2 last:border-0">
-                  <div className="min-w-0">
+              {lancamentos.map((l) => {
+                const obs = stripTag(l.observacao);
+                return (
+                <li key={l.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
+                  <Checkbox
+                    checked={selectedIds.has(l.id)}
+                    onCheckedChange={() => toggleSelect(l.id)}
+                    className="mt-1"
+                  />
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold ${l.tipo === "receita" ? "text-emerald-600" : "text-red-600"}`}>
                         {l.tipo === "receita" ? "+" : "-"} {brl(Number(l.valor))}
@@ -452,13 +496,14 @@ function CaixaSimplesPage() {
                       {l.socio_id && socioMap.get(l.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(l.socio_id)}</span></>)}
                       {l.quantidade != null && (<><span>·</span><span>{l.quantidade} {l.unidade}</span></>)}
                     </div>
-                    {l.observacao && <div className="text-xs text-muted-foreground mt-1 italic">{l.observacao}</div>}
+                    {obs && <div className="text-xs text-muted-foreground mt-1 italic">{obs}</div>}
                   </div>
                   <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover lançamento?")) removeMut.mutate(l.id); }}>
                     <Trash2 className="size-4" />
                   </Button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </CardContent>
