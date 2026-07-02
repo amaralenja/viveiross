@@ -294,7 +294,19 @@ function ValesPage() {
         {porFunc.map((f) => (
           <Card key={f.id}>
             <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base">{f.nome}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                {f.nome}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 text-muted-foreground hover:text-red-600"
+                  disabled={busyId === f.id}
+                  onClick={() => removerFuncionario(f)}
+                  title="Apagar funcionário"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </CardTitle>
               <div className="text-right">
                 <div className="text-xs text-muted-foreground">Total</div>
                 <div className="font-bold text-primary">{brl(f.total)}</div>
