@@ -388,82 +388,85 @@ function CaixaSimplesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Quantidade (opcional)</Label>
-              <Input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
-            </div>
-            <div>
-              <Label>Unidade</Label>
-              <Select value={unidade} onValueChange={setUnidade}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="un">un</SelectItem>
-                  <SelectItem value="kg">kg</SelectItem>
-                  <SelectItem value="g">g</SelectItem>
-                  <SelectItem value="L">L</SelectItem>
-                  <SelectItem value="cx">cx</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label>Quem pagou (sócio)</Label>
-            <div className="flex gap-2">
-              <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
-                <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— nenhum —</SelectItem>
-                  {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button type="button" variant="outline" onClick={() => setShowNovoSocio((v) => !v)}>
-                {showNovoSocio ? "Cancelar" : "+ Novo"}
-              </Button>
-            </div>
-            {showNovoSocio && (
-              <div className="flex gap-2 mt-2">
-                <Input
-                  autoFocus
-                  value={novoSocioNome}
-                  onChange={(e) => setNovoSocioNome(e.target.value)}
-                  placeholder="Nome do novo sócio"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (novoSocioNome.trim()) addSocioMut.mutate(novoSocioNome.trim());
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  disabled={!novoSocioNome.trim() || addSocioMut.isPending}
-                  onClick={() => addSocioMut.mutate(novoSocioNome.trim())}
-                >
-                  Salvar
-                </Button>
+          {modo === "despesa" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Quantidade (opcional)</Label>
+                  <Input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+                </div>
+                <div>
+                  <Label>Unidade</Label>
+                  <Select value={unidade} onValueChange={setUnidade}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="un">un</SelectItem>
+                      <SelectItem value="kg">kg</SelectItem>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="L">L</SelectItem>
+                      <SelectItem value="cx">cx</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            )}
-          </div>
 
+              <div>
+                <Label>Quem pagou (sócio)</Label>
+                <div className="flex gap-2">
+                  <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— nenhum —</SelectItem>
+                      {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" onClick={() => setShowNovoSocio((v) => !v)}>
+                    {showNovoSocio ? "Cancelar" : "+ Novo"}
+                  </Button>
+                </div>
+                {showNovoSocio && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      autoFocus
+                      value={novoSocioNome}
+                      onChange={(e) => setNovoSocioNome(e.target.value)}
+                      placeholder="Nome do novo sócio"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (novoSocioNome.trim()) addSocioMut.mutate(novoSocioNome.trim());
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      disabled={!novoSocioNome.trim() || addSocioMut.isPending}
+                      onClick={() => addSocioMut.mutate(novoSocioNome.trim())}
+                    >
+                      Salvar
+                    </Button>
+                  </div>
+                )}
+              </div>
 
-          <div>
-            <Label>Viveiro (ou rateado entre todos)</Label>
-            <Select value={viveiroId} onValueChange={setViveiroId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={TODOS}>Rateado entre todos os viveiros</SelectItem>
-                <SelectItem value={INTERNO}>Gasto interno (não vai pra nenhum viveiro)</SelectItem>
-                {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <Label>Viveiro (ou rateado entre todos)</Label>
+                <Select value={viveiroId} onValueChange={setViveiroId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={TODOS}>Rateado entre todos os viveiros</SelectItem>
+                    <SelectItem value={INTERNO}>Gasto interno (não vai pra nenhum viveiro)</SelectItem>
+                    {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <Label>Observação (opcional)</Label>
-            <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={2} />
-          </div>
+              <div>
+                <Label>Observação (opcional)</Label>
+                <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={2} />
+              </div>
+            </>
+          )}
 
           <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full">
             {saveMut.isPending ? "Salvando..." : "Salvar lançamento"}
