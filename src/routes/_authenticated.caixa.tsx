@@ -527,6 +527,7 @@ function CaixaPage() {
         tipo,
         quantidade: qNum > 0 ? qNum : null,
         unidade: qNum > 0 ? unidade : null,
+        socio_id: socioId || null,
       });
       if (error) throw error;
     },
@@ -538,6 +539,7 @@ function CaixaPage() {
       setPrecoKg("");
       setQtd("");
       setValorManual("");
+      setSocioId("");
       qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
