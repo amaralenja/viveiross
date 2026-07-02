@@ -90,6 +90,9 @@ function CaixaSimplesPage() {
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
   const [observacao, setObservacao] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showNovoSocio, setShowNovoSocio] = useState(false);
+  const [novoSocioNome, setNovoSocioNome] = useState("");
+
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos", "simples"],
