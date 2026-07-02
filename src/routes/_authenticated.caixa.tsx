@@ -600,6 +600,10 @@ function CaixaPage() {
     return { totalDespesas, totalReceitas, saldoGeral, despesasGerais, receitasGerais, porViveiro, nAtivos };
   }, [lancamentos, viveiros]);
 
+  const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
+
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
