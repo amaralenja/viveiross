@@ -65,7 +65,17 @@ function PublicReport() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 print:bg-white">
-      <style>{`@media print { .no-print { display: none !important; } body { background: white !important; } }`}</style>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; }
+          @page { size: A4; margin: 10mm; }
+          article { break-inside: avoid; page-break-inside: avoid; }
+          table { font-size: 9px !important; }
+          h1 { font-size: 20px !important; }
+          h2 { font-size: 15px !important; }
+        }
+      `}</style>
       <header className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white print:bg-white print:text-slate-900">
         <div className="mx-auto max-w-6xl px-5 py-10">
           <div className="flex items-center justify-between gap-3">
