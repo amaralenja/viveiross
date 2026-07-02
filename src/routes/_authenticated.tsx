@@ -26,6 +26,7 @@ const NAV = [
 const MAIS = [
   { to: "/relatorios", label: "Relatórios", icon: FileText },
   { to: "/vales", label: "Vales", icon: HandCoins },
+  { to: "/caixa-simples", label: "Caixa Simples", icon: Zap },
 ] as const;
 
 function AuthLayout() {
