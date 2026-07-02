@@ -83,9 +83,13 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   };
 }
 
+const EXTRA_TAG = "[extra]";
+
 function CaixaSimplesPage() {
   const qc = useQueryClient();
   const tipo = "despesa" as const;
+  const [modo, setModo] = useState<"despesa" | "vale" | "vale_extra">("despesa");
+  const [funcionarioId, setFuncionarioId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [qtd, setQtd] = useState("");
@@ -139,9 +143,9 @@ function CaixaSimplesPage() {
   const { data: vales = [] } = useQuery({
     queryKey: ["vales", "totais"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("vales").select("valor, data_vale");
+      const { data, error } = await supabase.from("vales").select("valor, data_vale, motivo");
       if (error) throw error;
-      return (data ?? []) as { valor: number; data_vale: string }[];
+      return (data ?? []) as { valor: number; data_vale: string; motivo: string | null }[];
     },
   });
 
@@ -180,9 +184,25 @@ function CaixaSimplesPage() {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Sessão expirada.");
-      if (!descricao.trim()) throw new Error("Informe a descrição.");
       const v = Number(valor.replace(",", ".")) || 0;
       if (v <= 0) throw new Error("Informe o valor.");
+
+      if (modo === "vale" || modo === "vale_extra") {
+        if (!funcionarioId) throw new Error("Selecione o funcionário.");
+        const motivoBase = descricao.trim() || (modo === "vale_extra" ? "Vale extra" : "Vale");
+        const motivo = modo === "vale_extra" ? `${EXTRA_TAG} ${motivoBase}`.trim() : motivoBase;
+        const { error } = await supabase.from("vales").insert({
+          user_id: u.user.id,
+          funcionario_id: funcionarioId,
+          valor: v,
+          motivo,
+          data_vale: data,
+        });
+        if (error) throw error;
+        return;
+      }
+
+      if (!descricao.trim()) throw new Error("Informe a descrição.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
       const isInterno = viveiroId === INTERNO;
       const { error } = await supabase.from("caixa_lancamentos").insert({
@@ -201,10 +221,11 @@ function CaixaSimplesPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Despesa registrada");
+      toast.success(modo === "vale_extra" ? "Vale extra registrado" : modo === "vale" ? "Vale registrado" : "Despesa registrada");
       setDescricao(""); setValor(""); setQtd(""); setObservacao("");
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["vales"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -226,11 +247,15 @@ function CaixaSimplesPage() {
   const totais = useMemo(() => {
     const receitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
     const despesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const totalVales = vales.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+    const isExtra = (m: string | null) => (m ?? "").trim().toLowerCase().startsWith(EXTRA_TAG);
+    const valesNormais = vales.filter((v) => !isExtra(v.motivo));
+    const valesExtras = vales.filter((v) => isExtra(v.motivo));
+    const totalVales = valesNormais.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+    const totalExtras = valesExtras.reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const mesAtual = new Date().toISOString().slice(0, 7);
     const valesMes = vales.filter((v) => v.data_vale?.startsWith(mesAtual)).reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const salarios = funcionarios.reduce((s, f) => s + Number(f.salario ?? 0), 0);
-    return { receitas, despesas, saldo: receitas - despesas, vales: totalVales, valesMes, salarios };
+    return { receitas, despesas, saldo: receitas - despesas, vales: totalVales, valesExtras: totalExtras, valesMes, salarios };
   }, [lancamentos, vales, funcionarios]);
 
   const exportRows = useMemo(() => {
@@ -314,8 +339,8 @@ function CaixaSimplesPage() {
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Kpi label="Despesas" value={brl(totais.despesas)} tone="bad" />
-
             <Kpi label="Vales (total)" value={brl(totais.vales)} />
+            <Kpi label="Vales extras" value={brl(totais.valesExtras)} tone="bad" />
             <Kpi label="Vales do mês" value={brl(totais.valesMes)} />
             <Kpi label="Salários base" value={brl(totais.salarios)} />
           </div>
@@ -327,11 +352,28 @@ function CaixaSimplesPage() {
           <CardTitle className="flex items-center gap-2 text-base"><Plus className="size-4" /> Novo lançamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <Button type="button" size="sm" variant={modo === "despesa" ? "default" : "outline"} onClick={() => setModo("despesa")}>Despesa</Button>
+            <Button type="button" size="sm" variant={modo === "vale" ? "default" : "outline"} onClick={() => setModo("vale")}>Vale</Button>
+            <Button type="button" size="sm" variant={modo === "vale_extra" ? "default" : "outline"} onClick={() => setModo("vale_extra")}>Vale extra</Button>
+          </div>
 
+          {modo !== "despesa" && (
+            <div>
+              <Label>Funcionário</Label>
+              <Select value={funcionarioId || "__none__"} onValueChange={(v) => setFuncionarioId(v === "__none__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— selecione —</SelectItem>
+                  {funcionarios.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
-            <Label>Descrição do produto/serviço</Label>
-            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: Tinta pro viveiro" />
+            <Label>{modo === "despesa" ? "Descrição do produto/serviço" : "Motivo (opcional)"}</Label>
+            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={modo === "despesa" ? "Ex: Tinta pro viveiro" : "Ex: adiantamento"} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -345,82 +387,85 @@ function CaixaSimplesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Quantidade (opcional)</Label>
-              <Input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
-            </div>
-            <div>
-              <Label>Unidade</Label>
-              <Select value={unidade} onValueChange={setUnidade}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="un">un</SelectItem>
-                  <SelectItem value="kg">kg</SelectItem>
-                  <SelectItem value="g">g</SelectItem>
-                  <SelectItem value="L">L</SelectItem>
-                  <SelectItem value="cx">cx</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label>Quem pagou (sócio)</Label>
-            <div className="flex gap-2">
-              <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
-                <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— nenhum —</SelectItem>
-                  {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button type="button" variant="outline" onClick={() => setShowNovoSocio((v) => !v)}>
-                {showNovoSocio ? "Cancelar" : "+ Novo"}
-              </Button>
-            </div>
-            {showNovoSocio && (
-              <div className="flex gap-2 mt-2">
-                <Input
-                  autoFocus
-                  value={novoSocioNome}
-                  onChange={(e) => setNovoSocioNome(e.target.value)}
-                  placeholder="Nome do novo sócio"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (novoSocioNome.trim()) addSocioMut.mutate(novoSocioNome.trim());
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  disabled={!novoSocioNome.trim() || addSocioMut.isPending}
-                  onClick={() => addSocioMut.mutate(novoSocioNome.trim())}
-                >
-                  Salvar
-                </Button>
+          {modo === "despesa" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Quantidade (opcional)</Label>
+                  <Input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+                </div>
+                <div>
+                  <Label>Unidade</Label>
+                  <Select value={unidade} onValueChange={setUnidade}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="un">un</SelectItem>
+                      <SelectItem value="kg">kg</SelectItem>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="L">L</SelectItem>
+                      <SelectItem value="cx">cx</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            )}
-          </div>
 
+              <div>
+                <Label>Quem pagou (sócio)</Label>
+                <div className="flex gap-2">
+                  <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— nenhum —</SelectItem>
+                      {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" onClick={() => setShowNovoSocio((v) => !v)}>
+                    {showNovoSocio ? "Cancelar" : "+ Novo"}
+                  </Button>
+                </div>
+                {showNovoSocio && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      autoFocus
+                      value={novoSocioNome}
+                      onChange={(e) => setNovoSocioNome(e.target.value)}
+                      placeholder="Nome do novo sócio"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (novoSocioNome.trim()) addSocioMut.mutate(novoSocioNome.trim());
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      disabled={!novoSocioNome.trim() || addSocioMut.isPending}
+                      onClick={() => addSocioMut.mutate(novoSocioNome.trim())}
+                    >
+                      Salvar
+                    </Button>
+                  </div>
+                )}
+              </div>
 
-          <div>
-            <Label>Viveiro (ou rateado entre todos)</Label>
-            <Select value={viveiroId} onValueChange={setViveiroId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={TODOS}>Rateado entre todos os viveiros</SelectItem>
-                <SelectItem value={INTERNO}>Gasto interno (não vai pra nenhum viveiro)</SelectItem>
-                {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <Label>Viveiro (ou rateado entre todos)</Label>
+                <Select value={viveiroId} onValueChange={setViveiroId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={TODOS}>Rateado entre todos os viveiros</SelectItem>
+                    <SelectItem value={INTERNO}>Gasto interno (não vai pra nenhum viveiro)</SelectItem>
+                    {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <Label>Observação (opcional)</Label>
-            <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={2} />
-          </div>
+              <div>
+                <Label>Observação (opcional)</Label>
+                <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={2} />
+              </div>
+            </>
+          )}
 
           <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full">
             {saveMut.isPending ? "Salvando..." : "Salvar lançamento"}
