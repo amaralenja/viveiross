@@ -1232,6 +1232,11 @@ function DetailModal({
                             Categoria: <span className="font-medium">{h.l.categoria}</span>
                           </p>
                         )}
+                        {h.l.socio_id && socioMap.get(h.l.socio_id) && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Sócio: <span className="font-medium">{socioMap.get(h.l.socio_id)}</span>
+                          </p>
+                        )}
                         {h.l.quantidade && h.l.quantidade > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Qtd: <span className="font-medium">{fmtQtd(h.l.quantidade, h.l.unidade)}</span>
