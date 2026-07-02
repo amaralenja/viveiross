@@ -178,12 +178,13 @@ function CaixaSimplesPage() {
       const v = Number(valor.replace(",", ".")) || 0;
       if (v <= 0) throw new Error("Informe o valor.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
+      const isInterno = viveiroId === INTERNO;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: u.user.id,
-        viveiro_id: viveiroId === TODOS ? null : viveiroId,
+        viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: tipo === "receita" ? "venda" : "geral",
+        categoria: isInterno ? "interno" : (tipo === "receita" ? "venda" : "geral"),
         valor: v,
         tipo,
         quantidade: qNum > 0 ? qNum : null,
