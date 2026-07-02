@@ -108,6 +108,19 @@ function ValesPage() {
     load();
   }
 
+  async function removerFuncionario(f: Funcionario) {
+    if (!confirm(`Tem certeza que deseja apagar o funcionário "${f.nome}"?\n\nTodos os vales dele também serão removidos.`)) return;
+    setBusyId(f.id);
+    const { error: vErr } = await supabase.from("vales").delete().eq("funcionario_id", f.id);
+    if (vErr) { setBusyId(null); return toast.error(vErr.message); }
+    const { error } = await supabase.from("funcionarios").delete().eq("id", f.id);
+    setBusyId(null);
+    if (error) return toast.error(error.message);
+    toast.success("Funcionário removido");
+    load();
+  }
+
+
   async function gerarPdfLink(func: Funcionario, list: Vale[]): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) { toast.error("Sessão expirada."); return null; }
@@ -281,7 +294,19 @@ function ValesPage() {
         {porFunc.map((f) => (
           <Card key={f.id}>
             <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base">{f.nome}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                {f.nome}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 text-muted-foreground hover:text-red-600"
+                  disabled={busyId === f.id}
+                  onClick={() => removerFuncionario(f)}
+                  title="Apagar funcionário"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </CardTitle>
               <div className="text-right">
                 <div className="text-xs text-muted-foreground">Total</div>
                 <div className="font-bold text-primary">{brl(f.total)}</div>
