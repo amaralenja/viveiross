@@ -201,7 +201,7 @@ function CaixaSimplesPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada");
+      toast.success("Despesa registrada");
       setDescricao(""); setValor(""); setQtd(""); setObservacao("");
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
