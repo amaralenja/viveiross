@@ -119,13 +119,14 @@ function CaixaSimplesPage() {
   });
 
   const { data: lancamentos = [] } = useQuery({
-    queryKey: ["caixa", "lancamentos"],
+    queryKey: ["caixa-simples", "lancamentos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
         .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade, socio_id, lancamento_id, despesa_id")
         .is("lancamento_id", null)
         .is("despesa_id", null)
+        .like("observacao", `${CS_TAG}%`)
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(200);
