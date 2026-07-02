@@ -1113,6 +1113,7 @@ function CaixaPage() {
       {detailView && (
         <DetailModal
           v={detailView}
+          socioMap={socioMap}
           onClose={() => setDetailView(null)}
           onEdit={(l) => {
             setDetailView(null);
