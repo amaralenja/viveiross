@@ -448,7 +448,7 @@ function CaixaSimplesPage() {
                     <div className="text-xs text-muted-foreground mt-0.5 space-x-1">
                       <span>{fmtDate(l.data_lancamento)}</span>
                       <span>·</span>
-                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : "Rateado"}</span>
+                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : (l.categoria === "interno" ? "Interno" : "Rateado")}</span>
                       {l.socio_id && socioMap.get(l.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(l.socio_id)}</span></>)}
                       {l.quantidade != null && (<><span>·</span><span>{l.quantidade} {l.unidade}</span></>)}
                     </div>
