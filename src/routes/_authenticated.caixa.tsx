@@ -26,7 +26,9 @@ type Lanc = {
   tipo: "despesa" | "receita";
   quantidade: number | null;
   unidade: string | null;
+  socio_id: string | null;
 };
+type Socio = { id: string; nome: string };
 
 function fmtQtd(q: number | null, u: string | null) {
   if (!q || q <= 0) return "—";
