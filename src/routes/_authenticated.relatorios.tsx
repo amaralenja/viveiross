@@ -736,11 +736,11 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
-  async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false) {
+  async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
       toast.error("Sessão expirada.");
-      return;
+      return null;
     }
     const { data, error } = await supabase
       .from("relatorio_shares")
@@ -749,9 +749,14 @@ function RelatoriosPage() {
       .single();
     if (error || !data) {
       toast.error(error?.message ?? "Falha ao gerar link.");
-      return;
+      return null;
     }
-    const url = `${window.location.origin}/r/${data.token}${asPdf ? "?pdf=1" : ""}`;
+    return `${window.location.origin}/r/${data.token}${asPdf ? "?pdf=1" : ""}`;
+  }
+
+  async function copiarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false) {
+    const url = await gerarLink(viveiroIds, titulo, asPdf);
+    if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
       toast.success(asPdf ? "Link do PDF copiado!" : "Link copiado!", { description: url });
@@ -762,6 +767,24 @@ function RelatoriosPage() {
       try { await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> }).share({ url, title: titulo ?? "Relatório de Viveiros" }); } catch { /* user cancelled */ }
     }
   }
+
+  async function compartilharWhatsapp(viveiroIds: string[] | null, titulo: string | null) {
+    const tid = toast.loading("Gerando link...");
+    const url = await gerarLink(viveiroIds, titulo, false);
+    toast.dismiss(tid);
+    if (!url) return;
+    const texto = `${titulo ?? "Relatório de Viveiros"}\n${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+  }
+
+  async function imprimirRelatorio(viveiroIds: string[] | null, titulo: string | null) {
+    const tid = toast.loading("Abrindo impressão...");
+    const url = await gerarLink(viveiroIds, titulo, true);
+    toast.dismiss(tid);
+    if (!url) return;
+    window.open(url, "_blank");
+  }
+
 
 
   return (
