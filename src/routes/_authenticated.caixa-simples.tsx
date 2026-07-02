@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_authenticated/caixa-simples")({
 });
 
 const TODOS = "__todos__";
+const INTERNO = "__interno__";
 
 type Socio = { id: string; nome: string };
 type Viveiro = { id: string; nome: string };
