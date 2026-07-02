@@ -456,12 +456,41 @@ function CaixaPage() {
     },
   });
 
+  const { data: socios = [] } = useQuery({
+    queryKey: ["socios"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("socios").select("id, nome").order("nome");
+      if (error) throw error;
+      return (data ?? []) as Socio[];
+    },
+  });
+
+  const addSocioMut = useMutation({
+    mutationFn: async (nome: string) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      const { data, error } = await supabase
+        .from("socios")
+        .insert({ user_id: u.user.id, nome: nome.trim() })
+        .select("id, nome")
+        .single();
+      if (error) throw error;
+      return data as Socio;
+    },
+    onSuccess: (s) => {
+      qc.invalidateQueries({ queryKey: ["socios"] });
+      setSocioId(s.id);
+      toast.success(`Sócio "${s.nome}" adicionado`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const { data: lancamentos = [], isLoading } = useQuery({
     queryKey: ["caixa", "lancamentos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade, socio_id")
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
