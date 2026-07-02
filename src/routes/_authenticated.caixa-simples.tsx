@@ -367,7 +367,7 @@ function CaixaSimplesPage() {
           </div>
 
           <div>
-            <Label>{tipo === "receita" ? "Quem recebeu (sócio)" : "Quem pagou (sócio)"}</Label>
+            <Label>Quem pagou (sócio)</Label>
             <div className="flex gap-2">
               <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
                 <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
