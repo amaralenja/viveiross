@@ -114,10 +114,13 @@ function CaixaSimplesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade, socio_id")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade, socio_id, lancamento_id, despesa_id")
+        .is("lancamento_id", null)
+        .is("despesa_id", null)
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(200);
+
       if (error) throw error;
       return (data ?? []) as Lanc[];
     },
