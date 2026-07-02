@@ -75,6 +75,7 @@ export type Database = {
           lancamento_id: string | null
           observacao: string | null
           quantidade: number | null
+          socio_id: string | null
           tipo: string
           unidade: string | null
           updated_at: string
@@ -92,6 +93,7 @@ export type Database = {
           lancamento_id?: string | null
           observacao?: string | null
           quantidade?: number | null
+          socio_id?: string | null
           tipo?: string
           unidade?: string | null
           updated_at?: string
@@ -109,6 +111,7 @@ export type Database = {
           lancamento_id?: string | null
           observacao?: string | null
           quantidade?: number | null
+          socio_id?: string | null
           tipo?: string
           unidade?: string | null
           updated_at?: string
@@ -129,6 +132,13 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: true
             referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_lancamentos_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "socios"
             referencedColumns: ["id"]
           },
           {
@@ -509,6 +519,33 @@ export type Database = {
           token?: string
           user_id?: string
           viveiro_ids?: string[] | null
+        }
+        Relationships: []
+      }
+      socios: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          observacao: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          observacao?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          observacao?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
