@@ -85,7 +85,7 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
 
 function CaixaSimplesPage() {
   const qc = useQueryClient();
-  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
+  const tipo = "despesa" as const;
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [qtd, setQtd] = useState("");
