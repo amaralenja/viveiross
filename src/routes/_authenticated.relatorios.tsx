@@ -402,7 +402,7 @@ function RelatoriosPage() {
     // Tabela resumo geral
     at(doc, {
       startY: 62,
-      head: [["Viveiro", "Fazenda", "Dias", "Povoados", "Ração kg", "Biom. kg", "FCA", "Custo R$", "R$/kg"]],
+      head: [["Viveiro", "Fazenda", "Dias", "Povoados", "Ração kg", "Biom. kg", "FCA", "Custo R$", "R$/kg", "Receita", "Lucro"]],
       body: alvo.map((l) => [
         l.viveiro,
         l.fazenda,
@@ -413,19 +413,39 @@ function RelatoriosPage() {
         l.fca != null ? formatNumber(l.fca) : "—",
         formatBRL(l.custoTotal),
         l.custoPorKg ? formatBRL(l.custoPorKg) : "—",
+        formatBRL(l.receitas),
+        formatBRL(l.lucro),
       ]),
-      styles: { fontSize: 9, cellPadding: 2.5 },
-      headStyles: { fillColor: TEAL, textColor: 255, fontStyle: "bold" },
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      headStyles: { fillColor: TEAL, textColor: 255, fontStyle: "bold", fontSize: 8 },
       alternateRowStyles: { fillColor: [248, 250, 252] },
-      margin: { left: 14, right: 14 },
+      margin: { left: 10, right: 10 },
     });
 
     // DETALHES POR VIVEIRO
-    for (const l of alvo) {
-      doc.addPage();
-      header(l.viveiro, `${l.fazenda} • ${l.status} • ${l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}`);
+    for (let idx = 0; idx < alvo.length; idx++) {
+      const l = alvo[idx];
+      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60;
+      // Só quebra página se não couber o cabeçalho + métricas mínimas na página atual
+      let y: number;
+      if (idx === 0 || lastY > pageH - 90) {
+        doc.addPage();
+        header(l.viveiro, `${l.fazenda} • ${l.status} • ${l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}`);
+        y = 32;
+      } else {
+        y = lastY + 8;
+        doc.setFillColor(...TEAL);
+        doc.rect(10, y - 5, pageW - 20, 8, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text(`${l.viveiro} — ${l.fazenda} • ${l.status} • ${l.dias != null ? `${l.dias}d` : "s/povoamento"}`, 12, y);
+        doc.setTextColor(...DARK);
+        doc.setFont("helvetica", "normal");
+        y += 6;
+      }
 
-      // Bloco de métricas
+      // Bloco de métricas compacto
       const metrics: [string, string][] = [
         ["Fornecedor", l.fornecedor],
         ["Povoamento", l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"],
@@ -433,44 +453,46 @@ function RelatoriosPage() {
         ["Ração total", `${formatNumber(l.racaoKg)} kg`],
         ["Custo ração", formatBRL(l.custoRacao)],
         ["Custo outros", formatBRL(l.custoOutros)],
-        ["Despesas rateadas", formatBRL(l.custoDespRateio)],
-        ["Despesas próprias", formatBRL(l.custoDespIndiv)],
+        ["Desp. rateadas", formatBRL(l.custoDespRateio)],
+        ["Desp. próprias", formatBRL(l.custoDespIndiv)],
         ["Custo total", formatBRL(l.custoTotal)],
-        ["R$ por kg", l.custoPorKg ? formatBRL(l.custoPorKg) : "—"],
+        ["R$/kg", l.custoPorKg ? formatBRL(l.custoPorKg) : "—"],
         ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
-        ["Sobrevivência", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
+        ["Sobreviv.", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
         ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
         ["FCA", l.fca != null ? formatNumber(l.fca) : "—"],
         ["Receitas", formatBRL(l.receitas)],
-        ["Lucro estimado", formatBRL(l.lucro)],
+        ["Lucro est.", formatBRL(l.lucro)],
         ["Saldo caixa", formatBRL(l.saldoCaixa)],
         ["Funcionários", String(l.funcionarios.length)],
-        ["Salários (soma)", formatBRL(l.totalSalarios)],
-        ["Vales totais", formatBRL(l.totalValesViv)],
+        ["Salários", formatBRL(l.totalSalarios)],
+        ["Vales", formatBRL(l.totalValesViv)],
         ["Lançamentos", String(l.nLancamentos)],
         ["Biometrias", String(l.nBiometrias)],
-        ["Última biometria", l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"],
+        ["Últ. biom.", l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"],
+        ["Status", l.status],
       ];
-      const cols = 4;
-      const mW = (pageW - 28 - (cols - 1) * 3) / cols;
-      const mH = 16;
+      const cols = 6;
+      const mW = (pageW - 20 - (cols - 1) * 2) / cols;
+      const mH = 11;
       metrics.forEach((m, i) => {
         const row = Math.floor(i / cols);
         const col = i % cols;
-        const x = 14 + col * (mW + 3);
-        const y = 32 + row * (mH + 3);
+        const x = 10 + col * (mW + 2);
+        const yy = y + row * (mH + 1.5);
         doc.setFillColor(245, 247, 250);
-        doc.roundedRect(x, y, mW, mH, 1.5, 1.5, "F");
-        doc.setFontSize(7);
+        doc.roundedRect(x, yy, mW, mH, 1, 1, "F");
+        doc.setFontSize(6);
         doc.setTextColor(...MUTED);
-        doc.text(m[0].toUpperCase(), x + 2.5, y + 5);
-        doc.setFontSize(10);
+        doc.text(m[0].toUpperCase(), x + 1.5, yy + 3.2);
+        doc.setFontSize(8);
         doc.setTextColor(...DARK);
         doc.setFont("helvetica", "bold");
-        doc.text(m[1], x + 2.5, y + 12);
+        doc.text(m[1], x + 1.5, yy + 8.5);
         doc.setFont("helvetica", "normal");
       });
-      let y = 32 + Math.ceil(metrics.length / cols) * (mH + 3) + 4;
+      y = y + Math.ceil(metrics.length / cols) * (mH + 1.5) + 3;
+
 
       if (l.bios.length > 0) {
         doc.setFont("helvetica", "bold");
