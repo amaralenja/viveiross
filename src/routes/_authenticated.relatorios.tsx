@@ -245,13 +245,15 @@ function RelatoriosPage() {
       const totalSalarios = funcsDoViveiro.reduce((s, f) => s + Number(f.salario ?? 0), 0);
       const totalValesViv = funcsComVales.reduce((s, f) => s + f.totalVales, 0);
 
-      // Caixa: receitas/despesas atribuídas a este viveiro
-      const caixaDoViv = caixa.filter((c) => c.viveiro_id === v.id);
+      // Caixa: receitas/despesas atribuídas a este viveiro + rateados (viveiro_id null)
+      const caixaDoVivDireto = caixa.filter((c) => c.viveiro_id === v.id);
+      const caixaDoViv = [...caixaDoVivDireto, ...caixaRateado.map((c) => ({ ...c, valor: Number(c.valor ?? 0) / nViv }))];
       const receitasLista = caixaDoViv.filter((c) => c.tipo === "receita");
       const despesasCaixa = caixaDoViv.filter((c) => c.tipo !== "receita");
       const receitas = receitasLista.reduce((s, c) => s + Number(c.valor ?? 0), 0);
       const despesasCaixaTot = despesasCaixa.reduce((s, c) => s + Number(c.valor ?? 0), 0);
       const saldoCaixa = receitas - despesasCaixaTot;
+
       const lucro = receitas - custoTotal;
 
       return {
