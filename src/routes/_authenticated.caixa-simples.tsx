@@ -340,8 +340,8 @@ function CaixaSimplesPage() {
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Kpi label="Despesas" value={brl(totais.despesas)} tone="bad" />
-
             <Kpi label="Vales (total)" value={brl(totais.vales)} />
+            <Kpi label="Vales extras" value={brl(totais.valesExtras)} tone="bad" />
             <Kpi label="Vales do mês" value={brl(totais.valesMes)} />
             <Kpi label="Salários base" value={brl(totais.salarios)} />
           </div>
