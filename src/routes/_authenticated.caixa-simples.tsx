@@ -9,7 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap } from "lucide-react";
+
+const CS_TAG = "[cs]";
+const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\]\s*/, "").trim();
 
 export const Route = createFileRoute("/_authenticated/caixa-simples")({
   head: () => ({ meta: [{ title: "Caixa Simples" }] }),
