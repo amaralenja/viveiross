@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
@@ -1148,18 +1148,66 @@ function HistoricoModal({
   const diffPct = racaoOntem > 0 ? (diffKg / racaoOntem) * 100 : null;
   const fmtKg = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
+  function buildShareText(): string {
+    const linhas: string[] = [];
+    linhas.push(`*${viveiro.nome}* — Lançamentos diários`);
+    if (baseDate) linhas.push(`DOC atual: ${totalDias} dias (desde ${formatDateBR(baseDate)})`);
+    linhas.push("");
+    for (const d of datas) {
+      const itens = porData.get(d)!;
+      const totalKg = itens.filter((i) => i.tipo === "racao").reduce((s, i) => s + Number(i.quantidade ?? 0), 0);
+      const totalCusto = itens.reduce((s, i) => s + Number(i.custo_total ?? 0), 0);
+      const doc = baseDate ? ` (DOC ${diasDeCultivo(d)})` : "";
+      linhas.push(`📅 *${formatDateBR(d)}*${doc}`);
+      for (const i of itens) {
+        linhas.push(`  • ${i.produto_nome}: ${fmtKg(Number(i.quantidade ?? 0))} ${i.unidade}`);
+      }
+      if (totalKg > 0) linhas.push(`  → Ração: ${fmtKg(totalKg)} kg`);
+      if (totalCusto > 0) linhas.push(`  → Custo: ${totalCusto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
+      linhas.push("");
+    }
+    return linhas.join("\n").trim();
+  }
+
+  async function handleShare() {
+    const text = buildShareText();
+    if (!text || datas.length === 0) {
+      toast.error("Sem lançamentos para compartilhar");
+      return;
+    }
+    const title = `Lançamentos - ${viveiro.nome}`;
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share({ title, text });
+        return;
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return;
+      }
+    }
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <ModalStyle />
       <div className="bg-card w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="min-w-0">
+        <div className="flex items-center justify-between p-4 border-b gap-2">
+          <div className="min-w-0 flex-1">
             <h2 className="font-bold text-lg truncate">{viveiro.nome}</h2>
             <p className="text-xs text-muted-foreground">
               {totalDias > 0 ? `${totalDias} dias de cultivo` : "Sem cultivo iniciado"}
               {baseDate && ` · desde ${formatDateBR(baseDate)}`}
             </p>
           </div>
+          <button
+            onClick={handleShare}
+            disabled={isLoading || datas.length === 0}
+            className="size-10 rounded-lg hover:bg-muted flex items-center justify-center disabled:opacity-40"
+            title="Compartilhar lançamentos"
+          >
+            <Share2 className="size-5" />
+          </button>
           <button onClick={onClose} className="size-10 rounded-lg hover:bg-muted flex items-center justify-center">
             <X className="size-5" />
           </button>
