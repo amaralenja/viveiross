@@ -97,6 +97,7 @@ function CaixaSimplesPage() {
   const [busy, setBusy] = useState(false);
   const [showNovoSocio, setShowNovoSocio] = useState(false);
   const [novoSocioNome, setNovoSocioNome] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
 
   const { data: viveiros = [] } = useQuery({
