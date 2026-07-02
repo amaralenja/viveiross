@@ -346,12 +346,35 @@ function CaixaSimplesPage() {
                   {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button type="button" variant="outline" onClick={() => {
-                const nome = window.prompt("Nome do novo sócio:");
-                if (nome?.trim()) addSocioMut.mutate(nome.trim());
-              }}>+ Novo</Button>
+              <Button type="button" variant="outline" onClick={() => setShowNovoSocio((v) => !v)}>
+                {showNovoSocio ? "Cancelar" : "+ Novo"}
+              </Button>
             </div>
+            {showNovoSocio && (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  autoFocus
+                  value={novoSocioNome}
+                  onChange={(e) => setNovoSocioNome(e.target.value)}
+                  placeholder="Nome do novo sócio"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (novoSocioNome.trim()) addSocioMut.mutate(novoSocioNome.trim());
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  disabled={!novoSocioNome.trim() || addSocioMut.isPending}
+                  onClick={() => addSocioMut.mutate(novoSocioNome.trim())}
+                >
+                  Salvar
+                </Button>
+              </div>
+            )}
           </div>
+
 
           <div>
             <Label>Viveiro (ou rateado entre todos)</Label>
