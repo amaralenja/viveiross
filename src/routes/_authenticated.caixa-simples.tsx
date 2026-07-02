@@ -248,11 +248,15 @@ function CaixaSimplesPage() {
   const totais = useMemo(() => {
     const receitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
     const despesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const totalVales = vales.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+    const isExtra = (m: string | null) => (m ?? "").trim().toLowerCase().startsWith(EXTRA_TAG);
+    const valesNormais = vales.filter((v) => !isExtra(v.motivo));
+    const valesExtras = vales.filter((v) => isExtra(v.motivo));
+    const totalVales = valesNormais.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+    const totalExtras = valesExtras.reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const mesAtual = new Date().toISOString().slice(0, 7);
     const valesMes = vales.filter((v) => v.data_vale?.startsWith(mesAtual)).reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const salarios = funcionarios.reduce((s, f) => s + Number(f.salario ?? 0), 0);
-    return { receitas, despesas, saldo: receitas - despesas, vales: totalVales, valesMes, salarios };
+    return { receitas, despesas, saldo: receitas - despesas, vales: totalVales, valesExtras: totalExtras, valesMes, salarios };
   }, [lancamentos, vales, funcionarios]);
 
   const exportRows = useMemo(() => {
