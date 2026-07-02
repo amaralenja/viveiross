@@ -838,8 +838,24 @@ function RelatoriosPage() {
           >
             <FileDown className="size-4 shrink-0 sm:size-5" /> <span className="truncate">PDF de tudo</span>
           </button>
+
+          <button
+            onClick={() => compartilharWhatsapp(selecionados.size > 0 ? Array.from(selecionados) : null, selecionados.size > 0 ? (selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`) : "Todos os viveiros")}
+            disabled={linhas.length === 0}
+            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-2 text-xs font-semibold text-white shadow-md hover:opacity-90 disabled:opacity-50 sm:px-3 sm:text-sm"
+          >
+            <MessageCircle className="size-4 shrink-0" /> <span className="truncate">WhatsApp</span>
+          </button>
+          <button
+            onClick={() => imprimirRelatorio(selecionados.size > 0 ? Array.from(selecionados) : null, selecionados.size > 0 ? (selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`) : "Todos os viveiros")}
+            disabled={linhas.length === 0}
+            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
+          >
+            <Printer className="size-4 shrink-0" /> <span className="truncate">Imprimir</span>
+          </button>
         </div>
       </div>
+
 
 
       <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
