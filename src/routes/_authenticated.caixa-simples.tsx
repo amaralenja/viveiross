@@ -161,8 +161,11 @@ function CaixaSimplesPage() {
     onSuccess: (s) => {
       qc.invalidateQueries({ queryKey: ["socios"] });
       setSocioId(s.id);
+      setNovoSocioNome("");
+      setShowNovoSocio(false);
       toast.success(`Sócio "${s.nome}" adicionado`);
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
 
