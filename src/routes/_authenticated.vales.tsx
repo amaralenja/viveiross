@@ -60,9 +60,12 @@ async function buildValePdfBlob(func: Funcionario, list: Vale[]) {
   };
 }
 
+type CaixaRow = { tipo: string; valor: number; data_lancamento: string };
+
 function ValesPage() {
   const [funcs, setFuncs] = useState<Funcionario[]>([]);
   const [vales, setVales] = useState<Vale[]>([]);
+  const [caixa, setCaixa] = useState<CaixaRow[]>([]);
   const [funcId, setFuncId] = useState("");
   const [valor, setValor] = useState("");
   const [motivo, setMotivo] = useState("");
@@ -75,6 +78,8 @@ function ValesPage() {
     setFuncs(f ?? []);
     const { data: v } = await supabase.from("vales").select("*").order("data_vale", { ascending: false });
     setVales(v ?? []);
+    const { data: c } = await supabase.from("caixa_lancamentos").select("tipo,valor,data_lancamento");
+    setCaixa(c ?? []);
   }
 
   useEffect(() => { load(); }, []);
