@@ -313,9 +313,8 @@ function CaixaSimplesPage() {
         <CardHeader><CardTitle className="text-base">Resumo geral</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Kpi label="Receitas" value={brl(totais.receitas)} tone="ok" />
             <Kpi label="Despesas" value={brl(totais.despesas)} tone="bad" />
-            <Kpi label="Saldo" value={brl(totais.saldo)} tone={totais.saldo >= 0 ? "ok" : "bad"} />
+
             <Kpi label="Vales (total)" value={brl(totais.vales)} />
             <Kpi label="Vales do mês" value={brl(totais.valesMes)} />
             <Kpi label="Salários base" value={brl(totais.salarios)} />
