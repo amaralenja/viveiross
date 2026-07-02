@@ -428,7 +428,7 @@ function RelatoriosPage() {
       const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60;
       // Só quebra página se não couber o cabeçalho + métricas mínimas na página atual
       let y: number;
-      if (idx === 0 || lastY > pageH - 90) {
+      if (idx === 0 || lastY > pageH - 110) {
         doc.addPage();
         header(l.viveiro, `${l.fazenda} • ${l.status} • ${l.dias != null ? `${l.dias} dias de cultivo` : "sem povoamento"}`);
         y = 32;
