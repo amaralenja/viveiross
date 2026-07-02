@@ -184,6 +184,8 @@ function RelatoriosPage() {
     const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
     const despesasIndividuais = despesas.filter((d) => d.rateio !== "todos" && d.viveiro_id != null);
     const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nViv;
+    const caixaRateado = caixa.filter((c) => c.viveiro_id == null);
+
 
     return viveiros.map((v) => {
       const lancs = lancamentos.filter((l) => l.viveiro_id === v.id);
