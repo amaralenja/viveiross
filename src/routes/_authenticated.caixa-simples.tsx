@@ -83,9 +83,14 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   };
 }
 
+const EXTRA_TAG = "[extra]";
+const stripExtra = (m: string | null) => (m ?? "").replace(/^\[extra\]\s*/, "").trim();
+
 function CaixaSimplesPage() {
   const qc = useQueryClient();
   const tipo = "despesa" as const;
+  const [modo, setModo] = useState<"despesa" | "vale" | "vale_extra">("despesa");
+  const [funcionarioId, setFuncionarioId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [qtd, setQtd] = useState("");
