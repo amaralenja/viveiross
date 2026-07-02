@@ -190,7 +190,7 @@ function CaixaSimplesPage() {
         viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: isInterno ? "interno" : (tipo === "receita" ? "venda" : "geral"),
+        categoria: isInterno ? "interno" : "geral",
         valor: v,
         tipo,
         quantidade: qNum > 0 ? qNum : null,
