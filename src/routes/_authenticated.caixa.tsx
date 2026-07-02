@@ -26,7 +26,9 @@ type Lanc = {
   tipo: "despesa" | "receita";
   quantidade: number | null;
   unidade: string | null;
+  socio_id: string | null;
 };
+type Socio = { id: string; nome: string };
 
 function fmtQtd(q: number | null, u: string | null) {
   if (!q || q <= 0) return "—";
@@ -391,6 +393,7 @@ function CaixaPage() {
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState<"kg" | "g">("kg");
   const [valorManual, setValorManual] = useState("");
+  const [socioId, setSocioId] = useState<string>("");
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos"],
@@ -453,12 +456,41 @@ function CaixaPage() {
     },
   });
 
+  const { data: socios = [] } = useQuery({
+    queryKey: ["socios"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("socios").select("id, nome").order("nome");
+      if (error) throw error;
+      return (data ?? []) as Socio[];
+    },
+  });
+
+  const addSocioMut = useMutation({
+    mutationFn: async (nome: string) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      const { data, error } = await supabase
+        .from("socios")
+        .insert({ user_id: u.user.id, nome: nome.trim() })
+        .select("id, nome")
+        .single();
+      if (error) throw error;
+      return data as Socio;
+    },
+    onSuccess: (s) => {
+      qc.invalidateQueries({ queryKey: ["socios"] });
+      setSocioId(s.id);
+      toast.success(`Sócio "${s.nome}" adicionado`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const { data: lancamentos = [], isLoading } = useQuery({
     queryKey: ["caixa", "lancamentos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, observacao, tipo, quantidade, unidade, socio_id")
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -495,6 +527,7 @@ function CaixaPage() {
         tipo,
         quantidade: qNum > 0 ? qNum : null,
         unidade: qNum > 0 ? unidade : null,
+        socio_id: socioId || null,
       });
       if (error) throw error;
     },
@@ -506,6 +539,7 @@ function CaixaPage() {
       setPrecoKg("");
       setQtd("");
       setValorManual("");
+      setSocioId("");
       qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -565,6 +599,10 @@ function CaixaPage() {
 
     return { totalDespesas, totalReceitas, saldoGeral, despesasGerais, receitasGerais, porViveiro, nAtivos };
   }, [lancamentos, viveiros]);
+
+  const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
+
+
 
   return (
     <div className="space-y-6">
@@ -784,6 +822,11 @@ function CaixaPage() {
                                   · rateado
                                 </span>
                               )}
+                              {h.l.socio_id && socioMap.get(h.l.socio_id) && (
+                                <span className="ml-1 text-[10px] text-primary/80">
+                                  · {socioMap.get(h.l.socio_id)}
+                                </span>
+                              )}
                             </span>
                             <span
                               className={`font-semibold tabular-nums shrink-0 ${h.l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
@@ -953,6 +996,33 @@ function CaixaPage() {
           />
         </Field>
 
+        <Field label={tipo === "receita" ? "Quem recebeu (sócio)" : "Quem pagou (sócio)"}>
+          <div className="flex gap-2">
+            <select
+              value={socioId}
+              onChange={(e) => setSocioId(e.target.value)}
+              className="app-input flex-1"
+            >
+              <option value="">— nenhum —</option>
+              {socios.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="app-input w-auto px-3 whitespace-nowrap"
+              onClick={() => {
+                const nome = window.prompt("Nome do novo sócio:");
+                if (nome && nome.trim()) addSocioMut.mutate(nome.trim());
+              }}
+            >
+              + Novo
+            </button>
+          </div>
+        </Field>
+
+
+
         <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
           <p className="text-xs font-semibold uppercase text-muted-foreground">
             Calcular por preço × quantidade (opcional)
@@ -1043,6 +1113,7 @@ function CaixaPage() {
       {detailView && (
         <DetailModal
           v={detailView}
+          socioMap={socioMap}
           onClose={() => setDetailView(null)}
           onEdit={(l) => {
             setDetailView(null);
@@ -1059,11 +1130,13 @@ function CaixaPage() {
 
 function DetailModal({
   v,
+  socioMap,
   onClose,
   onEdit,
   onDelete,
 }: {
   v: ViveiroRel;
+  socioMap: Map<string, string>;
   onClose: () => void;
   onEdit: (l: Lanc) => void;
   onDelete: (id: string) => void;
@@ -1157,6 +1230,11 @@ function DetailModal({
                         {h.l.categoria && (
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Categoria: <span className="font-medium">{h.l.categoria}</span>
+                          </p>
+                        )}
+                        {h.l.socio_id && socioMap.get(h.l.socio_id) && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Sócio: <span className="font-medium">{socioMap.get(h.l.socio_id)}</span>
                           </p>
                         )}
                         {h.l.quantidade && h.l.quantidade > 0 && (
