@@ -144,9 +144,9 @@ function CaixaSimplesPage() {
   const { data: vales = [] } = useQuery({
     queryKey: ["vales", "totais"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("vales").select("valor, data_vale");
+      const { data, error } = await supabase.from("vales").select("valor, data_vale, motivo");
       if (error) throw error;
-      return (data ?? []) as { valor: number; data_vale: string }[];
+      return (data ?? []) as { valor: number; data_vale: string; motivo: string | null }[];
     },
   });
 
