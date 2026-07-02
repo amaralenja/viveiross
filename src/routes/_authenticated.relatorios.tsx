@@ -796,14 +796,14 @@ function RelatoriosPage() {
         </div>
         <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <button
-            onClick={() => gerarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`)}
+            onClick={() => copiarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`)}
             disabled={selecionados.size === 0}
             className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
           >
             <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link selec.</span>
           </button>
           <button
-            onClick={() => gerarLink(null, "Todos os viveiros")}
+            onClick={() => copiarLink(null, "Todos os viveiros")}
             disabled={linhas.length === 0}
             className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
           >
@@ -885,7 +885,7 @@ function RelatoriosPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <button
-                    onClick={() => gerarLink([l.id], l.viveiro)}
+                    onClick={() => copiarLink([l.id], l.viveiro)}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-xs font-semibold hover:bg-accent"
                   >
                     <LinkIcon className="size-3.5" /> Link
