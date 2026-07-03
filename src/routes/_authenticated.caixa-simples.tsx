@@ -742,8 +742,8 @@ function CaixaSimplesPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            {selectedIds.size > 0
-              ? `Exportando ${selectedIds.size} lançamento(s) selecionado(s)`
+            {selectedIds.size > 0 || selectedContasIds.size > 0
+              ? `Exportando ${selectedIds.size} lançamento(s) + ${selectedContasIds.size} conta(s) selecionada(s)`
               : "Sem seleção: exporta todos os lançamentos"}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
