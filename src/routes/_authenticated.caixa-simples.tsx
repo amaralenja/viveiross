@@ -10,12 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat } from "lucide-react";
 
 const CS_TAG = "[cs]";
-const CP_TAG = "[cp]";
-const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\](\[cp\])?\s*/, "").trim();
-const isContaPagar = (o: string | null) => (o ?? "").startsWith(`${CS_TAG}${CP_TAG}`);
+const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\]\s*/, "").trim();
 
 export const Route = createFileRoute("/_authenticated/caixa-simples")({
   head: () => ({ meta: [{ title: "Caixa Simples" }] }),
@@ -40,6 +38,27 @@ type Lanc = {
   socio_id: string | null;
   observacao: string | null;
 };
+type Conta = {
+  id: string;
+  descricao: string;
+  valor: number;
+  data_vencimento: string;
+  data_pagamento: string | null;
+  pago: boolean;
+  categoria: string | null;
+  observacao: string | null;
+  socio_id: string | null;
+  viveiro_id: string | null;
+  recorrencia: "none" | "diaria" | "semanal" | "mensal" | "anual";
+};
+
+const RECORRENCIA_LABEL: Record<Conta["recorrencia"], string> = {
+  none: "Sem recorrência",
+  diaria: "Diária",
+  semanal: "Semanal",
+  mensal: "Mensal",
+  anual: "Anual",
+};
 
 function brl(n: number) {
   return Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -48,6 +67,19 @@ function fmtDate(d: string) {
   const [y, m, day] = d.split("-");
   if (y && m && day) return `${day}/${m}/${y}`;
   return new Date(d).toLocaleDateString("pt-BR");
+}
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+function proximaData(atual: string, rec: Conta["recorrencia"]): string | null {
+  if (rec === "none") return null;
+  const [y, m, d] = atual.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (rec === "diaria") dt.setUTCDate(dt.getUTCDate() + 1);
+  else if (rec === "semanal") dt.setUTCDate(dt.getUTCDate() + 7);
+  else if (rec === "mensal") dt.setUTCMonth(dt.getUTCMonth() + 1);
+  else if (rec === "anual") dt.setUTCFullYear(dt.getUTCFullYear() + 1);
+  return dt.toISOString().slice(0, 10);
 }
 
 async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiroMap: Map<string, string>, totais: { despesas: number; contasPagar: number; vales: number; salarios: number }) {
@@ -66,10 +98,9 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   doc.text(`Vales: ${brl(totais.vales)}  ·  Salários base: ${brl(totais.salarios)}`, 14, 34);
   autoTable(doc, {
     startY: 40,
-    head: [["Data", "Tipo", "Descrição", "Sócio", "Viveiro", "Qtd", "Valor"]],
+    head: [["Data", "Descrição", "Sócio", "Viveiro", "Qtd", "Valor"]],
     body: rows.map((r) => [
       fmtDate(r.data_lancamento),
-      isContaPagar(r.observacao) ? "A pagar" : "Despesa",
       r.descricao,
       r.socio_id ? (socioMap.get(r.socio_id) ?? "—") : "—",
       r.viveiro_id ? (viveiroMap.get(r.viveiro_id) ?? "—") : "Rateado",
@@ -93,10 +124,11 @@ function CaixaSimplesPage() {
   const [valor, setValor] = useState("");
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState("un");
-  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(todayISO);
   const [socioId, setSocioId] = useState("");
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
   const [observacao, setObservacao] = useState("");
+  const [recorrencia, setRecorrencia] = useState<Conta["recorrencia"]>("none");
   const [busy, setBusy] = useState(false);
   const [showNovoSocio, setShowNovoSocio] = useState(false);
   const [novoSocioNome, setNovoSocioNome] = useState("");
@@ -135,6 +167,19 @@ function CaixaSimplesPage() {
 
       if (error) throw error;
       return (data ?? []) as Lanc[];
+    },
+  });
+
+  const { data: contas = [] } = useQuery({
+    queryKey: ["contas-pagar"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contas_pagar")
+        .select("id, descricao, valor, data_vencimento, data_pagamento, pago, categoria, observacao, socio_id, viveiro_id, recorrencia")
+        .order("pago", { ascending: true })
+        .order("data_vencimento", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Conta[];
     },
   });
 
@@ -199,31 +244,52 @@ function CaixaSimplesPage() {
       }
 
       if (!descricao.trim()) throw new Error("Informe a descrição.");
+
+      if (modo === "conta_pagar") {
+        const isInterno = viveiroId === INTERNO;
+        const { error } = await supabase.from("contas_pagar").insert({
+          user_id: u.user.id,
+          descricao: descricao.trim(),
+          valor: v,
+          data_vencimento: data,
+          categoria: isInterno ? "interno" : "geral",
+          observacao: observacao.trim() || null,
+          socio_id: socioId || null,
+          viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
+          recorrencia,
+        });
+        if (error) throw error;
+        return;
+      }
+
       const qNum = Number(qtd.replace(",", ".")) || 0;
       const isInterno = viveiroId === INTERNO;
-      const isCP = modo === "conta_pagar";
-      const prefix = isCP ? `${CS_TAG}${CP_TAG}` : CS_TAG;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: u.user.id,
         viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: isCP ? "conta_pagar" : (isInterno ? "interno" : "geral"),
+        categoria: isInterno ? "interno" : "geral",
         valor: v,
         tipo: "despesa",
         quantidade: qNum > 0 ? qNum : null,
         unidade: qNum > 0 ? unidade : null,
         socio_id: socioId || null,
-        observacao: `${prefix} ${observacao.trim()}`.trim(),
+        observacao: `${CS_TAG} ${observacao.trim()}`.trim(),
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(modo === "vale" ? "Vale registrado" : modo === "conta_pagar" ? "Conta a pagar registrada" : "Despesa registrada");
-      setDescricao(""); setValor(""); setQtd(""); setObservacao("");
+      toast.success(
+        modo === "vale" ? "Vale registrado" :
+        modo === "conta_pagar" ? "Conta a pagar registrada" :
+        "Despesa registrada"
+      );
+      setDescricao(""); setValor(""); setQtd(""); setObservacao(""); setRecorrencia("none");
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["vales"] });
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -235,22 +301,89 @@ function CaixaSimplesPage() {
     },
     onSuccess: () => {
       toast.success("Lançamento removido");
-      setSelectedIds((prev) => { const n = new Set(prev); return n; });
+      setSelectedIds((prev) => new Set(prev));
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const pagarContaMut = useMutation({
+    mutationFn: async (conta: Conta) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      const hoje = todayISO();
+      // 1) lança no caixa (aparece nos relatórios)
+      const { data: lanc, error: lErr } = await supabase.from("caixa_lancamentos").insert({
+        user_id: u.user.id,
+        viveiro_id: conta.viveiro_id,
+        data_lancamento: hoje,
+        descricao: `Conta paga: ${conta.descricao}`,
+        categoria: conta.categoria ?? "geral",
+        valor: Number(conta.valor),
+        tipo: "despesa",
+        socio_id: conta.socio_id,
+        observacao: `${CS_TAG} Pagamento de conta`.trim(),
+      }).select("id").single();
+      if (lErr) throw lErr;
+      // 2) marca como paga
+      const { error: uErr } = await supabase.from("contas_pagar").update({
+        pago: true,
+        data_pagamento: hoje,
+        caixa_lancamento_id: lanc?.id ?? null,
+      }).eq("id", conta.id);
+      if (uErr) throw uErr;
+      // 3) se recorrente, cria próxima
+      if (conta.recorrencia !== "none") {
+        const prox = proximaData(conta.data_vencimento, conta.recorrencia);
+        if (prox) {
+          const { error: nErr } = await supabase.from("contas_pagar").insert({
+            user_id: u.user.id,
+            descricao: conta.descricao,
+            valor: conta.valor,
+            data_vencimento: prox,
+            categoria: conta.categoria,
+            observacao: conta.observacao,
+            socio_id: conta.socio_id,
+            viveiro_id: conta.viveiro_id,
+            recorrencia: conta.recorrencia,
+            parent_id: conta.id,
+          });
+          if (nErr) throw nErr;
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("Conta paga e lançada no caixa");
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeContaMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("contas_pagar").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Conta removida");
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const totais = useMemo(() => {
-    const despesasReais = lancamentos.filter((l) => !isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const contasPagar = lancamentos.filter((l) => isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const despesas = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const contasPendentes = contas.filter((c) => !c.pago).reduce((s, c) => s + Number(c.valor ?? 0), 0);
+    const contasPagas = contas.filter((c) => c.pago).reduce((s, c) => s + Number(c.valor ?? 0), 0);
     const totalVales = vales.reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const mesAtual = new Date().toISOString().slice(0, 7);
     const valesMes = vales.filter((v) => v.data_vale?.startsWith(mesAtual)).reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const salarios = funcionarios.reduce((s, f) => s + Number(f.salario ?? 0), 0);
-    return { despesas: despesasReais, contasPagar, vales: totalVales, valesMes, salarios };
-  }, [lancamentos, vales, funcionarios]);
+    return { despesas, contasPendentes, contasPagas, vales: totalVales, valesMes, salarios };
+  }, [lancamentos, contas, vales, funcionarios]);
 
   const exportRows = useMemo(() => {
     const rows = selectedIds.size > 0 ? lancamentos.filter((l) => selectedIds.has(l.id)) : lancamentos;
@@ -258,14 +391,12 @@ function CaixaSimplesPage() {
   }, [lancamentos, selectedIds]);
 
   const exportTotais = useMemo(() => {
-    const source = selectedIds.size > 0 ? lancamentos.filter((l) => selectedIds.has(l.id)) : lancamentos;
-    const despesas = source.filter((l) => !isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const contasPagar = source.filter((l) => isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    return { despesas, contasPagar, vales: totais.vales, salarios: totais.salarios };
-  }, [lancamentos, selectedIds, totais]);
+    const despesas = exportRows.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    return { despesas, contasPagar: totais.contasPendentes, vales: totais.vales, salarios: totais.salarios };
+  }, [exportRows, totais]);
 
   const toggleSelect = (id: string) => setSelectedIds((prev) => {
-    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+    const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
   });
   const toggleAll = () => setSelectedIds((prev) => prev.size === lancamentos.length ? new Set() : new Set(lancamentos.map((l) => l.id)));
 
@@ -323,6 +454,8 @@ function CaixaSimplesPage() {
   }
 
   const dataLabel = modo === "conta_pagar" ? "Data de vencimento" : "Data";
+  const contasPendentes = contas.filter((c) => !c.pago);
+  const contasPagas = contas.filter((c) => c.pago).slice(0, 20);
 
   return (
     <div className="space-y-6">
@@ -336,7 +469,8 @@ function CaixaSimplesPage() {
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Kpi label="Despesas" value={brl(totais.despesas)} tone="bad" />
-            <Kpi label="Contas a pagar" value={brl(totais.contasPagar)} tone="bad" />
+            <Kpi label="Contas a pagar (pendente)" value={brl(totais.contasPendentes)} tone="bad" />
+            <Kpi label="Contas pagas" value={brl(totais.contasPagas)} tone="ok" />
             <Kpi label="Vales (total)" value={brl(totais.vales)} />
             <Kpi label="Vales do mês" value={brl(totais.valesMes)} />
             <Kpi label="Salários base" value={brl(totais.salarios)} />
@@ -384,27 +518,46 @@ function CaixaSimplesPage() {
             </div>
           </div>
 
+          {modo === "conta_pagar" && (
+            <div className="rounded-md border border-dashed p-3 space-y-2">
+              <Label className="flex items-center gap-2"><Repeat className="size-4" /> É conta recorrente?</Label>
+              <p className="text-xs text-muted-foreground">Se sim, ao marcar como paga, a próxima parcela é criada automaticamente com o novo vencimento.</p>
+              <Select value={recorrencia} onValueChange={(v) => setRecorrencia(v as Conta["recorrencia"])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Não, é única</SelectItem>
+                  <SelectItem value="diaria">Sim — todo dia</SelectItem>
+                  <SelectItem value="semanal">Sim — toda semana</SelectItem>
+                  <SelectItem value="mensal">Sim — todo mês</SelectItem>
+                  <SelectItem value="anual">Sim — todo ano</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {modo !== "vale" && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Quantidade (opcional)</Label>
-                  <Input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+              {modo === "despesa" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Quantidade (opcional)</Label>
+                    <Input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
+                  </div>
+                  <div>
+                    <Label>Unidade</Label>
+                    <Select value={unidade} onValueChange={setUnidade}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="un">un</SelectItem>
+                        <SelectItem value="kg">kg</SelectItem>
+                        <SelectItem value="g">g</SelectItem>
+                        <SelectItem value="L">L</SelectItem>
+                        <SelectItem value="cx">cx</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <Label>Unidade</Label>
-                  <Select value={unidade} onValueChange={setUnidade}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="un">un</SelectItem>
-                      <SelectItem value="kg">kg</SelectItem>
-                      <SelectItem value="g">g</SelectItem>
-                      <SelectItem value="L">L</SelectItem>
-                      <SelectItem value="cx">cx</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              )}
 
               <div>
                 <Label>{modo === "conta_pagar" ? "Quem vai pagar (sócio)" : "Quem pagou (sócio)"}</Label>
@@ -472,6 +625,82 @@ function CaixaSimplesPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base flex items-center justify-between">
+            <span>Contas a pagar</span>
+            <span className="text-sm font-normal text-muted-foreground">Total pendente: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {contasPendentes.length === 0 && contasPagas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada. Crie uma acima escolhendo "Contas a pagar".</p>
+          ) : (
+            <div className="space-y-4">
+              {contasPendentes.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Pendentes</h3>
+                  <ul className="space-y-2">
+                    {contasPendentes.map((c) => (
+                      <li key={c.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-red-600">- {brl(Number(c.valor))}</span>
+                            <span className="font-medium truncate">{c.descricao}</span>
+                            {c.recorrencia !== "none" && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 flex items-center gap-1">
+                                <Repeat className="size-3" /> {RECORRENCIA_LABEL[c.recorrencia]}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5 space-x-1">
+                            <span>Vence {fmtDate(c.data_vencimento)}</span>
+                            {c.viveiro_id && viveiroMap.get(c.viveiro_id) && (<><span>·</span><span>{viveiroMap.get(c.viveiro_id)}</span></>)}
+                            {c.categoria === "interno" && (<><span>·</span><span>Interno</span></>)}
+                            {c.socio_id && socioMap.get(c.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(c.socio_id)}</span></>)}
+                          </div>
+                          {c.observacao && <div className="text-xs text-muted-foreground mt-1 italic">{c.observacao}</div>}
+                        </div>
+                        <Button size="sm" variant="default" disabled={pagarContaMut.isPending} onClick={() => pagarContaMut.mutate(c)}>
+                          <Check className="size-4 mr-1" /> Pagar
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover conta?")) removeContaMut.mutate(c.id); }}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {contasPagas.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Pagas recentemente</h3>
+                  <ul className="space-y-2">
+                    {contasPagas.map((c) => (
+                      <li key={c.id} className="flex items-start gap-2 border-b pb-2 last:border-0 opacity-70">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-emerald-600">✓ {brl(Number(c.valor))}</span>
+                            <span className="font-medium truncate line-through">{c.descricao}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            Paga em {c.data_pagamento ? fmtDate(c.data_pagamento) : "—"} · venceu {fmtDate(c.data_vencimento)}
+                          </div>
+                        </div>
+                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover registro?")) removeContaMut.mutate(c.id); }}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Compartilhar / Exportar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -513,7 +742,6 @@ function CaixaSimplesPage() {
             <ul className="space-y-2">
               {lancamentos.map((l) => {
                 const obs = stripTag(l.observacao);
-                const cp = isContaPagar(l.observacao);
                 return (
                 <li key={l.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
                   <Checkbox
@@ -523,16 +751,13 @@ function CaixaSimplesPage() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-red-600">
-                        - {brl(Number(l.valor))}
-                      </span>
-                      {cp && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">A pagar</span>}
+                      <span className="text-xs font-bold text-red-600">- {brl(Number(l.valor))}</span>
                       <span className="font-medium truncate">{l.descricao}</span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 space-x-1">
-                      <span>{cp ? "Vence " : ""}{fmtDate(l.data_lancamento)}</span>
+                      <span>{fmtDate(l.data_lancamento)}</span>
                       <span>·</span>
-                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : (l.categoria === "interno" ? "Interno" : cp ? "—" : "Rateado")}</span>
+                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : (l.categoria === "interno" ? "Interno" : "Rateado")}</span>
                       {l.socio_id && socioMap.get(l.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(l.socio_id)}</span></>)}
                       {l.quantidade != null && (<><span>·</span><span>{l.quantidade} {l.unidade}</span></>)}
                     </div>
