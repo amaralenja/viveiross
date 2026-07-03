@@ -388,8 +388,23 @@ function CaixaSimplesPage() {
 
   const exportRows = useMemo(() => {
     const rows = selectedIds.size > 0 ? lancamentos.filter((l) => selectedIds.has(l.id)) : lancamentos;
-    return rows.map((l) => ({ ...l, observacao: stripTag(l.observacao) || null }));
-  }, [lancamentos, selectedIds]);
+    const base = rows.map((l) => ({ ...l, observacao: stripTag(l.observacao) || null }));
+    const contasSel = selectedContasIds.size > 0 ? contas.filter((c) => selectedContasIds.has(c.id)) : [];
+    const contasAsRows: Lanc[] = contasSel.map((c) => ({
+      id: `conta-${c.id}`,
+      viveiro_id: c.viveiro_id,
+      data_lancamento: c.pago && c.data_pagamento ? c.data_pagamento : c.data_vencimento,
+      descricao: (c.pago ? "✓ " : "⏳ ") + c.descricao,
+      categoria: c.categoria,
+      valor: Number(c.valor),
+      tipo: "conta_pagar",
+      quantidade: null,
+      unidade: null,
+      socio_id: c.socio_id,
+      observacao: c.pago ? "Conta paga" : `Conta a pagar · vence ${fmtDate(c.data_vencimento)}`,
+    }));
+    return [...base, ...contasAsRows];
+  }, [lancamentos, selectedIds, contas, selectedContasIds]);
 
   const exportTotais = useMemo(() => {
     const despesas = exportRows.reduce((s, l) => s + Number(l.valor ?? 0), 0);
@@ -400,6 +415,10 @@ function CaixaSimplesPage() {
     const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
   });
   const toggleAll = () => setSelectedIds((prev) => prev.size === lancamentos.length ? new Set() : new Set(lancamentos.map((l) => l.id)));
+  const toggleSelectConta = (id: string) => setSelectedContasIds((prev) => {
+    const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
+  });
+  const toggleAllContas = () => setSelectedContasIds((prev) => prev.size === contas.length ? new Set() : new Set(contas.map((c) => c.id)));
 
   async function gerarPdfLink(): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
