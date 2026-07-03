@@ -53,8 +53,8 @@ function DespescasPage() {
     queryKey: ["despescas", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("despescas" as never)
+      const { data, error } = await (supabase as any)
+        .from("despescas")
         .select("*")
         .eq("user_id", user!.id)
         .order("data_despesca", { ascending: false })
