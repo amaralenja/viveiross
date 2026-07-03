@@ -13,7 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap } from "lucide-react";
 
 const CS_TAG = "[cs]";
-const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\]\s*/, "").trim();
+const CP_TAG = "[cp]";
+const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\](\[cp\])?\s*/, "").trim();
+const isContaPagar = (o: string | null) => (o ?? "").startsWith(`${CS_TAG}${CP_TAG}`);
 
 export const Route = createFileRoute("/_authenticated/caixa-simples")({
   head: () => ({ meta: [{ title: "Caixa Simples" }] }),
@@ -48,7 +50,7 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("pt-BR");
 }
 
-async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiroMap: Map<string, string>, totais: { receitas: number; despesas: number; saldo: number; vales: number; salarios: number }) {
+async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiroMap: Map<string, string>, totais: { despesas: number; contasPagar: number; vales: number; salarios: number }) {
   const [pdfModule, autoTableModule] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -60,19 +62,19 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   doc.text("Caixa Simples", 14, 16);
   doc.setFontSize(10);
   doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 22);
-  doc.text(`Receitas: ${brl(totais.receitas)}  ·  Despesas: ${brl(totais.despesas)}  ·  Saldo: ${brl(totais.saldo)}`, 14, 28);
+  doc.text(`Despesas: ${brl(totais.despesas)}  ·  Contas a pagar: ${brl(totais.contasPagar)}`, 14, 28);
   doc.text(`Vales: ${brl(totais.vales)}  ·  Salários base: ${brl(totais.salarios)}`, 14, 34);
   autoTable(doc, {
     startY: 40,
     head: [["Data", "Tipo", "Descrição", "Sócio", "Viveiro", "Qtd", "Valor"]],
     body: rows.map((r) => [
       fmtDate(r.data_lancamento),
-      r.tipo === "receita" ? "Receita" : "Despesa",
+      isContaPagar(r.observacao) ? "A pagar" : "Despesa",
       r.descricao,
       r.socio_id ? (socioMap.get(r.socio_id) ?? "—") : "—",
       r.viveiro_id ? (viveiroMap.get(r.viveiro_id) ?? "—") : "Rateado",
       r.quantidade != null ? `${r.quantidade} ${r.unidade ?? ""}` : "—",
-      `${r.tipo === "receita" ? "+" : "-"} ${brl(Number(r.valor))}`,
+      `- ${brl(Number(r.valor))}`,
     ]),
     styles: { fontSize: 8 },
     headStyles: { fillColor: [30, 41, 59] },
@@ -83,12 +85,9 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   };
 }
 
-const EXTRA_TAG = "[extra]";
-
 function CaixaSimplesPage() {
   const qc = useQueryClient();
-  const tipo = "despesa" as const;
-  const [modo, setModo] = useState<"despesa" | "vale" | "vale_extra">("despesa");
+  const [modo, setModo] = useState<"despesa" | "vale" | "conta_pagar">("despesa");
   const [funcionarioId, setFuncionarioId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
@@ -102,7 +101,6 @@ function CaixaSimplesPage() {
   const [showNovoSocio, setShowNovoSocio] = useState(false);
   const [novoSocioNome, setNovoSocioNome] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos", "simples"],
@@ -176,7 +174,6 @@ function CaixaSimplesPage() {
       setShowNovoSocio(false);
       toast.success(`Sócio "${s.nome}" adicionado`);
     },
-
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -187,10 +184,9 @@ function CaixaSimplesPage() {
       const v = Number(valor.replace(",", ".")) || 0;
       if (v <= 0) throw new Error("Informe o valor.");
 
-      if (modo === "vale" || modo === "vale_extra") {
+      if (modo === "vale") {
         if (!funcionarioId) throw new Error("Selecione o funcionário.");
-        const motivoBase = descricao.trim() || (modo === "vale_extra" ? "Vale extra" : "Vale");
-        const motivo = modo === "vale_extra" ? `${EXTRA_TAG} ${motivoBase}`.trim() : motivoBase;
+        const motivo = descricao.trim() || "Vale";
         const { error } = await supabase.from("vales").insert({
           user_id: u.user.id,
           funcionario_id: funcionarioId,
@@ -205,23 +201,25 @@ function CaixaSimplesPage() {
       if (!descricao.trim()) throw new Error("Informe a descrição.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
       const isInterno = viveiroId === INTERNO;
+      const isCP = modo === "conta_pagar";
+      const prefix = isCP ? `${CS_TAG}${CP_TAG}` : CS_TAG;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: u.user.id,
         viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: isInterno ? "interno" : "geral",
+        categoria: isCP ? "conta_pagar" : (isInterno ? "interno" : "geral"),
         valor: v,
-        tipo,
+        tipo: "despesa",
         quantidade: qNum > 0 ? qNum : null,
         unidade: qNum > 0 ? unidade : null,
         socio_id: socioId || null,
-        observacao: `${CS_TAG} ${observacao.trim()}`.trim(),
+        observacao: `${prefix} ${observacao.trim()}`.trim(),
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(modo === "vale_extra" ? "Vale extra registrado" : modo === "vale" ? "Vale registrado" : "Despesa registrada");
+      toast.success(modo === "vale" ? "Vale registrado" : modo === "conta_pagar" ? "Conta a pagar registrada" : "Despesa registrada");
       setDescricao(""); setValor(""); setQtd(""); setObservacao("");
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
@@ -245,17 +243,13 @@ function CaixaSimplesPage() {
   });
 
   const totais = useMemo(() => {
-    const receitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const despesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const isExtra = (m: string | null) => (m ?? "").trim().toLowerCase().startsWith(EXTRA_TAG);
-    const valesNormais = vales.filter((v) => !isExtra(v.motivo));
-    const valesExtras = vales.filter((v) => isExtra(v.motivo));
-    const totalVales = valesNormais.reduce((s, v) => s + Number(v.valor ?? 0), 0);
-    const totalExtras = valesExtras.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+    const despesasReais = lancamentos.filter((l) => !isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const contasPagar = lancamentos.filter((l) => isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const totalVales = vales.reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const mesAtual = new Date().toISOString().slice(0, 7);
     const valesMes = vales.filter((v) => v.data_vale?.startsWith(mesAtual)).reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const salarios = funcionarios.reduce((s, f) => s + Number(f.salario ?? 0), 0);
-    return { receitas, despesas, saldo: receitas - despesas, vales: totalVales, valesExtras: totalExtras, valesMes, salarios };
+    return { despesas: despesasReais, contasPagar, vales: totalVales, valesMes, salarios };
   }, [lancamentos, vales, funcionarios]);
 
   const exportRows = useMemo(() => {
@@ -264,10 +258,11 @@ function CaixaSimplesPage() {
   }, [lancamentos, selectedIds]);
 
   const exportTotais = useMemo(() => {
-    const receitas = exportRows.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const despesas = exportRows.filter((l) => l.tipo !== "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    return { receitas, despesas, saldo: receitas - despesas, vales: totais.vales, salarios: totais.salarios };
-  }, [exportRows, totais]);
+    const source = selectedIds.size > 0 ? lancamentos.filter((l) => selectedIds.has(l.id)) : lancamentos;
+    const despesas = source.filter((l) => !isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const contasPagar = source.filter((l) => isContaPagar(l.observacao)).reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    return { despesas, contasPagar, vales: totais.vales, salarios: totais.salarios };
+  }, [lancamentos, selectedIds, totais]);
 
   const toggleSelect = (id: string) => setSelectedIds((prev) => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
@@ -308,7 +303,7 @@ function CaixaSimplesPage() {
       const url = await gerarPdfLink();
       toast.dismiss(tid);
       if (!url) return;
-      const texto = `Caixa Simples\nReceitas: ${brl(exportTotais.receitas)}\nDespesas: ${brl(exportTotais.despesas)}\nSaldo: ${brl(exportTotais.saldo)}\n${url}`;
+      const texto = `Caixa Simples\nDespesas: ${brl(exportTotais.despesas)}\nContas a pagar: ${brl(exportTotais.contasPagar)}\n${url}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
     } finally { setBusy(false); }
   }
@@ -327,6 +322,8 @@ function CaixaSimplesPage() {
     if (w) w.addEventListener("load", () => { try { w.print(); } catch { /* ignore */ } });
   }
 
+  const dataLabel = modo === "conta_pagar" ? "Data de vencimento" : "Data";
+
   return (
     <div className="space-y-6">
       <div>
@@ -339,8 +336,8 @@ function CaixaSimplesPage() {
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Kpi label="Despesas" value={brl(totais.despesas)} tone="bad" />
+            <Kpi label="Contas a pagar" value={brl(totais.contasPagar)} tone="bad" />
             <Kpi label="Vales (total)" value={brl(totais.vales)} />
-            <Kpi label="Vales extras" value={brl(totais.valesExtras)} tone="bad" />
             <Kpi label="Vales do mês" value={brl(totais.valesMes)} />
             <Kpi label="Salários base" value={brl(totais.salarios)} />
           </div>
@@ -355,10 +352,10 @@ function CaixaSimplesPage() {
           <div className="grid grid-cols-3 gap-2">
             <Button type="button" size="sm" variant={modo === "despesa" ? "default" : "outline"} onClick={() => setModo("despesa")}>Despesa</Button>
             <Button type="button" size="sm" variant={modo === "vale" ? "default" : "outline"} onClick={() => setModo("vale")}>Vale</Button>
-            <Button type="button" size="sm" variant={modo === "vale_extra" ? "default" : "outline"} onClick={() => setModo("vale_extra")}>Vale extra</Button>
+            <Button type="button" size="sm" variant={modo === "conta_pagar" ? "default" : "outline"} onClick={() => setModo("conta_pagar")}>Contas a pagar</Button>
           </div>
 
-          {modo !== "despesa" && (
+          {modo === "vale" && (
             <div>
               <Label>Funcionário</Label>
               <Select value={funcionarioId || "__none__"} onValueChange={(v) => setFuncionarioId(v === "__none__" ? "" : v)}>
@@ -372,8 +369,8 @@ function CaixaSimplesPage() {
           )}
 
           <div>
-            <Label>{modo === "despesa" ? "Descrição do produto/serviço" : "Motivo (opcional)"}</Label>
-            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={modo === "despesa" ? "Ex: Tinta pro viveiro" : "Ex: adiantamento"} />
+            <Label>{modo === "vale" ? "Motivo (opcional)" : "Descrição"}</Label>
+            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={modo === "conta_pagar" ? "Ex: Conta de luz" : modo === "vale" ? "Ex: adiantamento" : "Ex: Tinta pro viveiro"} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -382,12 +379,12 @@ function CaixaSimplesPage() {
               <Input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
             </div>
             <div>
-              <Label>Data</Label>
+              <Label>{dataLabel}</Label>
               <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </div>
           </div>
 
-          {modo === "despesa" && (
+          {modo !== "vale" && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -410,7 +407,7 @@ function CaixaSimplesPage() {
               </div>
 
               <div>
-                <Label>Quem pagou (sócio)</Label>
+                <Label>{modo === "conta_pagar" ? "Quem vai pagar (sócio)" : "Quem pagou (sócio)"}</Label>
                 <div className="flex gap-2">
                   <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
                     <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
@@ -516,6 +513,7 @@ function CaixaSimplesPage() {
             <ul className="space-y-2">
               {lancamentos.map((l) => {
                 const obs = stripTag(l.observacao);
+                const cp = isContaPagar(l.observacao);
                 return (
                 <li key={l.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
                   <Checkbox
@@ -524,16 +522,17 @@ function CaixaSimplesPage() {
                     className="mt-1"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold ${l.tipo === "receita" ? "text-emerald-600" : "text-red-600"}`}>
-                        {l.tipo === "receita" ? "+" : "-"} {brl(Number(l.valor))}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-red-600">
+                        - {brl(Number(l.valor))}
                       </span>
+                      {cp && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">A pagar</span>}
                       <span className="font-medium truncate">{l.descricao}</span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 space-x-1">
-                      <span>{fmtDate(l.data_lancamento)}</span>
+                      <span>{cp ? "Vence " : ""}{fmtDate(l.data_lancamento)}</span>
                       <span>·</span>
-                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : (l.categoria === "interno" ? "Interno" : "Rateado")}</span>
+                      <span>{l.viveiro_id ? (viveiroMap.get(l.viveiro_id) ?? "—") : (l.categoria === "interno" ? "Interno" : cp ? "—" : "Rateado")}</span>
                       {l.socio_id && socioMap.get(l.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(l.socio_id)}</span></>)}
                       {l.quantidade != null && (<><span>·</span><span>{l.quantidade} {l.unidade}</span></>)}
                     </div>
