@@ -310,6 +310,59 @@ export type Database = {
           },
         ]
       }
+      despescas: {
+        Row: {
+          caixa_lancamento_id: string | null
+          created_at: string
+          data_despesca: string
+          id: string
+          observacao: string | null
+          preco_kg: number
+          quantidade_kg: number
+          status: string
+          updated_at: string
+          user_id: string
+          valor_total: number
+          viveiro_id: string | null
+        }
+        Insert: {
+          caixa_lancamento_id?: string | null
+          created_at?: string
+          data_despesca?: string
+          id?: string
+          observacao?: string | null
+          preco_kg: number
+          quantidade_kg: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          valor_total: number
+          viveiro_id?: string | null
+        }
+        Update: {
+          caixa_lancamento_id?: string | null
+          created_at?: string
+          data_despesca?: string
+          id?: string
+          observacao?: string | null
+          preco_kg?: number
+          quantidade_kg?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor_total?: number
+          viveiro_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "despescas_viveiro_id_fkey"
+            columns: ["viveiro_id"]
+            isOneToOne: false
+            referencedRelation: "viveiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estoque_entradas: {
         Row: {
           created_at: string

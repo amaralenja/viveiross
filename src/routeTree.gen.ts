@@ -18,6 +18,7 @@ import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedValesRouteImport } from './routes/_authenticated.vales'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated.produtos'
+import { Route as AuthenticatedDespescasRouteImport } from './routes/_authenticated.despescas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedCaixaSimplesRouteImport } from './routes/_authenticated.caixa-simples'
 import { Route as AuthenticatedCaixaRouteImport } from './routes/_authenticated.caixa'
@@ -68,6 +69,11 @@ const AuthenticatedProdutosRoute = AuthenticatedProdutosRouteImport.update({
   path: '/produtos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDespescasRoute = AuthenticatedDespescasRouteImport.update({
+  id: '/despescas',
+  path: '/despescas',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/caixa': typeof AuthenticatedCaixaRoute
   '/caixa-simples': typeof AuthenticatedCaixaSimplesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/despescas': typeof AuthenticatedDespescasRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/vales': typeof AuthenticatedValesRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/caixa': typeof AuthenticatedCaixaRoute
   '/caixa-simples': typeof AuthenticatedCaixaSimplesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/despescas': typeof AuthenticatedDespescasRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/vales': typeof AuthenticatedValesRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/_authenticated/caixa': typeof AuthenticatedCaixaRoute
   '/_authenticated/caixa-simples': typeof AuthenticatedCaixaSimplesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/despescas': typeof AuthenticatedDespescasRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/vales': typeof AuthenticatedValesRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/caixa'
     | '/caixa-simples'
     | '/dashboard'
+    | '/despescas'
     | '/produtos'
     | '/relatorios'
     | '/vales'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/caixa'
     | '/caixa-simples'
     | '/dashboard'
+    | '/despescas'
     | '/produtos'
     | '/relatorios'
     | '/vales'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/_authenticated/caixa'
     | '/_authenticated/caixa-simples'
     | '/_authenticated/dashboard'
+    | '/_authenticated/despescas'
     | '/_authenticated/produtos'
     | '/_authenticated/relatorios'
     | '/_authenticated/vales'
@@ -265,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProdutosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/despescas': {
+      id: '/_authenticated/despescas'
+      path: '/despescas'
+      fullPath: '/despescas'
+      preLoaderRoute: typeof AuthenticatedDespescasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -308,6 +327,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCaixaRoute: typeof AuthenticatedCaixaRoute
   AuthenticatedCaixaSimplesRoute: typeof AuthenticatedCaixaSimplesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDespescasRoute: typeof AuthenticatedDespescasRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedValesRoute: typeof AuthenticatedValesRoute
@@ -319,6 +339,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCaixaRoute: AuthenticatedCaixaRoute,
   AuthenticatedCaixaSimplesRoute: AuthenticatedCaixaSimplesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDespescasRoute: AuthenticatedDespescasRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedValesRoute: AuthenticatedValesRoute,
