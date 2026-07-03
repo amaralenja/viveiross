@@ -93,10 +93,10 @@ function DespescasPage() {
         observacao: obs || null,
       };
       if (editId) {
-        const { error } = await supabase.from("despescas" as never).update(payload).eq("id", editId);
+        const { error } = await (supabase as any).from("despescas").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("despescas" as never).insert(payload);
+        const { error } = await (supabase as any).from("despescas").insert(payload);
         if (error) throw error;
       }
     },
@@ -148,7 +148,7 @@ function DespescasPage() {
       if (d.caixa_lancamento_id) {
         await supabase.from("caixa_lancamentos").delete().eq("id", d.caixa_lancamento_id);
       }
-      const { error } = await supabase.from("despescas" as never).delete().eq("id", d.id);
+      const { error } = await (supabase as any).from("despescas").delete().eq("id", d.id);
       if (error) throw error;
     },
     onSuccess: () => {
