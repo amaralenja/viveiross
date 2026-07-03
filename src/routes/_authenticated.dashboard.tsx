@@ -77,8 +77,10 @@ function Dashboard() {
         .select(
           "id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, tipo, preco_unidade, custo_total, viveiros(nome)",
         )
+        .eq("data_lancamento", todayLocal())
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
+
       if (error) throw error;
       return (data ?? []) as Lanc[];
     },
