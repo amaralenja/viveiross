@@ -129,8 +129,8 @@ function DespescasPage() {
         .select("id")
         .single();
       if (error) throw error;
-      const { error: upErr } = await supabase
-        .from("despescas" as never)
+      const { error: upErr } = await (supabase as any)
+        .from("despescas")
         .update({ status: "aprovada", caixa_lancamento_id: lanc.id })
         .eq("id", d.id);
       if (upErr) throw upErr;
