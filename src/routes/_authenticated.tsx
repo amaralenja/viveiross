@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, HandCoins, Zap } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, HandCoins, Zap, Fish } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
