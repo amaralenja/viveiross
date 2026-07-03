@@ -174,6 +174,92 @@ export type Database = {
         }
         Relationships: []
       }
+      contas_pagar: {
+        Row: {
+          caixa_lancamento_id: string | null
+          categoria: string | null
+          created_at: string
+          data_pagamento: string | null
+          data_vencimento: string
+          descricao: string
+          id: string
+          observacao: string | null
+          pago: boolean
+          parent_id: string | null
+          recorrencia: string
+          socio_id: string | null
+          updated_at: string
+          user_id: string
+          valor: number
+          viveiro_id: string | null
+        }
+        Insert: {
+          caixa_lancamento_id?: string | null
+          categoria?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento?: string
+          descricao: string
+          id?: string
+          observacao?: string | null
+          pago?: boolean
+          parent_id?: string | null
+          recorrencia?: string
+          socio_id?: string | null
+          updated_at?: string
+          user_id: string
+          valor?: number
+          viveiro_id?: string | null
+        }
+        Update: {
+          caixa_lancamento_id?: string | null
+          categoria?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento?: string
+          descricao?: string
+          id?: string
+          observacao?: string | null
+          pago?: boolean
+          parent_id?: string | null
+          recorrencia?: string
+          socio_id?: string | null
+          updated_at?: string
+          user_id?: string
+          valor?: number
+          viveiro_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_caixa_lancamento_id_fkey"
+            columns: ["caixa_lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "caixa_lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "contas_pagar"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "socios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_viveiro_id_fkey"
+            columns: ["viveiro_id"]
+            isOneToOne: false
+            referencedRelation: "viveiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       despesas_gerais: {
         Row: {
           categoria: string | null
