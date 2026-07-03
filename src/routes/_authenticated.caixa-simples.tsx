@@ -133,6 +133,7 @@ function CaixaSimplesPage() {
   const [showNovoSocio, setShowNovoSocio] = useState(false);
   const [novoSocioNome, setNovoSocioNome] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedContasIds, setSelectedContasIds] = useState<Set<string>>(new Set());
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos", "simples"],
@@ -387,8 +388,23 @@ function CaixaSimplesPage() {
 
   const exportRows = useMemo(() => {
     const rows = selectedIds.size > 0 ? lancamentos.filter((l) => selectedIds.has(l.id)) : lancamentos;
-    return rows.map((l) => ({ ...l, observacao: stripTag(l.observacao) || null }));
-  }, [lancamentos, selectedIds]);
+    const base = rows.map((l) => ({ ...l, observacao: stripTag(l.observacao) || null }));
+    const contasSel = selectedContasIds.size > 0 ? contas.filter((c) => selectedContasIds.has(c.id)) : [];
+    const contasAsRows: Lanc[] = contasSel.map((c) => ({
+      id: `conta-${c.id}`,
+      viveiro_id: c.viveiro_id,
+      data_lancamento: c.pago && c.data_pagamento ? c.data_pagamento : c.data_vencimento,
+      descricao: (c.pago ? "✓ " : "⏳ ") + c.descricao,
+      categoria: c.categoria,
+      valor: Number(c.valor),
+      tipo: "conta_pagar",
+      quantidade: null,
+      unidade: null,
+      socio_id: c.socio_id,
+      observacao: c.pago ? "Conta paga" : `Conta a pagar · vence ${fmtDate(c.data_vencimento)}`,
+    }));
+    return [...base, ...contasAsRows];
+  }, [lancamentos, selectedIds, contas, selectedContasIds]);
 
   const exportTotais = useMemo(() => {
     const despesas = exportRows.reduce((s, l) => s + Number(l.valor ?? 0), 0);
@@ -399,6 +415,10 @@ function CaixaSimplesPage() {
     const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
   });
   const toggleAll = () => setSelectedIds((prev) => prev.size === lancamentos.length ? new Set() : new Set(lancamentos.map((l) => l.id)));
+  const toggleSelectConta = (id: string) => setSelectedContasIds((prev) => {
+    const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
+  });
+  const toggleAllContas = () => setSelectedContasIds((prev) => prev.size === contas.length ? new Set() : new Set(contas.map((c) => c.id)));
 
   async function gerarPdfLink(): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
@@ -625,9 +645,16 @@ function CaixaSimplesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between">
+          <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
             <span>Contas a pagar</span>
-            <span className="text-sm font-normal text-muted-foreground">Total pendente: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
+            <div className="flex items-center gap-3 text-sm font-normal">
+              <span className="text-muted-foreground">Pendente: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
+              {contas.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={toggleAllContas}>
+                  {selectedContasIds.size === contas.length ? "Limpar" : "Selecionar todas"}
+                </Button>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -641,6 +668,11 @@ function CaixaSimplesPage() {
                   <ul className="space-y-2">
                     {contasPendentes.map((c) => (
                       <li key={c.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
+                        <Checkbox
+                          checked={selectedContasIds.has(c.id)}
+                          onCheckedChange={() => toggleSelectConta(c.id)}
+                          className="mt-1"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-bold text-red-600">- {brl(Number(c.valor))}</span>
@@ -677,6 +709,11 @@ function CaixaSimplesPage() {
                   <ul className="space-y-2">
                     {contasPagas.map((c) => (
                       <li key={c.id} className="flex items-start gap-2 border-b pb-2 last:border-0 opacity-70">
+                        <Checkbox
+                          checked={selectedContasIds.has(c.id)}
+                          onCheckedChange={() => toggleSelectConta(c.id)}
+                          className="mt-1"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-bold text-emerald-600">✓ {brl(Number(c.valor))}</span>
@@ -705,8 +742,8 @@ function CaixaSimplesPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            {selectedIds.size > 0
-              ? `Exportando ${selectedIds.size} lançamento(s) selecionado(s)`
+            {selectedIds.size > 0 || selectedContasIds.size > 0
+              ? `Exportando ${selectedIds.size} lançamento(s) + ${selectedContasIds.size} conta(s) selecionada(s)`
               : "Sem seleção: exporta todos os lançamentos"}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
