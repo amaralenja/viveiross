@@ -668,6 +668,11 @@ function CaixaSimplesPage() {
                   <ul className="space-y-2">
                     {contasPendentes.map((c) => (
                       <li key={c.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
+                        <Checkbox
+                          checked={selectedContasIds.has(c.id)}
+                          onCheckedChange={() => toggleSelectConta(c.id)}
+                          className="mt-1"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-bold text-red-600">- {brl(Number(c.valor))}</span>
