@@ -645,9 +645,16 @@ function CaixaSimplesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between">
+          <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
             <span>Contas a pagar</span>
-            <span className="text-sm font-normal text-muted-foreground">Total pendente: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
+            <div className="flex items-center gap-3 text-sm font-normal">
+              <span className="text-muted-foreground">Pendente: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
+              {contas.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={toggleAllContas}>
+                  {selectedContasIds.size === contas.length ? "Limpar" : "Selecionar todas"}
+                </Button>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
