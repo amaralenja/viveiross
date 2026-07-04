@@ -1144,6 +1144,7 @@ function RelatoriosPage() {
                           <th className="p-2 text-left">Categoria</th>
                           <th className="p-2 text-right">Qtd</th>
                           <th className="p-2 text-right">Valor</th>
+                          <th className="no-print p-2 text-right w-24">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1154,6 +1155,24 @@ function RelatoriosPage() {
                             <td className="p-2">{c.categoria}</td>
                             <td className="p-2 text-right">{c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—"}</td>
                             <td className="p-2 text-right">{formatBRL(Number(c.valor ?? 0))}</td>
+                            <td className="no-print p-2 text-right">
+                              <div className="inline-flex gap-1">
+                                <button
+                                  onClick={() => setRedist({ source: "caixa", id: c.id, descricao: c.descricao, valor: Number(c.valor ?? 0) })}
+                                  className="h-7 px-2 rounded hover:bg-primary/10 hover:text-primary text-[11px] font-semibold"
+                                  aria-label="Redistribuir"
+                                >
+                                  Redist.
+                                </button>
+                                <button
+                                  onClick={() => confirmDelDespesa("caixa", c.id)}
+                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
+                                  aria-label="Apagar"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1161,6 +1180,7 @@ function RelatoriosPage() {
                         <tr>
                           <td className="p-2" colSpan={4}>Total</td>
                           <td className="p-2 text-right">{formatBRL(l.receitas)}</td>
+                          <td className="no-print p-2"></td>
                         </tr>
                       </tfoot>
                     </table>
