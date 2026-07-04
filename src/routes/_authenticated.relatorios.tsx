@@ -1306,16 +1306,35 @@ function RelatoriosPage() {
                           <th className="p-2 text-left">Rateio</th>
                           <th className="p-2 text-right">Valor total</th>
                           <th className="p-2 text-right">Atribuído</th>
+                          <th className="no-print p-2 text-right w-24">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {l.despesasLista.map((d) => (
-                          <tr key={d.id} className="border-t">
+                          <tr key={`${d.source}-${d.id}`} className="border-t">
                             <td className="p-2">{formatDate(d.data_despesa)}</td>
                             <td className="p-2">{textValue(d.descricao)}</td>
                             <td className="p-2 capitalize">{d.tipoRateio === "rateado" ? "Rateado" : "Individual"}</td>
                             <td className="p-2 text-right">{formatBRL(Number(d.valor ?? 0))}</td>
                             <td className="p-2 text-right">{formatBRL(d.share)}</td>
+                            <td className="no-print p-2 text-right">
+                              <div className="inline-flex gap-1">
+                                <button
+                                  onClick={() => setRedist({ source: d.source, id: d.id, descricao: textValue(d.descricao), valor: Number(d.valor ?? 0) })}
+                                  className="h-7 px-2 rounded hover:bg-primary/10 hover:text-primary text-[11px] font-semibold"
+                                  aria-label="Redistribuir"
+                                >
+                                  Redist.
+                                </button>
+                                <button
+                                  onClick={() => confirmDelDespesa(d.source, d.id)}
+                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
+                                  aria-label="Apagar"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
