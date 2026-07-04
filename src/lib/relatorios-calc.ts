@@ -110,12 +110,15 @@ export function formatDate(d: string) {
 
 export function computeLinhas(bundle: RelatorioBundle) {
   const { viveiros, lancamentos, biometrias, despesas, funcionarios, vales, caixa } = bundle;
-  const nViv = Math.max(1, viveiros.length);
+  const ativos = viveiros.filter((v) => (v.status ?? "ativo") === "ativo");
+  const nViv = Math.max(1, ativos.length);
+  const ativosSet = new Set(ativos.map((v) => v.id));
   const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
   const despesasIndividuais = despesas.filter((d) => d.rateio !== "todos" && d.viveiro_id != null);
   const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nViv;
 
   return viveiros.map((v) => {
+    const ehAtivo = ativosSet.has(v.id);
     const lancs = lancamentos.filter((l) => l.viveiro_id === v.id);
     const lancsRacao = lancs.filter((l) => l.tipo === "racao");
     const lancsOutros = lancs.filter((l) => l.tipo !== "racao");
