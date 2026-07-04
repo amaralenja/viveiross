@@ -103,7 +103,7 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
       fmtDate(r.data_lancamento),
       r.descricao,
       r.socio_id ? (socioMap.get(r.socio_id) ?? "—") : "—",
-      r.viveiro_id ? (viveiroMap.get(r.viveiro_id) ?? "—") : "Rateado",
+      r.viveiro_id ? (viveiroMap.get(r.viveiro_id) ?? "—") : (r.categoria === "interno" ? "Gasto interno" : r.tipo === "conta_pagar" ? "—" : "Rateado"),
       r.quantidade != null ? `${r.quantidade} ${r.unidade ?? ""}` : "—",
       `- ${brl(Number(r.valor))}`,
     ]),
