@@ -110,12 +110,15 @@ export function formatDate(d: string) {
 
 export function computeLinhas(bundle: RelatorioBundle) {
   const { viveiros, lancamentos, biometrias, despesas, funcionarios, vales, caixa } = bundle;
-  const nViv = Math.max(1, viveiros.length);
+  const ativos = viveiros.filter((v) => (v.status ?? "ativo") === "ativo");
+  const nViv = Math.max(1, ativos.length);
+  const ativosSet = new Set(ativos.map((v) => v.id));
   const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
   const despesasIndividuais = despesas.filter((d) => d.rateio !== "todos" && d.viveiro_id != null);
   const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nViv;
 
   return viveiros.map((v) => {
+    const ehAtivo = ativosSet.has(v.id);
     const lancs = lancamentos.filter((l) => l.viveiro_id === v.id);
     const lancsRacao = lancs.filter((l) => l.tipo === "racao");
     const lancsOutros = lancs.filter((l) => l.tipo !== "racao");
@@ -125,7 +128,7 @@ export function computeLinhas(bundle: RelatorioBundle) {
     const custoOutrosLanc = lancsOutros.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
     const despesasDoViveiro = despesasIndividuais.filter((d) => d.viveiro_id === v.id);
     const custoDespIndiv = despesasDoViveiro.reduce((s, d) => s + Number(d.valor ?? 0), 0);
-    const custoDespRateio = custoRateioPorViveiro;
+    const custoDespRateio = ehAtivo ? custoRateioPorViveiro : 0;
     const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio;
     const custoTotal = custoRacao + custoOutros;
 
@@ -159,7 +162,7 @@ export function computeLinhas(bundle: RelatorioBundle) {
 
     const despesasLista = [
       ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
-      ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
+      ...(ehAtivo ? despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })) : []),
     ];
 
     const funcsDoViveiro = funcionarios.filter((f) => f.viveiro_id === v.id);
