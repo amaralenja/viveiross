@@ -82,7 +82,7 @@ function proximaData(atual: string, rec: Conta["recorrencia"]): string | null {
   return dt.toISOString().slice(0, 10);
 }
 
-async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiroMap: Map<string, string>, totais: { despesas: number; contasPagar: number; vales: number; salarios: number }) {
+async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiroMap: Map<string, string>, totais: { contasPagar: number }) {
   const [pdfModule, autoTableModule] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -94,10 +94,9 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   doc.text("Caixa Simples", 14, 16);
   doc.setFontSize(10);
   doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 22);
-  doc.text(`Despesas: ${brl(totais.despesas)}  ·  Contas a pagar: ${brl(totais.contasPagar)}`, 14, 28);
-  doc.text(`Vales: ${brl(totais.vales)}  ·  Salários base: ${brl(totais.salarios)}`, 14, 34);
+  doc.text(`Contas a pagar: ${brl(totais.contasPagar)}`, 14, 28);
   autoTable(doc, {
-    startY: 40,
+    startY: 34,
     head: [["Data", "Descrição", "Sócio", "Viveiro", "Qtd", "Valor"]],
     body: rows.map((r) => [
       fmtDate(r.data_lancamento),
@@ -412,9 +411,8 @@ function CaixaSimplesPage() {
   }, [lancamentos, selectedIds, contas, selectedContasIds]);
 
   const exportTotais = useMemo(() => {
-    const despesas = exportRows.reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    return { despesas, contasPagar: totais.contasPendentes, vales: totais.vales, salarios: totais.salarios };
-  }, [exportRows, totais]);
+    return { contasPagar: totais.contasPendentes };
+  }, [totais]);
 
   const toggleSelect = (id: string) => setSelectedIds((prev) => {
     const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
@@ -459,7 +457,7 @@ function CaixaSimplesPage() {
       const url = await gerarPdfLink();
       toast.dismiss(tid);
       if (!url) return;
-      const texto = `Caixa Simples\nDespesas: ${brl(exportTotais.despesas)}\nContas a pagar: ${brl(exportTotais.contasPagar)}\n${url}`;
+      const texto = `Caixa Simples\nContas a pagar: ${brl(exportTotais.contasPagar)}\n${url}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
     } finally { setBusy(false); }
   }
