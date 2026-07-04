@@ -1369,6 +1369,15 @@ function RelatoriosPage() {
           }}
         />
       )}
+      {redist && (
+        <RedistModal
+          item={redist}
+          viveiros={viveiros}
+          onClose={() => setRedist(null)}
+          onConfirm={(ids) => redistribuir.mutate({ viveiroIds: ids })}
+          pending={redistribuir.isPending}
+        />
+      )}
     </div>
   );
 }
