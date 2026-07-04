@@ -804,6 +804,92 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
+  const delDespesaCaixa = useMutation({
+    mutationFn: async ({ source, id }: { source: "despesa" | "caixa"; id: string }) => {
+      const table = source === "despesa" ? "despesas_gerais" : "caixa_lancamentos";
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Removido");
+      qc.invalidateQueries({ queryKey: ["despesas_gerais"] });
+      qc.invalidateQueries({ queryKey: ["caixa_lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function confirmDelDespesa(source: "despesa" | "caixa", id: string) {
+    if (window.confirm("Apagar este item?")) delDespesaCaixa.mutate({ source, id });
+  }
+
+  const redistribuir = useMutation({
+    mutationFn: async ({ viveiroIds }: { viveiroIds: string[] }) => {
+      if (!redist) throw new Error("Nada selecionado.");
+      if (viveiroIds.length === 0) throw new Error("Selecione ao menos um viveiro.");
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      const share = Number((redist.valor / viveiroIds.length).toFixed(2));
+
+      if (redist.source === "despesa") {
+        const { data: orig, error: e1 } = await supabase
+          .from("despesas_gerais")
+          .select("descricao, categoria, data_despesa, observacao")
+          .eq("id", redist.id)
+          .single();
+        if (e1 || !orig) throw e1 ?? new Error("Item não encontrado.");
+        const rows = viveiroIds.map((vid) => ({
+          user_id: u.user.id,
+          viveiro_id: vid,
+          descricao: orig.descricao,
+          categoria: orig.categoria,
+          data_despesa: orig.data_despesa,
+          observacao: orig.observacao,
+          valor: share,
+          rateio: "individual",
+        }));
+        const { error: e2 } = await supabase.from("despesas_gerais").insert(rows);
+        if (e2) throw e2;
+        const { error: e3 } = await supabase.from("despesas_gerais").delete().eq("id", redist.id);
+        if (e3) throw e3;
+      } else {
+        const { data: orig, error: e1 } = await supabase
+          .from("caixa_lancamentos")
+          .select("descricao, categoria, data_lancamento, observacao, tipo, quantidade, unidade, socio_id")
+          .eq("id", redist.id)
+          .single();
+        if (e1 || !orig) throw e1 ?? new Error("Item não encontrado.");
+        const rows = viveiroIds.map((vid) => ({
+          user_id: u.user.id,
+          viveiro_id: vid,
+          descricao: orig.descricao,
+          categoria: orig.categoria,
+          data_lancamento: orig.data_lancamento,
+          observacao: orig.observacao,
+          tipo: orig.tipo,
+          quantidade: orig.quantidade,
+          unidade: orig.unidade,
+          socio_id: orig.socio_id,
+          valor: share,
+        }));
+        const { error: e2 } = await supabase.from("caixa_lancamentos").insert(rows);
+        if (e2) throw e2;
+        const { error: e3 } = await supabase.from("caixa_lancamentos").delete().eq("id", redist.id);
+        if (e3) throw e3;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Redistribuído");
+      setRedist(null);
+      qc.invalidateQueries({ queryKey: ["despesas_gerais"] });
+      qc.invalidateQueries({ queryKey: ["caixa_lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
