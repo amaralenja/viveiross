@@ -87,6 +87,12 @@ function RelatoriosPage() {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [editLanc, setEditLanc] = useState<LancamentoRelatorio | null>(null);
   const [editBio, setEditBio] = useState<BiometriaRelatorio | null>(null);
+  const [redist, setRedist] = useState<null | {
+    source: "despesa" | "caixa";
+    id: string;
+    descricao: string;
+    valor: number;
+  }>(null);
 
   function toggleSel(id: string) {
     setSelecionados((s) => {
@@ -243,8 +249,8 @@ function RelatoriosPage() {
         .sort((a, b) => (a.data < b.data ? 1 : -1));
 
       const despesasLista = [
-        ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
-        ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
+        ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const, source: "despesa" as const })),
+        ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const, source: "despesa" as const })),
         ...caixaDespIndivViv.map((c) => ({
           id: c.id,
           viveiro_id: c.viveiro_id,
@@ -255,6 +261,7 @@ function RelatoriosPage() {
           rateio: "individual",
           share: Number(c.valor ?? 0),
           tipoRateio: "individual" as const,
+          source: "caixa" as const,
         })),
         ...caixaDespesaRateada.map((c) => ({
           id: c.id,
@@ -266,6 +273,7 @@ function RelatoriosPage() {
           rateio: "todos",
           share: Number(c.valor ?? 0) / nViv,
           tipoRateio: "rateado" as const,
+          source: "caixa" as const,
         })),
       ];
 
@@ -796,6 +804,92 @@ function RelatoriosPage() {
     if (window.confirm("Apagar esta biometria?")) delBio.mutate(id);
   }
 
+  const delDespesaCaixa = useMutation({
+    mutationFn: async ({ source, id }: { source: "despesa" | "caixa"; id: string }) => {
+      const table = source === "despesa" ? "despesas_gerais" : "caixa_lancamentos";
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Removido");
+      qc.invalidateQueries({ queryKey: ["despesas_gerais"] });
+      qc.invalidateQueries({ queryKey: ["caixa_lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function confirmDelDespesa(source: "despesa" | "caixa", id: string) {
+    if (window.confirm("Apagar este item?")) delDespesaCaixa.mutate({ source, id });
+  }
+
+  const redistribuir = useMutation({
+    mutationFn: async ({ viveiroIds }: { viveiroIds: string[] }) => {
+      if (!redist) throw new Error("Nada selecionado.");
+      if (viveiroIds.length === 0) throw new Error("Selecione ao menos um viveiro.");
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      const share = Number((redist.valor / viveiroIds.length).toFixed(2));
+
+      if (redist.source === "despesa") {
+        const { data: orig, error: e1 } = await supabase
+          .from("despesas_gerais")
+          .select("descricao, categoria, data_despesa, observacao")
+          .eq("id", redist.id)
+          .single();
+        if (e1 || !orig) throw e1 ?? new Error("Item não encontrado.");
+        const rows = viveiroIds.map((vid) => ({
+          user_id: u.user.id,
+          viveiro_id: vid,
+          descricao: orig.descricao,
+          categoria: orig.categoria,
+          data_despesa: orig.data_despesa,
+          observacao: orig.observacao,
+          valor: share,
+          rateio: "individual",
+        }));
+        const { error: e2 } = await supabase.from("despesas_gerais").insert(rows);
+        if (e2) throw e2;
+        const { error: e3 } = await supabase.from("despesas_gerais").delete().eq("id", redist.id);
+        if (e3) throw e3;
+      } else {
+        const { data: orig, error: e1 } = await supabase
+          .from("caixa_lancamentos")
+          .select("descricao, categoria, data_lancamento, observacao, tipo, quantidade, unidade, socio_id")
+          .eq("id", redist.id)
+          .single();
+        if (e1 || !orig) throw e1 ?? new Error("Item não encontrado.");
+        const rows = viveiroIds.map((vid) => ({
+          user_id: u.user.id,
+          viveiro_id: vid,
+          descricao: orig.descricao,
+          categoria: orig.categoria,
+          data_lancamento: orig.data_lancamento,
+          observacao: orig.observacao,
+          tipo: orig.tipo,
+          quantidade: orig.quantidade,
+          unidade: orig.unidade,
+          socio_id: orig.socio_id,
+          valor: share,
+        }));
+        const { error: e2 } = await supabase.from("caixa_lancamentos").insert(rows);
+        if (e2) throw e2;
+        const { error: e3 } = await supabase.from("caixa_lancamentos").delete().eq("id", redist.id);
+        if (e3) throw e3;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Redistribuído");
+      setRedist(null);
+      qc.invalidateQueries({ queryKey: ["despesas_gerais"] });
+      qc.invalidateQueries({ queryKey: ["caixa_lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
@@ -1050,6 +1144,7 @@ function RelatoriosPage() {
                           <th className="p-2 text-left">Categoria</th>
                           <th className="p-2 text-right">Qtd</th>
                           <th className="p-2 text-right">Valor</th>
+                          <th className="no-print p-2 text-right w-24">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1060,6 +1155,24 @@ function RelatoriosPage() {
                             <td className="p-2">{c.categoria}</td>
                             <td className="p-2 text-right">{c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—"}</td>
                             <td className="p-2 text-right">{formatBRL(Number(c.valor ?? 0))}</td>
+                            <td className="no-print p-2 text-right">
+                              <div className="inline-flex gap-1">
+                                <button
+                                  onClick={() => setRedist({ source: "caixa", id: c.id, descricao: c.descricao, valor: Number(c.valor ?? 0) })}
+                                  className="h-7 px-2 rounded hover:bg-primary/10 hover:text-primary text-[11px] font-semibold"
+                                  aria-label="Redistribuir"
+                                >
+                                  Redist.
+                                </button>
+                                <button
+                                  onClick={() => confirmDelDespesa("caixa", c.id)}
+                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
+                                  aria-label="Apagar"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1067,6 +1180,7 @@ function RelatoriosPage() {
                         <tr>
                           <td className="p-2" colSpan={4}>Total</td>
                           <td className="p-2 text-right">{formatBRL(l.receitas)}</td>
+                          <td className="no-print p-2"></td>
                         </tr>
                       </tfoot>
                     </table>
@@ -1192,16 +1306,35 @@ function RelatoriosPage() {
                           <th className="p-2 text-left">Rateio</th>
                           <th className="p-2 text-right">Valor total</th>
                           <th className="p-2 text-right">Atribuído</th>
+                          <th className="no-print p-2 text-right w-24">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {l.despesasLista.map((d) => (
-                          <tr key={d.id} className="border-t">
+                          <tr key={`${d.source}-${d.id}`} className="border-t">
                             <td className="p-2">{formatDate(d.data_despesa)}</td>
                             <td className="p-2">{textValue(d.descricao)}</td>
                             <td className="p-2 capitalize">{d.tipoRateio === "rateado" ? "Rateado" : "Individual"}</td>
                             <td className="p-2 text-right">{formatBRL(Number(d.valor ?? 0))}</td>
                             <td className="p-2 text-right">{formatBRL(d.share)}</td>
+                            <td className="no-print p-2 text-right">
+                              <div className="inline-flex gap-1">
+                                <button
+                                  onClick={() => setRedist({ source: d.source, id: d.id, descricao: textValue(d.descricao), valor: Number(d.valor ?? 0) })}
+                                  className="h-7 px-2 rounded hover:bg-primary/10 hover:text-primary text-[11px] font-semibold"
+                                  aria-label="Redistribuir"
+                                >
+                                  Redist.
+                                </button>
+                                <button
+                                  onClick={() => confirmDelDespesa(d.source, d.id)}
+                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
+                                  aria-label="Apagar"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1234,6 +1367,15 @@ function RelatoriosPage() {
             qc.invalidateQueries({ queryKey: ["lancamentos"] });
             qc.invalidateQueries({ queryKey: ["dashboard"] });
           }}
+        />
+      )}
+      {redist && (
+        <RedistModal
+          item={redist}
+          viveiros={viveiros}
+          onClose={() => setRedist(null)}
+          onConfirm={(ids) => redistribuir.mutate({ viveiroIds: ids })}
+          pending={redistribuir.isPending}
         />
       )}
     </div>
@@ -1531,3 +1673,68 @@ function formatDate(d: string) {
   if (y && m && day) return `${day}/${m}/${y}`;
   return new Date(d).toLocaleDateString("pt-BR");
 }
+
+function RedistModal({
+  item,
+  viveiros,
+  onClose,
+  onConfirm,
+  pending,
+}: {
+  item: { source: "despesa" | "caixa"; id: string; descricao: string; valor: number };
+  viveiros: ViveiroRelatorio[];
+  onClose: () => void;
+  onConfirm: (ids: string[]) => void;
+  pending: boolean;
+}) {
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const ativos = viveiros.filter((v) => (v.status ?? "ativo") === "ativo");
+  function toggle(id: string) {
+    setSel((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+  const ids = Array.from(sel);
+  const share = ids.length > 0 ? item.valor / ids.length : 0;
+  return (
+    <ModalShell title="Redistribuir" onClose={onClose}>
+      <div className="space-y-3">
+        <div className="text-sm">
+          <div className="font-semibold">{item.descricao}</div>
+          <div className="text-muted-foreground">Valor total: {formatBRL(item.valor)}</div>
+        </div>
+        <div className="max-h-64 overflow-y-auto rounded-lg border divide-y">
+          {ativos.map((v) => (
+            <label key={v.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-accent">
+              <input type="checkbox" checked={sel.has(v.id)} onChange={() => toggle(v.id)} />
+              <span className="flex-1">{v.nome}</span>
+            </label>
+          ))}
+        </div>
+        {ids.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Cada viveiro receberá {formatBRL(share)}. O lançamento original será removido.
+          </p>
+        )}
+        <div className="flex gap-2 justify-end pt-2">
+          <button
+            onClick={onClose}
+            className="h-10 px-4 rounded-lg border text-sm font-semibold hover:bg-accent"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={ids.length === 0 || pending}
+            onClick={() => onConfirm(ids)}
+            className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+          >
+            {pending ? "Redistribuindo..." : "Redistribuir"}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
