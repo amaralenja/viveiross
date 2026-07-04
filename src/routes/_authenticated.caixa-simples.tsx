@@ -387,9 +387,14 @@ function CaixaSimplesPage() {
   }, [lancamentos, contas, vales, funcionarios]);
 
   const exportRows = useMemo(() => {
-    const rows = selectedIds.size > 0 ? lancamentos.filter((l) => selectedIds.has(l.id)) : lancamentos;
-    const base = rows.map((l) => ({ ...l, observacao: stripTag(l.observacao) || null }));
-    const contasSel = selectedContasIds.size > 0 ? contas.filter((c) => selectedContasIds.has(c.id)) : [];
+    const hasSelection = selectedIds.size > 0 || selectedContasIds.size > 0;
+    const lancsSel = hasSelection
+      ? lancamentos.filter((l) => selectedIds.has(l.id))
+      : lancamentos;
+    const base = lancsSel.map((l) => ({ ...l, observacao: stripTag(l.observacao) || null }));
+    const contasSel = hasSelection
+      ? contas.filter((c) => selectedContasIds.has(c.id))
+      : [];
     const contasAsRows: Lanc[] = contasSel.map((c) => ({
       id: `conta-${c.id}`,
       viveiro_id: c.viveiro_id,
