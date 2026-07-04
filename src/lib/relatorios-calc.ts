@@ -162,7 +162,7 @@ export function computeLinhas(bundle: RelatorioBundle) {
 
     const despesasLista = [
       ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
-      ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
+      ...(ehAtivo ? despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })) : []),
     ];
 
     const funcsDoViveiro = funcionarios.filter((f) => f.viveiro_id === v.id);
