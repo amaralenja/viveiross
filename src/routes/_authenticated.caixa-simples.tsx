@@ -457,7 +457,7 @@ function CaixaSimplesPage() {
       const url = await gerarPdfLink();
       toast.dismiss(tid);
       if (!url) return;
-      const texto = `Caixa Simples\nDespesas: ${brl(exportTotais.despesas)}\nContas a pagar: ${brl(exportTotais.contasPagar)}\n${url}`;
+      const texto = `Caixa Simples\nContas a pagar: ${brl(exportTotais.contasPagar)}\n${url}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
     } finally { setBusy(false); }
   }
