@@ -82,7 +82,7 @@ function proximaData(atual: string, rec: Conta["recorrencia"]): string | null {
   return dt.toISOString().slice(0, 10);
 }
 
-async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiroMap: Map<string, string>, totais: { despesas: number; contasPagar: number; vales: number; salarios: number }) {
+async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiroMap: Map<string, string>, totais: { contasPagar: number }) {
   const [pdfModule, autoTableModule] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -94,8 +94,7 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   doc.text("Caixa Simples", 14, 16);
   doc.setFontSize(10);
   doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 22);
-  doc.text(`Despesas: ${brl(totais.despesas)}  ·  Contas a pagar: ${brl(totais.contasPagar)}`, 14, 28);
-  doc.text(`Vales: ${brl(totais.vales)}  ·  Salários base: ${brl(totais.salarios)}`, 14, 34);
+  doc.text(`Contas a pagar: ${brl(totais.contasPagar)}`, 14, 28);
   autoTable(doc, {
     startY: 40,
     head: [["Data", "Descrição", "Sócio", "Viveiro", "Qtd", "Valor"]],
