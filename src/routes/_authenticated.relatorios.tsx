@@ -243,8 +243,8 @@ function RelatoriosPage() {
         .sort((a, b) => (a.data < b.data ? 1 : -1));
 
       const despesasLista = [
-        ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
-        ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
+        ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const, source: "despesa" as const })),
+        ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const, source: "despesa" as const })),
         ...caixaDespIndivViv.map((c) => ({
           id: c.id,
           viveiro_id: c.viveiro_id,
@@ -255,6 +255,7 @@ function RelatoriosPage() {
           rateio: "individual",
           share: Number(c.valor ?? 0),
           tipoRateio: "individual" as const,
+          source: "caixa" as const,
         })),
         ...caixaDespesaRateada.map((c) => ({
           id: c.id,
@@ -266,6 +267,7 @@ function RelatoriosPage() {
           rateio: "todos",
           share: Number(c.valor ?? 0) / nViv,
           tipoRateio: "rateado" as const,
+          source: "caixa" as const,
         })),
       ];
 
