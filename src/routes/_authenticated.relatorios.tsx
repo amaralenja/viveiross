@@ -174,7 +174,7 @@ function RelatoriosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, tipo, valor, quantidade, unidade, observacao")
+        .select("id, viveiro_id, data_lancamento, descricao, categoria, tipo, valor, quantidade, unidade, observacao, despesa_id, lancamento_id")
         .order("data_lancamento", { ascending: false });
       if (error) throw error;
       return (data ?? []) as CaixaRel[];
