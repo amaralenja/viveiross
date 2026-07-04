@@ -128,7 +128,7 @@ export function computeLinhas(bundle: RelatorioBundle) {
     const custoOutrosLanc = lancsOutros.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
     const despesasDoViveiro = despesasIndividuais.filter((d) => d.viveiro_id === v.id);
     const custoDespIndiv = despesasDoViveiro.reduce((s, d) => s + Number(d.valor ?? 0), 0);
-    const custoDespRateio = custoRateioPorViveiro;
+    const custoDespRateio = ehAtivo ? custoRateioPorViveiro : 0;
     const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio;
     const custoTotal = custoRacao + custoOutros;
 
