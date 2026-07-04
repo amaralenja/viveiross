@@ -87,6 +87,12 @@ function RelatoriosPage() {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [editLanc, setEditLanc] = useState<LancamentoRelatorio | null>(null);
   const [editBio, setEditBio] = useState<BiometriaRelatorio | null>(null);
+  const [redist, setRedist] = useState<null | {
+    source: "despesa" | "caixa";
+    id: string;
+    descricao: string;
+    valor: number;
+  }>(null);
 
   function toggleSel(id: string) {
     setSelecionados((s) => {
