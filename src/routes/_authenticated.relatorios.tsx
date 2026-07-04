@@ -1673,3 +1673,68 @@ function formatDate(d: string) {
   if (y && m && day) return `${day}/${m}/${y}`;
   return new Date(d).toLocaleDateString("pt-BR");
 }
+
+function RedistModal({
+  item,
+  viveiros,
+  onClose,
+  onConfirm,
+  pending,
+}: {
+  item: { source: "despesa" | "caixa"; id: string; descricao: string; valor: number };
+  viveiros: ViveiroRelatorio[];
+  onClose: () => void;
+  onConfirm: (ids: string[]) => void;
+  pending: boolean;
+}) {
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const ativos = viveiros.filter((v) => (v.status ?? "ativo") === "ativo");
+  function toggle(id: string) {
+    setSel((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+  const ids = Array.from(sel);
+  const share = ids.length > 0 ? item.valor / ids.length : 0;
+  return (
+    <ModalShell title="Redistribuir" onClose={onClose}>
+      <div className="space-y-3">
+        <div className="text-sm">
+          <div className="font-semibold">{item.descricao}</div>
+          <div className="text-muted-foreground">Valor total: {formatBRL(item.valor)}</div>
+        </div>
+        <div className="max-h-64 overflow-y-auto rounded-lg border divide-y">
+          {ativos.map((v) => (
+            <label key={v.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-accent">
+              <input type="checkbox" checked={sel.has(v.id)} onChange={() => toggle(v.id)} />
+              <span className="flex-1">{v.nome}</span>
+            </label>
+          ))}
+        </div>
+        {ids.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Cada viveiro receberá {formatBRL(share)}. O lançamento original será removido.
+          </p>
+        )}
+        <div className="flex gap-2 justify-end pt-2">
+          <button
+            onClick={onClose}
+            className="h-10 px-4 rounded-lg border text-sm font-semibold hover:bg-accent"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={ids.length === 0 || pending}
+            onClick={() => onConfirm(ids)}
+            className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+          >
+            {pending ? "Redistribuindo..." : "Redistribuir"}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
