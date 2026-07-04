@@ -61,6 +61,8 @@ type CaixaRel = {
   quantidade: number | null;
   unidade: string | null;
   observacao: string | null;
+  despesa_id: string | null;
+  lancamento_id: string | null;
 };
 
 function textValue(value: unknown, fallback = "—"): string {
