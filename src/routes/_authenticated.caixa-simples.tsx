@@ -96,7 +96,7 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 22);
   doc.text(`Contas a pagar: ${brl(totais.contasPagar)}`, 14, 28);
   autoTable(doc, {
-    startY: 40,
+    startY: 34,
     head: [["Data", "Descrição", "Sócio", "Viveiro", "Qtd", "Valor"]],
     body: rows.map((r) => [
       fmtDate(r.data_lancamento),
