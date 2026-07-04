@@ -411,9 +411,8 @@ function CaixaSimplesPage() {
   }, [lancamentos, selectedIds, contas, selectedContasIds]);
 
   const exportTotais = useMemo(() => {
-    const despesas = exportRows.reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    return { despesas, contasPagar: totais.contasPendentes, vales: totais.vales, salarios: totais.salarios };
-  }, [exportRows, totais]);
+    return { contasPagar: totais.contasPendentes };
+  }, [totais]);
 
   const toggleSelect = (id: string) => setSelectedIds((prev) => {
     const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
