@@ -187,6 +187,13 @@ function RelatoriosPage() {
     const despesasIndividuais = despesas.filter((d) => d.rateio !== "todos" && d.viveiro_id != null);
     const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nViv;
     const caixaRateado = caixa.filter((c) => c.viveiro_id == null && c.categoria !== "interno");
+    // Despesas puras do caixa (não vieram de despesas_gerais nem de lançamentos de ração)
+    const caixaDespesaPura = caixa.filter(
+      (c) => c.tipo !== "receita" && c.despesa_id == null && c.lancamento_id == null && c.categoria !== "interno",
+    );
+    const caixaDespesaRateada = caixaDespesaPura.filter((c) => c.viveiro_id == null);
+    const caixaDespesaIndiv = caixaDespesaPura.filter((c) => c.viveiro_id != null);
+    const custoCaixaRateioPorViveiro = caixaDespesaRateada.reduce((s, c) => s + Number(c.valor ?? 0), 0) / nViv;
 
 
     return viveiros.map((v) => {
@@ -200,7 +207,10 @@ function RelatoriosPage() {
       const despesasDoViveiro = despesasIndividuais.filter((d) => d.viveiro_id === v.id);
       const custoDespIndiv = despesasDoViveiro.reduce((s, d) => s + Number(d.valor ?? 0), 0);
       const custoDespRateio = custoRateioPorViveiro;
-      const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio;
+      const caixaDespIndivViv = caixaDespesaIndiv.filter((c) => c.viveiro_id === v.id);
+      const custoCaixaIndiv = caixaDespIndivViv.reduce((s, c) => s + Number(c.valor ?? 0), 0);
+      const custoCaixaRateio = custoCaixaRateioPorViveiro;
+      const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio + custoCaixaIndiv + custoCaixaRateio;
       const custoTotal = custoRacao + custoOutros;
 
       const bios = biometrias.filter((b) => b.viveiro_id === v.id);
@@ -235,6 +245,28 @@ function RelatoriosPage() {
       const despesasLista = [
         ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
         ...despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })),
+        ...caixaDespIndivViv.map((c) => ({
+          id: c.id,
+          viveiro_id: c.viveiro_id,
+          descricao: c.descricao,
+          categoria: c.categoria ?? "caixa",
+          valor: Number(c.valor ?? 0),
+          data_despesa: c.data_lancamento,
+          rateio: "individual",
+          share: Number(c.valor ?? 0),
+          tipoRateio: "individual" as const,
+        })),
+        ...caixaDespesaRateada.map((c) => ({
+          id: c.id,
+          viveiro_id: c.viveiro_id,
+          descricao: c.descricao,
+          categoria: c.categoria ?? "caixa",
+          valor: Number(c.valor ?? 0),
+          data_despesa: c.data_lancamento,
+          rateio: "todos",
+          share: Number(c.valor ?? 0) / nViv,
+          tipoRateio: "rateado" as const,
+        })),
       ];
 
       // Funcionários ligados a este viveiro + total de vales por funcionário
