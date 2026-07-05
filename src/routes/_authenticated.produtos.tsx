@@ -394,7 +394,12 @@ function ProdutosPage() {
             if (confirm(`Remover entrada de ${formatNumber(e.quantidade)} ${e.unidade}?`))
               delEntradaMut.mutate(e.id);
           }}
+          onEditProduto={(p) => setEditandoProd(p)}
+          onDelProduto={(p) => {
+            if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
+          }}
         />
+
       ) : tab === "compras" ? (
         <ComprasView
           produtos={produtos}
@@ -497,6 +502,8 @@ function EstoqueView({
   onNovaEntrada,
   onEditEntrada,
   onDelEntrada,
+  onEditProduto,
+  onDelProduto,
 }: {
   produtos: Produto[];
   entradas: EstoqueEntrada[];
@@ -504,7 +511,10 @@ function EstoqueView({
   onNovaEntrada: () => void;
   onEditEntrada: (e: EstoqueEntrada) => void;
   onDelEntrada: (e: EstoqueEntrada) => void;
+  onEditProduto: (p: Produto) => void;
+  onDelProduto: (p: Produto) => void;
 }) {
+
   if (produtos.length === 0) {
     return (
       <Empty
@@ -551,7 +561,7 @@ function EstoqueView({
                 key={p.id}
                 className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-semibold truncate">{p.nome}</p>
                   <p className="text-xs text-muted-foreground">
                     Entradas {formatNumber(s.entradas)} · Saídas {formatNumber(s.saidas)} {p.unidade}
@@ -565,11 +575,13 @@ function EstoqueView({
                     {formatNumber(saldo)} {p.unidade}
                   </p>
                 </div>
+                <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
               </li>
             );
           })}
         </ul>
       </div>
+
 
       <div>
         <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-muted-foreground">
