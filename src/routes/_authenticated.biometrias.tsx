@@ -583,6 +583,31 @@ function HistoricoBiometrias({
     return media;
   }, [lancamentos]);
 
+  const racaoPorViveiroData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const l of lancamentos) {
+      const k = `${l.viveiro_id}|${l.data_lancamento}`;
+      map.set(k, (map.get(k) ?? 0) + Number(l.quantidade ?? 0));
+    }
+    return map;
+  }, [lancamentos]);
+
+  const mediaRacao7dAte = (viveiroId: string, dataRef: string) => {
+    const ref = new Date(`${dataRef}T00:00:00`).getTime();
+    const inicio = ref - 6 * 86400000;
+    let total = 0;
+    const dias = new Set<string>();
+    for (const l of lancamentos) {
+      if (l.viveiro_id !== viveiroId) continue;
+      const t = new Date(`${l.data_lancamento}T00:00:00`).getTime();
+      if (t < inicio || t > ref) continue;
+      total += Number(l.quantidade ?? 0);
+      dias.add(l.data_lancamento);
+    }
+    return total / Math.max(1, dias.size);
+  };
+
+
 
   const periodos: { key: PeriodoKey; label: string }[] = [
     { key: "hoje", label: "Hoje" },
