@@ -52,7 +52,7 @@ export function PasswordLock({ pin, onUnlock }: { pin: string; onUnlock: () => v
         </div>
         <h2 className="text-xl font-bold">Digite a senha</h2>
         <div className={`flex gap-3 ${error ? "animate-pulse" : ""}`}>
-          {[0, 1, 2, 3].map((i) => (
+          {Array.from({ length: len }).map((_, i) => (
             <div
               key={i}
               className={`size-4 rounded-full border-2 ${
