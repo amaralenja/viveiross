@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, ShieldCheck, ShieldOff } from "lucide-react";
+import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, ShieldCheck, ShieldOff, Clock, AlertTriangle, Infinity as InfinityIcon } from "lucide-react";
 import {
   listUsersFn,
   createUserFn,
@@ -191,31 +191,55 @@ function UserCard({
   onToggleAdmin: () => void;
   onDelete: () => void;
 }) {
-  const [addN, setAddN] = useState("30");
+  const [customDays, setCustomDays] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
   const dr = diasRestantes(u.expires_at);
   const expirado = dr != null && dr <= 0;
+  const acabando = dr != null && dr > 0 && dr <= 7;
+
+  // Progresso: assume ciclo de 30 dias como referência
+  const pct = u.is_admin
+    ? 100
+    : dr == null
+      ? 100
+      : Math.max(0, Math.min(100, (dr / 30) * 100));
+
+  const statusColor = u.is_admin
+    ? "border-primary/40 bg-primary/5"
+    : expirado
+      ? "border-destructive/50 bg-destructive/5"
+      : acabando
+        ? "border-amber-500/50 bg-amber-500/5"
+        : "border-border";
+
+  const barColor = expirado
+    ? "bg-destructive"
+    : acabando
+      ? "bg-amber-500"
+      : "bg-primary";
 
   return (
-    <div className={`rounded-2xl border bg-card p-4 space-y-3 ${expirado ? "border-destructive/50" : ""}`}>
+    <div className={`rounded-2xl border-2 p-4 space-y-3 transition-colors ${statusColor}`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-bold truncate">{u.email}</p>
             {u.is_admin && (
-              <span className="text-[10px] font-bold uppercase tracking-wide bg-primary/10 text-primary px-2 py-0.5 rounded">Admin</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-primary/10 text-primary px-2 py-0.5 rounded inline-flex items-center gap-1">
+                <InfinityIcon className="size-3" /> Admin
+              </span>
             )}
             {expirado && !u.is_admin && (
-              <span className="text-[10px] font-bold uppercase tracking-wide bg-destructive/10 text-destructive px-2 py-0.5 rounded">Expirado</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-destructive/10 text-destructive px-2 py-0.5 rounded inline-flex items-center gap-1">
+                <AlertTriangle className="size-3" /> Expirado
+              </span>
+            )}
+            {acabando && !u.is_admin && (
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded">
+                Acabando
+              </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Expira: <span className="font-semibold">{formatDate(u.expires_at)}</span>
-            {dr != null && !u.is_admin && (
-              <> · <span className={expirado ? "text-destructive" : ""}>
-                {expirado ? "expirado" : `${dr} dias restantes`}
-              </span></>
-            )}
-          </p>
         </div>
         <div className="flex gap-1">
           <button onClick={onToggleAdmin}
@@ -231,32 +255,79 @@ function UserCard({
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div className="flex gap-2">
-          <input value={addN} onChange={(e) => setAddN(e.target.value)}
-            type="number" min="1" className="app-input" placeholder="dias" />
-          <button onClick={() => onAddDays(Number(addN) || 0)}
-            className="h-11 px-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold whitespace-nowrap inline-flex items-center gap-1">
-            <CalendarPlus className="size-4" /> Somar
-          </button>
-          <button onClick={() => onSetDays(Number(addN) || 0)}
-            className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap">
-            Definir
-          </button>
+      {/* Status de assinatura */}
+      {u.is_admin ? (
+        <div className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
+          <InfinityIcon className="size-4" /> Acesso ilimitado (admin)
         </div>
-        <button
-          onClick={onPassword}
-          className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap inline-flex items-center justify-center gap-1">
-          <KeyRound className="size-4" /> Enviar reset de senha
-        </button>
-      </div>
-
-      {!u.is_admin && (
-        <button onClick={onUnlimited}
-          className="text-xs font-medium text-primary hover:underline">
-          Tornar acesso ilimitado
-        </button>
+      ) : (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="inline-flex items-center gap-1.5">
+              <Clock className={`size-4 ${expirado ? "text-destructive" : acabando ? "text-amber-500" : "text-muted-foreground"}`} />
+              <span className={`text-2xl font-bold tabular-nums ${expirado ? "text-destructive" : acabando ? "text-amber-600 dark:text-amber-400" : ""}`}>
+                {expirado ? 0 : dr ?? "∞"}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {expirado ? "dias — expirado" : "dias restantes"}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground">{formatDate(u.expires_at)}</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
       )}
+
+      {/* Ações de renovação */}
+      {!u.is_admin && (
+        <div className="grid gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => onAddDays(30)}
+              className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-1">
+              <CalendarPlus className="size-4" /> +30 dias
+            </button>
+            <button onClick={() => onAddDays(7)}
+              className="h-11 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
+              +7 dias
+            </button>
+            <button onClick={onUnlimited}
+              className="h-11 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
+              <InfinityIcon className="size-4" /> Ilimitado
+            </button>
+          </div>
+          {showCustom ? (
+            <div className="flex gap-2">
+              <input value={customDays} onChange={(e) => setCustomDays(e.target.value)}
+                type="number" min="1" autoFocus className="app-input" placeholder="dias" />
+              <button onClick={() => { onAddDays(Number(customDays) || 0); setCustomDays(""); setShowCustom(false); }}
+                className="h-11 px-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold whitespace-nowrap">
+                Somar
+              </button>
+              <button onClick={() => { onSetDays(Number(customDays) || 0); setCustomDays(""); setShowCustom(false); }}
+                className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap">
+                Definir
+              </button>
+              <button onClick={() => setShowCustom(false)}
+                className="h-11 px-3 rounded-xl border text-sm">
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setShowCustom(true)}
+              className="text-xs font-medium text-primary hover:underline text-left">
+              Personalizar quantidade de dias
+            </button>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={onPassword}
+        className="w-full h-10 px-3 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
+        <KeyRound className="size-4" /> Enviar reset de senha
+      </button>
     </div>
   );
 }

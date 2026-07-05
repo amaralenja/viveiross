@@ -108,8 +108,14 @@ export function formatDate(d: string) {
   return new Date(d).toLocaleDateString("pt-BR");
 }
 
-export function computeLinhas(bundle: RelatorioBundle) {
-  const { viveiros, lancamentos, biometrias, despesas, funcionarios, vales, caixa } = bundle;
+export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefined) {
+  const viveiros = bundle?.viveiros ?? [];
+  const lancamentos = bundle?.lancamentos ?? [];
+  const biometrias = bundle?.biometrias ?? [];
+  const despesas = bundle?.despesas ?? [];
+  const funcionarios = bundle?.funcionarios ?? [];
+  const vales = bundle?.vales ?? [];
+  const caixa = bundle?.caixa ?? [];
   const ativos = viveiros.filter((v) => (v.status ?? "ativo") === "ativo");
   const nViv = Math.max(1, ativos.length);
   const ativosSet = new Set(ativos.map((v) => v.id));
