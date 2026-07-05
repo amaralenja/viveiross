@@ -550,38 +550,11 @@ function HistoricoBiometrias({
     }));
   }, [filtradas]);
 
-  const racaoDiariaPorViveiro = useMemo(() => {
-    const totais = new Map<string, number>();
-    const diasPorViveiro = new Map<string, Set<string>>();
-    const hojeStr = todayLocal();
-    const hojePorViveiro = new Map<string, number>();
-    const seteDias = new Date();
-    seteDias.setDate(seteDias.getDate() - 7);
-    for (const l of lancamentos) {
-      if (l.data_lancamento === hojeStr) {
-        hojePorViveiro.set(
-          l.viveiro_id,
-          (hojePorViveiro.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0),
-        );
-      }
-      if (new Date(`${l.data_lancamento}T00:00:00`) < seteDias) continue;
-      totais.set(l.viveiro_id, (totais.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0));
-      const set = diasPorViveiro.get(l.viveiro_id) ?? new Set<string>();
-      set.add(l.data_lancamento);
-      diasPorViveiro.set(l.viveiro_id, set);
-    }
-    const media = new Map<string, { hoje: number; media7d: number }>();
-    const vids = new Set<string>([...totais.keys(), ...hojePorViveiro.keys()]);
-    for (const vid of vids) {
-      const total = totais.get(vid) ?? 0;
-      const dias = diasPorViveiro.get(vid)?.size ?? 1;
-      media.set(vid, {
-        hoje: hojePorViveiro.get(vid) ?? 0,
-        media7d: total / Math.max(1, dias),
-      });
-    }
-    return media;
+  const _racaoDiariaPorViveiro = useMemo(() => {
+    return lancamentos.length;
   }, [lancamentos]);
+  void _racaoDiariaPorViveiro;
+
 
   const racaoPorViveiroData = useMemo(() => {
     const map = new Map<string, number>();
