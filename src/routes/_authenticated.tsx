@@ -62,7 +62,8 @@ function AuthLayout() {
     ...(isAdmin ? [{ to: "/admin", label: "Administrador", icon: Shield }] : []),
   ];
 
-  const needsLock = location.pathname !== "/dashboard" && !unlocked;
+  const pwCfg = usePwConfig(user?.id);
+  const needsLock = sectionRequiresLock(pwCfg, location.pathname) && !unlocked;
 
   async function handleLogout() {
     lockApp();
@@ -72,7 +73,7 @@ function AuthLayout() {
   }
 
   function handleNav(to: string, e: React.MouseEvent) {
-    if (to !== "/dashboard" && !unlocked) {
+    if (sectionRequiresLock(pwCfg, to) && !unlocked) {
       e.preventDefault();
       setPending(to);
     }
