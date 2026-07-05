@@ -190,7 +190,7 @@ function AuthLayout() {
                   key={item.to}
                   onClick={(e) => {
                     setMaisOpen(false);
-                    if (!unlocked) {
+                    if (sectionRequiresLock(pwCfg, item.to) && !unlocked) {
                       e.preventDefault();
                       setPending(item.to);
                       return;
@@ -211,6 +211,7 @@ function AuthLayout() {
 
       {pending && (
         <PasswordLock
+          pin={pwCfg.pin}
           onUnlock={() => {
             setUnlocked(true);
             const to = pending;
