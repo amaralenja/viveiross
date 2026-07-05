@@ -184,14 +184,13 @@ function UserCard({
   u, onPassword, onAddDays, onSetDays, onUnlimited, onToggleAdmin, onDelete,
 }: {
   u: AdminUser;
-  onPassword: (p: string) => void;
+  onPassword: () => void;
   onAddDays: (n: number) => void;
   onSetDays: (n: number) => void;
   onUnlimited: () => void;
   onToggleAdmin: () => void;
   onDelete: () => void;
 }) {
-  const [newPwd, setNewPwd] = useState("");
   const [addN, setAddN] = useState("30");
   const dr = diasRestantes(u.expires_at);
   const expirado = dr != null && dr <= 0;
