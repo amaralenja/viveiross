@@ -22,6 +22,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCaixaSimplesRouteImport } from './routes/_authenticated.caixa-simples'
 import { Route as AuthenticatedCaixaRouteImport } from './routes/_authenticated.caixa'
 import { Route as AuthenticatedBiometriasRouteImport } from './routes/_authenticated.biometrias'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as ApiPublicRelatorioTokenRouteImport } from './routes/api/public/relatorio.$token'
 
 const LoginRoute = LoginRouteImport.update({
@@ -89,6 +90,11 @@ const AuthenticatedBiometriasRoute = AuthenticatedBiometriasRouteImport.update({
   path: '/biometrias',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const ApiPublicRelatorioTokenRoute = ApiPublicRelatorioTokenRouteImport.update({
   id: '/api/public/relatorio/$token',
   path: '/api/public/relatorio/$token',
@@ -98,6 +104,7 @@ const ApiPublicRelatorioTokenRoute = ApiPublicRelatorioTokenRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/biometrias': typeof AuthenticatedBiometriasRoute
   '/caixa': typeof AuthenticatedCaixaRoute
   '/caixa-simples': typeof AuthenticatedCaixaSimplesRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/biometrias': typeof AuthenticatedBiometriasRoute
   '/caixa': typeof AuthenticatedCaixaRoute
   '/caixa-simples': typeof AuthenticatedCaixaSimplesRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/biometrias': typeof AuthenticatedBiometriasRoute
   '/_authenticated/caixa': typeof AuthenticatedCaixaRoute
   '/_authenticated/caixa-simples': typeof AuthenticatedCaixaSimplesRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/admin'
     | '/biometrias'
     | '/caixa'
     | '/caixa-simples'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/admin'
     | '/biometrias'
     | '/caixa'
     | '/caixa-simples'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/admin'
     | '/_authenticated/biometrias'
     | '/_authenticated/caixa'
     | '/_authenticated/caixa-simples'
@@ -293,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBiometriasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/relatorio/$token': {
       id: '/api/public/relatorio/$token'
       path: '/api/public/relatorio/$token'
@@ -304,6 +323,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBiometriasRoute: typeof AuthenticatedBiometriasRoute
   AuthenticatedCaixaRoute: typeof AuthenticatedCaixaRoute
   AuthenticatedCaixaSimplesRoute: typeof AuthenticatedCaixaSimplesRoute
@@ -315,6 +335,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBiometriasRoute: AuthenticatedBiometriasRoute,
   AuthenticatedCaixaRoute: AuthenticatedCaixaRoute,
   AuthenticatedCaixaSimplesRoute: AuthenticatedCaixaSimplesRoute,
