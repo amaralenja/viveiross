@@ -674,33 +674,8 @@ function HistoricoBiometrias({
       ) : (
         <div className="space-y-4">
           {porViveiro.map((grupo) => {
-            const ult = grupo.rows[0];
-            const ant = grupo.rows[1];
-            let cresc = 0;
-            if (ult?.crescimento_semanal_g != null) {
-              cresc = Number(ult.crescimento_semanal_g);
-            } else if (ant) {
-              const dias = Math.max(
-                1,
-                Math.round(
-                  (new Date(`${ult.data_biometria}T00:00:00`).getTime() -
-                    new Date(`${ant.data_biometria}T00:00:00`).getTime()) /
-                    86400000,
-                ),
-              );
-              cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
-            }
             const viveiroId = grupo.rows[0].viveiro_id;
-            const racaoInfo = racaoDiariaPorViveiro.get(viveiroId) ?? { hoje: 0, media7d: 0 };
-            const diasPov = grupo.data_povoamento
-              ? Math.max(
-                  0,
-                  Math.round(
-                    (Date.now() - new Date(`${grupo.data_povoamento}T00:00:00`).getTime()) /
-                      86400000,
-                  ),
-                )
-              : 0;
+
 
             return (
               <div key={viveiroId} className="rounded-2xl bg-card border overflow-hidden">
