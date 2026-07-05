@@ -1086,7 +1086,7 @@ function CaixaPage() {
           disabled={saveMut.isPending}
           className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
         >
-          {saveMut.isPending ? "Salvando..." : "Salvar despesa"}
+          {saveMut.isPending ? "Salvando..." : "Salvar"}
         </button>
       </form>
 
