@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil } from "lucide-react";
+
 
 const CS_TAG = "[cs]";
 const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\]\s*/, "").trim();
@@ -133,6 +135,8 @@ function CaixaSimplesPage() {
   const [novoSocioNome, setNovoSocioNome] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedContasIds, setSelectedContasIds] = useState<Set<string>>(new Set());
+  const [editingConta, setEditingConta] = useState<Conta | null>(null);
+
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos", "simples"],
@@ -373,6 +377,29 @@ function CaixaSimplesPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const updateContaMut = useMutation({
+    mutationFn: async (c: Conta) => {
+      const { error } = await supabase.from("contas_pagar").update({
+        descricao: c.descricao,
+        valor: c.valor,
+        data_vencimento: c.data_vencimento,
+        categoria: c.categoria,
+        observacao: c.observacao,
+        socio_id: c.socio_id,
+        viveiro_id: c.viveiro_id,
+        recorrencia: c.recorrencia,
+      }).eq("id", c.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Conta atualizada");
+      setEditingConta(null);
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const totais = useMemo(() => {
     const despesas = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
@@ -697,9 +724,13 @@ function CaixaSimplesPage() {
                         <Button size="sm" variant="default" disabled={pagarContaMut.isPending} onClick={() => pagarContaMut.mutate(c)}>
                           <Check className="size-4 mr-1" /> Pagar
                         </Button>
+                        <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}>
+                          <Pencil className="size-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover conta?")) removeContaMut.mutate(c.id); }}>
                           <Trash2 className="size-4" />
                         </Button>
+
                       </li>
                     ))}
                   </ul>
@@ -726,9 +757,13 @@ function CaixaSimplesPage() {
                             Paga em {c.data_pagamento ? fmtDate(c.data_pagamento) : "—"} · venceu {fmtDate(c.data_vencimento)}
                           </div>
                         </div>
+                        <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}>
+                          <Pencil className="size-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover registro?")) removeContaMut.mutate(c.id); }}>
                           <Trash2 className="size-4" />
                         </Button>
+
                       </li>
                     ))}
                   </ul>
@@ -813,9 +848,106 @@ function CaixaSimplesPage() {
           )}
         </CardContent>
       </Card>
+      <EditContaModal
+        conta={editingConta}
+        viveiros={viveiros}
+        socios={socios}
+        onClose={() => setEditingConta(null)}
+        onSave={(c) => updateContaMut.mutate(c)}
+        saving={updateContaMut.isPending}
+      />
     </div>
   );
 }
+
+function EditContaModal({
+  conta, viveiros, socios, onClose, onSave, saving,
+}: {
+  conta: Conta | null;
+  viveiros: Viveiro[];
+  socios: Socio[];
+  onClose: () => void;
+  onSave: (c: Conta) => void;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState<Conta | null>(conta);
+  // reset when conta changes
+  useEffect(() => { setForm(conta); }, [conta]);
+  if (!conta || !form) return null;
+  const vivValue = form.viveiro_id ?? (form.categoria === "interno" ? INTERNO : TODOS);
+  return (
+    <Dialog open={!!conta} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Editar conta</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Descrição</Label>
+            <Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Valor (R$)</Label>
+              <Input inputMode="decimal" value={String(form.valor)}
+                onChange={(e) => setForm({ ...form, valor: Number(e.target.value.replace(",", ".")) || 0 })} />
+            </div>
+            <div>
+              <Label>Vencimento</Label>
+              <Input type="date" value={form.data_vencimento}
+                onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <Label>Viveiro</Label>
+            <Select value={vivValue} onValueChange={(v) => setForm({
+              ...form,
+              viveiro_id: (v === TODOS || v === INTERNO) ? null : v,
+              categoria: v === INTERNO ? "interno" : (form.categoria === "interno" ? "geral" : form.categoria),
+            })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODOS}>Rateado entre todos</SelectItem>
+                <SelectItem value={INTERNO}>Gasto interno</SelectItem>
+                {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Sócio</Label>
+            <Select value={form.socio_id ?? "__none__"} onValueChange={(v) => setForm({ ...form, socio_id: v === "__none__" ? null : v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— nenhum —</SelectItem>
+                {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Recorrência</Label>
+            <Select value={form.recorrencia} onValueChange={(v) => setForm({ ...form, recorrencia: v as Conta["recorrencia"] })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem recorrência</SelectItem>
+                <SelectItem value="diaria">Diária</SelectItem>
+                <SelectItem value="semanal">Semanal</SelectItem>
+                <SelectItem value="mensal">Mensal</SelectItem>
+                <SelectItem value="anual">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Observação</Label>
+            <Textarea rows={2} value={form.observacao ?? ""} onChange={(e) => setForm({ ...form, observacao: e.target.value || null })} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button disabled={saving} onClick={() => onSave(form)}>{saving ? "Salvando..." : "Salvar"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
   const color = tone === "ok" ? "text-emerald-600" : tone === "bad" ? "text-red-600" : "";
