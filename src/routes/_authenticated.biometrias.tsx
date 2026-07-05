@@ -550,10 +550,6 @@ function HistoricoBiometrias({
     }));
   }, [filtradas]);
 
-  const _racaoDiariaPorViveiro = useMemo(() => {
-    return lancamentos.length;
-  }, [lancamentos]);
-  void _racaoDiariaPorViveiro;
 
 
   const racaoPorViveiroData = useMemo(() => {
