@@ -12,6 +12,9 @@ export const Route = createFileRoute("/login")({
     ],
   }),
   beforeLoad: async () => {
+    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+      throw redirect({ to: "/reset-password", hash: window.location.hash.replace(/^#/, "") });
+    }
     const { data } = await supabase.auth.getSession();
     if (data.session) throw redirect({ to: "/dashboard" });
   },
