@@ -2,7 +2,7 @@ import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
-import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, Link as LinkIcon, MessageCircle, Printer } from "lucide-react";
+import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, MessageCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -950,35 +950,7 @@ function RelatoriosPage() {
         </div>
         <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <button
-            onClick={() => copiarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`)}
-            disabled={selecionados.size === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link selec.</span>
-          </button>
-          <button
-            onClick={() => copiarLink(null, "Todos os viveiros")}
-            disabled={linhas.length === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link tudo</span>
-          </button>
-          <button
-            onClick={() => gerarLinkPdf(Array.from(selecionados))}
-            disabled={selecionados.size === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link PDF selec.</span>
-          </button>
-          <button
-            onClick={() => gerarLinkPdf()}
-            disabled={linhas.length === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link PDF tudo</span>
-          </button>
 
-          <button
             onClick={() => exportPdf(Array.from(selecionados))}
             disabled={selecionados.size === 0}
             className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-secondary px-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4 sm:text-sm"
@@ -1012,15 +984,11 @@ function RelatoriosPage() {
 
 
 
-      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
         <ResumoCard icon={<FileText className="size-4" />} label="Viveiros" value={String(totais.viveiros)} />
         <ResumoCard icon={<Utensils className="size-4" />} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
         <ResumoCard icon={<Scale className="size-4" />} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
-        <ResumoCard icon={<Scale className="size-4" />} label="FCA geral" value={totais.fca != null ? formatNumber(totais.fca) : "—"} />
         <ResumoCard icon={<DollarSign className="size-4" />} label="Custo total" value={formatBRL(totais.custoTotal)} />
-        <ResumoCard icon={<DollarSign className="size-4" />} label="Receitas" value={formatBRL(totais.receitas)} />
-        <ResumoCard icon={<DollarSign className="size-4" />} label="Lucro" value={formatBRL(totais.lucro)} />
-        <ResumoCard icon={<DollarSign className="size-4" />} label="Vales" value={formatBRL(totais.vales)} />
       </div>
 
       {linhas.length === 0 ? (
@@ -1054,12 +1022,6 @@ function RelatoriosPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    onClick={() => copiarLink([l.id], l.viveiro)}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-xs font-semibold hover:bg-accent"
-                  >
-                    <LinkIcon className="size-3.5" /> Link
-                  </button>
                   <button
                     onClick={() => exportPdf([l.id])}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-secondary px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
