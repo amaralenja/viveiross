@@ -517,13 +517,10 @@ function CaixaSimplesPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Resumo geral</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Kpi label="Despesas" value={brl(totais.despesas)} tone="bad" />
+          <div className="grid grid-cols-2 gap-3">
             <Kpi label="Contas a pagar (pendente)" value={brl(totais.contasPendentes)} tone="bad" />
             <Kpi label="Contas pagas" value={brl(totais.contasPagas)} tone="ok" />
-            <Kpi label="Vales (total)" value={brl(totais.vales)} />
-            <Kpi label="Vales do mês" value={brl(totais.valesMes)} />
-            <Kpi label="Salários base" value={brl(totais.salarios)} />
+
           </div>
         </CardContent>
       </Card>
