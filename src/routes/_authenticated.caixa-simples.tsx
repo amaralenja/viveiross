@@ -848,9 +848,106 @@ function CaixaSimplesPage() {
           )}
         </CardContent>
       </Card>
+      <EditContaModal
+        conta={editingConta}
+        viveiros={viveiros}
+        socios={socios}
+        onClose={() => setEditingConta(null)}
+        onSave={(c) => updateContaMut.mutate(c)}
+        saving={updateContaMut.isPending}
+      />
     </div>
   );
 }
+
+function EditContaModal({
+  conta, viveiros, socios, onClose, onSave, saving,
+}: {
+  conta: Conta | null;
+  viveiros: Viveiro[];
+  socios: Socio[];
+  onClose: () => void;
+  onSave: (c: Conta) => void;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState<Conta | null>(conta);
+  // reset when conta changes
+  useMemo(() => { setForm(conta); }, [conta]);
+  if (!conta || !form) return null;
+  const vivValue = form.viveiro_id ?? (form.categoria === "interno" ? INTERNO : TODOS);
+  return (
+    <Dialog open={!!conta} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Editar conta</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Descrição</Label>
+            <Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Valor (R$)</Label>
+              <Input inputMode="decimal" value={String(form.valor)}
+                onChange={(e) => setForm({ ...form, valor: Number(e.target.value.replace(",", ".")) || 0 })} />
+            </div>
+            <div>
+              <Label>Vencimento</Label>
+              <Input type="date" value={form.data_vencimento}
+                onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <Label>Viveiro</Label>
+            <Select value={vivValue} onValueChange={(v) => setForm({
+              ...form,
+              viveiro_id: (v === TODOS || v === INTERNO) ? null : v,
+              categoria: v === INTERNO ? "interno" : (form.categoria === "interno" ? "geral" : form.categoria),
+            })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODOS}>Rateado entre todos</SelectItem>
+                <SelectItem value={INTERNO}>Gasto interno</SelectItem>
+                {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Sócio</Label>
+            <Select value={form.socio_id ?? "__none__"} onValueChange={(v) => setForm({ ...form, socio_id: v === "__none__" ? null : v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— nenhum —</SelectItem>
+                {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Recorrência</Label>
+            <Select value={form.recorrencia} onValueChange={(v) => setForm({ ...form, recorrencia: v as Conta["recorrencia"] })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem recorrência</SelectItem>
+                <SelectItem value="diaria">Diária</SelectItem>
+                <SelectItem value="semanal">Semanal</SelectItem>
+                <SelectItem value="mensal">Mensal</SelectItem>
+                <SelectItem value="anual">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Observação</Label>
+            <Textarea rows={2} value={form.observacao ?? ""} onChange={(e) => setForm({ ...form, observacao: e.target.value || null })} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button disabled={saving} onClick={() => onSave(form)}>{saving ? "Salvando..." : "Salvar"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
   const color = tone === "ok" ? "text-emerald-600" : tone === "bad" ? "text-red-600" : "";
