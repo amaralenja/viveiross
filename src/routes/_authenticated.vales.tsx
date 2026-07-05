@@ -60,7 +60,7 @@ async function buildValePdfBlob(func: Funcionario, list: Vale[]) {
   };
 }
 
-type CaixaRow = { tipo: string; valor: number; data_lancamento: string };
+
 
 function ValesPage() {
   const [funcs, setFuncs] = useState<Funcionario[]>([]);
