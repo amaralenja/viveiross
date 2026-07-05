@@ -950,35 +950,7 @@ function RelatoriosPage() {
         </div>
         <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <button
-            onClick={() => copiarLink(Array.from(selecionados), selecionados.size === 1 ? linhas.find((l) => selecionados.has(l.id))?.viveiro ?? null : `${selecionados.size} viveiros`)}
-            disabled={selecionados.size === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link selec.</span>
-          </button>
-          <button
-            onClick={() => copiarLink(null, "Todos os viveiros")}
-            disabled={linhas.length === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link tudo</span>
-          </button>
-          <button
-            onClick={() => gerarLinkPdf(Array.from(selecionados))}
-            disabled={selecionados.size === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link PDF selec.</span>
-          </button>
-          <button
-            onClick={() => gerarLinkPdf()}
-            disabled={linhas.length === 0}
-            className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-card px-2 text-xs font-semibold hover:bg-accent disabled:opacity-50 sm:px-3 sm:text-sm"
-          >
-            <LinkIcon className="size-4 shrink-0" /> <span className="truncate">Link PDF tudo</span>
-          </button>
 
-          <button
             onClick={() => exportPdf(Array.from(selecionados))}
             disabled={selecionados.size === 0}
             className="inline-flex min-w-0 h-12 items-center justify-center gap-1.5 rounded-xl border bg-secondary px-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 sm:px-4 sm:text-sm"
