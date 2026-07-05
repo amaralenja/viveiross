@@ -141,9 +141,9 @@ function AdminPage() {
               <UserCard
                 key={u.user_id}
                 u={u}
-                onPassword={(pwd) =>
-                  updatePassword({ data: { user_id: u.user_id, password: pwd } })
-                    .then(() => toast.success("Senha atualizada"))
+                onPassword={() =>
+                  updatePassword({ data: { user_id: u.user_id, email: u.email } })
+                    .then(() => toast.success("E-mail de reset enviado"))
                     .catch((e) => toast.error((e as Error).message))
                 }
                 onAddDays={(n) =>
