@@ -757,9 +757,13 @@ function CaixaSimplesPage() {
                             Paga em {c.data_pagamento ? fmtDate(c.data_pagamento) : "—"} · venceu {fmtDate(c.data_vencimento)}
                           </div>
                         </div>
+                        <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}>
+                          <Pencil className="size-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover registro?")) removeContaMut.mutate(c.id); }}>
                           <Trash2 className="size-4" />
                         </Button>
+
                       </li>
                     ))}
                   </ul>
