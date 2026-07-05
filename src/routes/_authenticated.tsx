@@ -134,7 +134,7 @@ function AuthLayout() {
 
       <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 overflow-x-hidden px-5 py-6">
         {needsLock ? (
-          <PasswordLock onUnlock={() => setUnlocked(true)} />
+          <PasswordLock pin={pwCfg.pin} onUnlock={() => setUnlocked(true)} />
         ) : (
           <Outlet />
         )}
