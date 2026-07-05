@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil } from "lucide-react";
+
 
 const CS_TAG = "[cs]";
 const stripTag = (o: string | null) => (o ?? "").replace(/^\[cs\]\s*/, "").trim();
@@ -133,6 +135,8 @@ function CaixaSimplesPage() {
   const [novoSocioNome, setNovoSocioNome] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedContasIds, setSelectedContasIds] = useState<Set<string>>(new Set());
+  const [editingConta, setEditingConta] = useState<Conta | null>(null);
+
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos", "simples"],
