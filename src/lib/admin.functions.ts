@@ -122,7 +122,9 @@ export const updatePasswordFn = createServerFn({ method: "POST" })
       auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
     });
 
-    const { error } = await anon.auth.resetPasswordForEmail(data.email);
+    const { error } = await anon.auth.resetPasswordForEmail(data.email, {
+      redirectTo: "https://viveiross.lovable.app/reset-password",
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
