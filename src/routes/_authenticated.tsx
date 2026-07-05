@@ -1,10 +1,13 @@
 import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, HandCoins, Zap } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, HandCoins, Zap, Shield, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { getMyAccessFn } from "@/lib/admin.functions";
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -23,12 +26,13 @@ const NAV = [
   { to: "/caixa", label: "Caixa", icon: Wallet },
 ] as const;
 
-const MAIS = [
-  
+const MAIS_BASE = [
   { to: "/relatorios", label: "Relatórios", icon: FileText },
   { to: "/vales", label: "Vales", icon: HandCoins },
   { to: "/caixa-simples", label: "Caixa Simples", icon: Zap },
 ] as const;
+
+type NavItem = { to: string; label: string; icon: typeof FileText };
 
 function AuthLayout() {
   const { user } = useAuth();
@@ -37,6 +41,24 @@ function AuthLayout() {
   const [unlocked, setUnlocked] = useState(() => isUnlocked());
   const [pending, setPending] = useState<string | null>(null);
   const [maisOpen, setMaisOpen] = useState(false);
+
+  const getMyAccess = useServerFn(getMyAccessFn);
+  const { data: acesso } = useQuery({
+    queryKey: ["my-access", user?.id],
+    queryFn: () => getMyAccess(),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  const isAdmin = !!acesso?.is_admin;
+  const expiraEm = acesso?.expires_at ? new Date(acesso.expires_at).getTime() : null;
+  const expirado = !isAdmin && expiraEm != null && expiraEm <= Date.now();
+  const diasRest = expiraEm != null ? Math.ceil((expiraEm - Date.now()) / 86400000) : null;
+
+  const MAIS: NavItem[] = [
+    ...MAIS_BASE,
+    ...(isAdmin ? [{ to: "/admin", label: "Administrador", icon: Shield }] : []),
+  ];
 
   const needsLock = location.pathname !== "/dashboard" && !unlocked;
 
@@ -53,6 +75,28 @@ function AuthLayout() {
       setPending(to);
     }
   }
+
+  if (expirado) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="max-w-md rounded-2xl border-2 border-destructive/40 bg-destructive/5 p-8 text-center">
+          <Clock className="mx-auto size-12 text-destructive" />
+          <h1 className="mt-4 text-2xl font-bold">Seu acesso expirou</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Entre em contato com o administrador para renovar seu acesso.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="mt-6 h-11 px-5 rounded-xl bg-primary text-primary-foreground font-semibold"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+
 
 
   return (
