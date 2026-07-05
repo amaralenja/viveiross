@@ -24,7 +24,7 @@ const NAV = [
 ] as const;
 
 const MAIS = [
-  { to: "/despescas", label: "Despesca", icon: Fish },
+  
   { to: "/relatorios", label: "Relatórios", icon: FileText },
   { to: "/vales", label: "Vales", icon: HandCoins },
   { to: "/caixa-simples", label: "Caixa Simples", icon: Zap },
