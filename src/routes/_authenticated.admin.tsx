@@ -141,9 +141,9 @@ function AdminPage() {
               <UserCard
                 key={u.user_id}
                 u={u}
-                onPassword={(pwd) =>
-                  updatePassword({ data: { user_id: u.user_id, password: pwd } })
-                    .then(() => toast.success("Senha atualizada"))
+                onPassword={() =>
+                  updatePassword({ data: { user_id: u.user_id, email: u.email } })
+                    .then(() => toast.success("E-mail de reset enviado"))
                     .catch((e) => toast.error((e as Error).message))
                 }
                 onAddDays={(n) =>
@@ -184,14 +184,13 @@ function UserCard({
   u, onPassword, onAddDays, onSetDays, onUnlimited, onToggleAdmin, onDelete,
 }: {
   u: AdminUser;
-  onPassword: (p: string) => void;
+  onPassword: () => void;
   onAddDays: (n: number) => void;
   onSetDays: (n: number) => void;
   onUnlimited: () => void;
   onToggleAdmin: () => void;
   onDelete: () => void;
 }) {
-  const [newPwd, setNewPwd] = useState("");
   const [addN, setAddN] = useState("30");
   const dr = diasRestantes(u.expires_at);
   const expirado = dr != null && dr <= 0;
@@ -245,18 +244,11 @@ function UserCard({
             Definir
           </button>
         </div>
-        <div className="flex gap-2">
-          <input value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
-            type="text" className="app-input" placeholder="nova senha (mín. 6)" />
-          <button
-            onClick={() => {
-              if (newPwd.length < 6) { toast.error("Mín. 6 caracteres"); return; }
-              onPassword(newPwd); setNewPwd("");
-            }}
-            className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap inline-flex items-center gap-1">
-            <KeyRound className="size-4" /> Trocar
-          </button>
-        </div>
+        <button
+          onClick={onPassword}
+          className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap inline-flex items-center justify-center gap-1">
+          <KeyRound className="size-4" /> Enviar reset de senha
+        </button>
       </div>
 
       {!u.is_admin && (

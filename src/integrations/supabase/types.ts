@@ -826,6 +826,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          expires_at: string
+          is_admin: boolean
+          user_id: string
+        }[]
+      }
+      admin_register_access: {
+        Args: {
+          _dias: number
+          _email: string
+          _is_admin: boolean
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      admin_revoke_access: { Args: { _user_id: string }; Returns: undefined }
+      admin_set_access: {
+        Args: { _add: boolean; _dias: number; _user_id: string }
+        Returns: string
+      }
+      admin_toggle_role: {
+        Args: { _is_admin: boolean; _user_id: string }
+        Returns: undefined
+      }
       get_pdf_share: { Args: { _token: string }; Returns: Json }
       get_relatorio_share_bundle: { Args: { _token: string }; Returns: Json }
       has_role: {
