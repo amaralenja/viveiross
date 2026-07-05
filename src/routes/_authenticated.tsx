@@ -77,17 +77,26 @@ function AuthLayout() {
   }
 
   if (expirado) {
+    const whatsappUrl = `https://wa.me/5588972968298?text=${encodeURIComponent("Vital, minha assinatura venceu")}`;
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="max-w-md rounded-2xl border-2 border-destructive/40 bg-destructive/5 p-8 text-center">
           <Clock className="mx-auto size-12 text-destructive" />
-          <h1 className="mt-4 text-2xl font-bold">Seu acesso expirou</h1>
+          <h1 className="mt-4 text-2xl font-bold">Sua assinatura venceu</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Entre em contato com o administrador para renovar seu acesso.
+            Fale com o Vital no WhatsApp para renovar seu acesso.
           </p>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex h-11 items-center justify-center gap-2 px-5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700"
+          >
+            Falar com Vital
+          </a>
           <button
             onClick={handleLogout}
-            className="mt-6 h-11 px-5 rounded-xl bg-primary text-primary-foreground font-semibold"
+            className="mt-3 block mx-auto h-10 px-5 rounded-xl border text-sm font-medium"
           >
             Sair
           </button>
