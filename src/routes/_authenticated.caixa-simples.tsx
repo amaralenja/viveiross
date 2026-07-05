@@ -872,7 +872,7 @@ function EditContaModal({
 }) {
   const [form, setForm] = useState<Conta | null>(conta);
   // reset when conta changes
-  useMemo(() => { setForm(conta); }, [conta]);
+  useEffect(() => { setForm(conta); }, [conta]);
   if (!conta || !form) return null;
   const vivValue = form.viveiro_id ?? (form.categoria === "interno" ? INTERNO : TODOS);
   return (
