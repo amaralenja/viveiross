@@ -244,18 +244,12 @@ function UserCard({
             Definir
           </button>
         </div>
-        <div className="flex gap-2">
-          <input value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
-            type="text" className="app-input" placeholder="nova senha (mín. 6)" />
-          <button
-            onClick={() => {
-              if (newPwd.length < 6) { toast.error("Mín. 6 caracteres"); return; }
-              onPassword(newPwd); setNewPwd("");
-            }}
-            className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap inline-flex items-center gap-1">
-            <KeyRound className="size-4" /> Trocar
-          </button>
-        </div>
+        <button
+          onClick={onPassword}
+          className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap inline-flex items-center justify-center gap-1">
+          <KeyRound className="size-4" /> Enviar reset de senha
+        </button>
+      </div>
       </div>
 
       {!u.is_admin && (
