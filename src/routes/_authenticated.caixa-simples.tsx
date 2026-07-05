@@ -724,9 +724,13 @@ function CaixaSimplesPage() {
                         <Button size="sm" variant="default" disabled={pagarContaMut.isPending} onClick={() => pagarContaMut.mutate(c)}>
                           <Check className="size-4 mr-1" /> Pagar
                         </Button>
+                        <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}>
+                          <Pencil className="size-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover conta?")) removeContaMut.mutate(c.id); }}>
                           <Trash2 className="size-4" />
                         </Button>
+
                       </li>
                     ))}
                   </ul>
