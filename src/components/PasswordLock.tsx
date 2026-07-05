@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Delete, Lock } from "lucide-react";
 
-const PIN = "1234";
 const KEY = "app_unlocked";
 
 export function isUnlocked() {
@@ -13,16 +12,17 @@ export function lockApp() {
   if (typeof window !== "undefined") sessionStorage.removeItem(KEY);
 }
 
-export function PasswordLock({ onUnlock }: { onUnlock: () => void }) {
+export function PasswordLock({ pin, onUnlock }: { pin: string; onUnlock: () => void }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
+  const len = Math.max(pin.length, 4);
 
   function press(d: string) {
     setError(false);
-    const next = (value + d).slice(0, 4);
+    const next = (value + d).slice(0, len);
     setValue(next);
-    if (next.length === 4) {
-      if (next === PIN) {
+    if (next.length === pin.length) {
+      if (next === pin) {
         sessionStorage.setItem(KEY, "1");
         onUnlock();
       } else {
@@ -52,7 +52,7 @@ export function PasswordLock({ onUnlock }: { onUnlock: () => void }) {
         </div>
         <h2 className="text-xl font-bold">Digite a senha</h2>
         <div className={`flex gap-3 ${error ? "animate-pulse" : ""}`}>
-          {[0, 1, 2, 3].map((i) => (
+          {Array.from({ length: len }).map((_, i) => (
             <div
               key={i}
               className={`size-4 rounded-full border-2 ${

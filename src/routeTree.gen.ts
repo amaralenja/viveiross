@@ -17,6 +17,7 @@ import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as PTokenRouteImport } from './routes/p.$token'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
 import { Route as AuthenticatedValesRouteImport } from './routes/_authenticated.vales'
+import { Route as AuthenticatedSenhasRouteImport } from './routes/_authenticated.senhas'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated.produtos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
@@ -63,6 +64,11 @@ const AuthenticatedViveirosRoute = AuthenticatedViveirosRouteImport.update({
 const AuthenticatedValesRoute = AuthenticatedValesRouteImport.update({
   id: '/vales',
   path: '/vales',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSenhasRoute = AuthenticatedSenhasRouteImport.update({
+  id: '/senhas',
+  path: '/senhas',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/senhas': typeof AuthenticatedSenhasRoute
   '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
   '/p/$token': typeof PTokenRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/senhas': typeof AuthenticatedSenhasRoute
   '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
   '/p/$token': typeof PTokenRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/senhas': typeof AuthenticatedSenhasRoute
   '/_authenticated/vales': typeof AuthenticatedValesRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
   '/p/$token': typeof PTokenRoute
@@ -173,6 +182,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/produtos'
     | '/relatorios'
+    | '/senhas'
     | '/vales'
     | '/viveiros'
     | '/p/$token'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/produtos'
     | '/relatorios'
+    | '/senhas'
     | '/vales'
     | '/viveiros'
     | '/p/$token'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/produtos'
     | '/_authenticated/relatorios'
+    | '/_authenticated/senhas'
     | '/_authenticated/vales'
     | '/_authenticated/viveiros'
     | '/p/$token'
@@ -283,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedValesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/senhas': {
+      id: '/_authenticated/senhas'
+      path: '/senhas'
+      fullPath: '/senhas'
+      preLoaderRoute: typeof AuthenticatedSenhasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/relatorios': {
       id: '/_authenticated/relatorios'
       path: '/relatorios'
@@ -350,6 +369,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedSenhasRoute: typeof AuthenticatedSenhasRoute
   AuthenticatedValesRoute: typeof AuthenticatedValesRoute
   AuthenticatedViveirosRoute: typeof AuthenticatedViveirosRoute
 }
@@ -362,6 +382,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedSenhasRoute: AuthenticatedSenhasRoute,
   AuthenticatedValesRoute: AuthenticatedValesRoute,
   AuthenticatedViveirosRoute: AuthenticatedViveirosRoute,
 }

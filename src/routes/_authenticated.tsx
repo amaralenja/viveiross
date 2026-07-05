@@ -2,12 +2,13 @@ import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } fro
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, HandCoins, Zap, Shield, Clock } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, HandCoins, Zap, Shield, Clock, KeyRound } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getMyAccessFn } from "@/lib/admin.functions";
+import { usePwConfig, sectionRequiresLock } from "@/lib/password-config";
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -30,6 +31,7 @@ const MAIS_BASE = [
   { to: "/relatorios", label: "Relatórios", icon: FileText },
   { to: "/vales", label: "Vales", icon: HandCoins },
   { to: "/caixa-simples", label: "Caixa Simples", icon: Zap },
+  { to: "/senhas", label: "Senhas", icon: KeyRound },
 ] as const;
 
 type NavItem = { to: string; label: string; icon: typeof FileText };
@@ -60,7 +62,8 @@ function AuthLayout() {
     ...(isAdmin ? [{ to: "/admin", label: "Administrador", icon: Shield }] : []),
   ];
 
-  const needsLock = location.pathname !== "/dashboard" && !unlocked;
+  const pwCfg = usePwConfig(user?.id);
+  const needsLock = sectionRequiresLock(pwCfg, location.pathname) && !unlocked;
 
   async function handleLogout() {
     lockApp();
@@ -70,7 +73,7 @@ function AuthLayout() {
   }
 
   function handleNav(to: string, e: React.MouseEvent) {
-    if (to !== "/dashboard" && !unlocked) {
+    if (sectionRequiresLock(pwCfg, to) && !unlocked) {
       e.preventDefault();
       setPending(to);
     }
@@ -131,7 +134,7 @@ function AuthLayout() {
 
       <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 overflow-x-hidden px-5 py-6">
         {needsLock ? (
-          <PasswordLock onUnlock={() => setUnlocked(true)} />
+          <PasswordLock pin={pwCfg.pin} onUnlock={() => setUnlocked(true)} />
         ) : (
           <Outlet />
         )}
@@ -187,7 +190,7 @@ function AuthLayout() {
                   key={item.to}
                   onClick={(e) => {
                     setMaisOpen(false);
-                    if (!unlocked) {
+                    if (sectionRequiresLock(pwCfg, item.to) && !unlocked) {
                       e.preventDefault();
                       setPending(item.to);
                       return;
@@ -208,6 +211,7 @@ function AuthLayout() {
 
       {pending && (
         <PasswordLock
+          pin={pwCfg.pin}
           onUnlock={() => {
             setUnlocked(true);
             const to = pending;
