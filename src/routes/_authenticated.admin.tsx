@@ -250,7 +250,6 @@ function UserCard({
           <KeyRound className="size-4" /> Enviar reset de senha
         </button>
       </div>
-      </div>
 
       {!u.is_admin && (
         <button onClick={onUnlimited}
