@@ -550,38 +550,32 @@ function HistoricoBiometrias({
     }));
   }, [filtradas]);
 
-  const racaoDiariaPorViveiro = useMemo(() => {
-    const totais = new Map<string, number>();
-    const diasPorViveiro = new Map<string, Set<string>>();
-    const hojeStr = todayLocal();
-    const hojePorViveiro = new Map<string, number>();
-    const seteDias = new Date();
-    seteDias.setDate(seteDias.getDate() - 7);
+
+
+  const racaoPorViveiroData = useMemo(() => {
+    const map = new Map<string, number>();
     for (const l of lancamentos) {
-      if (l.data_lancamento === hojeStr) {
-        hojePorViveiro.set(
-          l.viveiro_id,
-          (hojePorViveiro.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0),
-        );
-      }
-      if (new Date(`${l.data_lancamento}T00:00:00`) < seteDias) continue;
-      totais.set(l.viveiro_id, (totais.get(l.viveiro_id) ?? 0) + Number(l.quantidade ?? 0));
-      const set = diasPorViveiro.get(l.viveiro_id) ?? new Set<string>();
-      set.add(l.data_lancamento);
-      diasPorViveiro.set(l.viveiro_id, set);
+      const k = `${l.viveiro_id}|${l.data_lancamento}`;
+      map.set(k, (map.get(k) ?? 0) + Number(l.quantidade ?? 0));
     }
-    const media = new Map<string, { hoje: number; media7d: number }>();
-    const vids = new Set<string>([...totais.keys(), ...hojePorViveiro.keys()]);
-    for (const vid of vids) {
-      const total = totais.get(vid) ?? 0;
-      const dias = diasPorViveiro.get(vid)?.size ?? 1;
-      media.set(vid, {
-        hoje: hojePorViveiro.get(vid) ?? 0,
-        media7d: total / Math.max(1, dias),
-      });
-    }
-    return media;
+    return map;
   }, [lancamentos]);
+
+  const mediaRacao7dAte = (viveiroId: string, dataRef: string) => {
+    const ref = new Date(`${dataRef}T00:00:00`).getTime();
+    const inicio = ref - 6 * 86400000;
+    let total = 0;
+    const dias = new Set<string>();
+    for (const l of lancamentos) {
+      if (l.viveiro_id !== viveiroId) continue;
+      const t = new Date(`${l.data_lancamento}T00:00:00`).getTime();
+      if (t < inicio || t > ref) continue;
+      total += Number(l.quantidade ?? 0);
+      dias.add(l.data_lancamento);
+    }
+    return total / Math.max(1, dias.size);
+  };
+
 
 
   const periodos: { key: PeriodoKey; label: string }[] = [
@@ -649,80 +643,99 @@ function HistoricoBiometrias({
       ) : (
         <div className="space-y-4">
           {porViveiro.map((grupo) => {
-            const ult = grupo.rows[0];
-            const ant = grupo.rows[1];
-            let cresc = 0;
-            if (ult?.crescimento_semanal_g != null) {
-              cresc = Number(ult.crescimento_semanal_g);
-            } else if (ant) {
-              const dias = Math.max(
-                1,
-                Math.round(
-                  (new Date(`${ult.data_biometria}T00:00:00`).getTime() -
-                    new Date(`${ant.data_biometria}T00:00:00`).getTime()) /
-                    86400000,
-                ),
-              );
-              cresc = ((Number(ult.peso_medio_g) - Number(ant.peso_medio_g)) / dias) * 7;
-            }
             const viveiroId = grupo.rows[0].viveiro_id;
-            const racaoInfo = racaoDiariaPorViveiro.get(viveiroId) ?? { hoje: 0, media7d: 0 };
-            const diasPov = grupo.data_povoamento
-              ? Math.max(
-                  0,
-                  Math.round(
-                    (Date.now() - new Date(`${grupo.data_povoamento}T00:00:00`).getTime()) /
-                      86400000,
-                  ),
-                )
-              : 0;
+
 
             return (
               <div key={viveiroId} className="rounded-2xl bg-card border overflow-hidden">
-                <div className="p-4 border-b bg-muted/30 space-y-3">
+                <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
                   <p className="font-bold truncate">{grupo.nome}</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <MiniInfo
-                      icon={<Users className="size-3.5" />}
-                      label="Povoamento"
-                      value={formatNumber(grupo.qtd_povoada)}
-                    />
-                    <MiniInfo
-                      icon={<Utensils className="size-3.5" />}
-                      label="Ração hoje"
-                      value={`${formatNumber(racaoInfo.hoje)} kg`}
-                      hint={`média 7d: ${formatNumber(racaoInfo.media7d)} kg`}
-                    />
-
-                    <MiniInfo
-                      icon={<Calendar className="size-3.5" />}
-                      label="Dias povoado"
-                      value={`${diasPov}`}
-                    />
-                    <MiniInfo
-                      icon={<TrendingUp className="size-3.5" />}
-                      label="Cresc. semanal"
-                      value={ant ? `${formatNumber(cresc)} g` : "—"}
-                    />
-                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {grupo.rows.length} {grupo.rows.length === 1 ? "biometria" : "biometrias"}
+                  </span>
                 </div>
 
                 <ul className="divide-y">
-                  {grupo.rows.map((b) => {
+                  {grupo.rows.map((b, idx) => {
                     const qtd = b.amostras ?? 0;
                     const pesoTotal = qtd * Number(b.peso_medio_g ?? 0);
+                    const anterior = grupo.rows[idx + 1];
+                    let crescRow = 0;
+                    if (b.crescimento_semanal_g != null) {
+                      crescRow = Number(b.crescimento_semanal_g);
+                    } else if (anterior) {
+                      const dd = Math.max(
+                        1,
+                        Math.round(
+                          (new Date(`${b.data_biometria}T00:00:00`).getTime() -
+                            new Date(`${anterior.data_biometria}T00:00:00`).getTime()) /
+                            86400000,
+                        ),
+                      );
+                      crescRow = ((Number(b.peso_medio_g) - Number(anterior.peso_medio_g)) / dd) * 7;
+                    }
+                    const racaoDia = racaoPorViveiroData.get(`${viveiroId}|${b.data_biometria}`) ?? 0;
+                    const media7d = mediaRacao7dAte(viveiroId, b.data_biometria);
+                    const diasPovRow = grupo.data_povoamento
+                      ? Math.max(
+                          0,
+                          Math.round(
+                            (new Date(`${b.data_biometria}T00:00:00`).getTime() -
+                              new Date(`${grupo.data_povoamento}T00:00:00`).getTime()) /
+                              86400000,
+                          ),
+                        )
+                      : 0;
                     return (
-                      <li
-                        key={b.id}
-                        className="p-3 flex items-center justify-between gap-3 text-sm"
-                      >
-                        <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          <span className="font-medium">{formatDate(b.data_biometria)}</span>
+                      <li key={b.id} className="p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">{formatDate(b.data_biometria)}</span>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              onClick={() => onEdit(b)}
+                              className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                              aria-label="Editar biometria"
+                            >
+                              <Pencil className="size-4" />
+                            </button>
+                            <button
+                              onClick={() => onDelete(b.id)}
+                              className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                              aria-label="Remover biometria"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-muted/40 p-3">
+                          <MiniInfo
+                            icon={<Users className="size-3.5" />}
+                            label="Povoamento"
+                            value={formatNumber(grupo.qtd_povoada)}
+                          />
+                          <MiniInfo
+                            icon={<Utensils className="size-3.5" />}
+                            label="Ração no dia"
+                            value={`${formatNumber(racaoDia)} kg`}
+                            hint={`média 7d: ${formatNumber(media7d)} kg`}
+                          />
+                          <MiniInfo
+                            icon={<Calendar className="size-3.5" />}
+                            label="Dias povoado"
+                            value={`${diasPovRow}`}
+                          />
+                          <MiniInfo
+                            icon={<TrendingUp className="size-3.5" />}
+                            label="Cresc. semanal"
+                            value={anterior || b.crescimento_semanal_g != null ? `${formatNumber(crescRow)} g` : "—"}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 text-sm">
                           <span>
                             <span className="text-muted-foreground">Peso: </span>
-                            <span className="font-semibold">
-                              {formatNumber(b.peso_medio_g)} g
-                            </span>
+                            <span className="font-semibold">{formatNumber(b.peso_medio_g)} g</span>
                           </span>
                           <span>
                             <span className="text-muted-foreground">Qtd: </span>
@@ -732,30 +745,6 @@ function HistoricoBiometrias({
                             <span className="text-muted-foreground">Total: </span>
                             <span className="font-semibold">{formatNumber(pesoTotal)} g</span>
                           </span>
-                          {b.crescimento_semanal_g != null && (
-                            <span>
-                              <span className="text-muted-foreground">Cresc: </span>
-                              <span className="font-semibold">
-                                {formatNumber(b.crescimento_semanal_g)} g/sem
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 gap-1">
-                          <button
-                            onClick={() => onEdit(b)}
-                            className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
-                            aria-label="Editar biometria"
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                          <button
-                            onClick={() => onDelete(b.id)}
-                            className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                            aria-label="Remover biometria"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
                         </div>
                       </li>
                     );
@@ -763,6 +752,7 @@ function HistoricoBiometrias({
                 </ul>
               </div>
             );
+
           })}
         </div>
       )}
