@@ -65,7 +65,6 @@ type CaixaRow = { tipo: string; valor: number; data_lancamento: string };
 function ValesPage() {
   const [funcs, setFuncs] = useState<Funcionario[]>([]);
   const [vales, setVales] = useState<Vale[]>([]);
-  const [caixa, setCaixa] = useState<CaixaRow[]>([]);
   const [funcId, setFuncId] = useState("");
   const [valor, setValor] = useState("");
   const [motivo, setMotivo] = useState("");
@@ -78,9 +77,8 @@ function ValesPage() {
     setFuncs(f ?? []);
     const { data: v } = await supabase.from("vales").select("*").order("data_vale", { ascending: false });
     setVales(v ?? []);
-    const { data: c } = await supabase.from("caixa_lancamentos").select("tipo,valor,data_lancamento");
-    setCaixa(c ?? []);
   }
+
 
   useEffect(() => { load(); }, []);
 
@@ -200,13 +198,8 @@ function ValesPage() {
     return { ...f, list, total };
   });
 
-  const receitas = caixa.filter((c) => c.tipo === "receita").reduce((s, c) => s + Number(c.valor ?? 0), 0);
-  const despesasCx = caixa.filter((c) => c.tipo !== "receita").reduce((s, c) => s + Number(c.valor ?? 0), 0);
-  const saldo = receitas - despesasCx;
   const totalVales = vales.reduce((s, v) => s + Number(v.valor ?? 0), 0);
-  const totalSalarios = funcs.reduce((s, f) => s + Number(f.salario ?? 0), 0);
-  const hoje = new Date().toISOString().slice(0, 10);
-  const mesAtual = hoje.slice(0, 7);
+  const mesAtual = new Date().toISOString().slice(0, 7);
   const valesMes = vales.filter((v) => v.data_vale.startsWith(mesAtual)).reduce((s, v) => s + Number(v.valor ?? 0), 0);
 
   return (
@@ -218,37 +211,22 @@ function ValesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Caixa da empresa</CardTitle>
+          <CardTitle className="text-base">Resumo de vales</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="rounded-md border p-3">
-              <div className="text-xs text-muted-foreground">Receitas</div>
-              <div className="font-bold text-emerald-600 truncate">{brl(receitas)}</div>
-            </div>
-            <div className="rounded-md border p-3">
-              <div className="text-xs text-muted-foreground">Despesas</div>
-              <div className="font-bold text-red-600 truncate">{brl(despesasCx)}</div>
-            </div>
-            <div className="rounded-md border p-3">
-              <div className="text-xs text-muted-foreground">Saldo</div>
-              <div className={`font-bold truncate ${saldo >= 0 ? "text-emerald-600" : "text-red-600"}`}>{brl(saldo)}</div>
-            </div>
-            <div className="rounded-md border p-3">
-              <div className="text-xs text-muted-foreground">Vales (total)</div>
+              <div className="text-xs text-muted-foreground">Total geral</div>
               <div className="font-bold truncate">{brl(totalVales)}</div>
             </div>
             <div className="rounded-md border p-3">
               <div className="text-xs text-muted-foreground">Vales do mês</div>
               <div className="font-bold truncate">{brl(valesMes)}</div>
             </div>
-            <div className="rounded-md border p-3">
-              <div className="text-xs text-muted-foreground">Salários base</div>
-              <div className="font-bold truncate">{brl(totalSalarios)}</div>
-            </div>
           </div>
         </CardContent>
       </Card>
+
 
 
       <Card>
