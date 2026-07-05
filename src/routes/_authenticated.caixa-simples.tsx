@@ -378,6 +378,29 @@ function CaixaSimplesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const updateContaMut = useMutation({
+    mutationFn: async (c: Conta) => {
+      const { error } = await supabase.from("contas_pagar").update({
+        descricao: c.descricao,
+        valor: c.valor,
+        data_vencimento: c.data_vencimento,
+        categoria: c.categoria,
+        observacao: c.observacao,
+        socio_id: c.socio_id,
+        viveiro_id: c.viveiro_id,
+        recorrencia: c.recorrencia,
+      }).eq("id", c.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Conta atualizada");
+      setEditingConta(null);
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const totais = useMemo(() => {
     const despesas = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
     const contasPendentes = contas.filter((c) => !c.pago).reduce((s, c) => s + Number(c.valor ?? 0), 0);
