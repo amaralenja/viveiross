@@ -704,50 +704,94 @@ function HistoricoBiometrias({
 
             return (
               <div key={viveiroId} className="rounded-2xl bg-card border overflow-hidden">
-                <div className="p-4 border-b bg-muted/30 space-y-3">
+                <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
                   <p className="font-bold truncate">{grupo.nome}</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <MiniInfo
-                      icon={<Users className="size-3.5" />}
-                      label="Povoamento"
-                      value={formatNumber(grupo.qtd_povoada)}
-                    />
-                    <MiniInfo
-                      icon={<Utensils className="size-3.5" />}
-                      label="Ração hoje"
-                      value={`${formatNumber(racaoInfo.hoje)} kg`}
-                      hint={`média 7d: ${formatNumber(racaoInfo.media7d)} kg`}
-                    />
-
-                    <MiniInfo
-                      icon={<Calendar className="size-3.5" />}
-                      label="Dias povoado"
-                      value={`${diasPov}`}
-                    />
-                    <MiniInfo
-                      icon={<TrendingUp className="size-3.5" />}
-                      label="Cresc. semanal"
-                      value={ant ? `${formatNumber(cresc)} g` : "—"}
-                    />
-                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {grupo.rows.length} {grupo.rows.length === 1 ? "biometria" : "biometrias"}
+                  </span>
                 </div>
 
                 <ul className="divide-y">
-                  {grupo.rows.map((b) => {
+                  {grupo.rows.map((b, idx) => {
                     const qtd = b.amostras ?? 0;
                     const pesoTotal = qtd * Number(b.peso_medio_g ?? 0);
+                    const anterior = grupo.rows[idx + 1];
+                    let crescRow = 0;
+                    if (b.crescimento_semanal_g != null) {
+                      crescRow = Number(b.crescimento_semanal_g);
+                    } else if (anterior) {
+                      const dd = Math.max(
+                        1,
+                        Math.round(
+                          (new Date(`${b.data_biometria}T00:00:00`).getTime() -
+                            new Date(`${anterior.data_biometria}T00:00:00`).getTime()) /
+                            86400000,
+                        ),
+                      );
+                      crescRow = ((Number(b.peso_medio_g) - Number(anterior.peso_medio_g)) / dd) * 7;
+                    }
+                    const racaoDia = racaoPorViveiroData.get(`${viveiroId}|${b.data_biometria}`) ?? 0;
+                    const media7d = mediaRacao7dAte(viveiroId, b.data_biometria);
+                    const diasPovRow = grupo.data_povoamento
+                      ? Math.max(
+                          0,
+                          Math.round(
+                            (new Date(`${b.data_biometria}T00:00:00`).getTime() -
+                              new Date(`${grupo.data_povoamento}T00:00:00`).getTime()) /
+                              86400000,
+                          ),
+                        )
+                      : 0;
                     return (
-                      <li
-                        key={b.id}
-                        className="p-3 flex items-center justify-between gap-3 text-sm"
-                      >
-                        <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          <span className="font-medium">{formatDate(b.data_biometria)}</span>
+                      <li key={b.id} className="p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">{formatDate(b.data_biometria)}</span>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              onClick={() => onEdit(b)}
+                              className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                              aria-label="Editar biometria"
+                            >
+                              <Pencil className="size-4" />
+                            </button>
+                            <button
+                              onClick={() => onDelete(b.id)}
+                              className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                              aria-label="Remover biometria"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-muted/40 p-3">
+                          <MiniInfo
+                            icon={<Users className="size-3.5" />}
+                            label="Povoamento"
+                            value={formatNumber(grupo.qtd_povoada)}
+                          />
+                          <MiniInfo
+                            icon={<Utensils className="size-3.5" />}
+                            label="Ração no dia"
+                            value={`${formatNumber(racaoDia)} kg`}
+                            hint={`média 7d: ${formatNumber(media7d)} kg`}
+                          />
+                          <MiniInfo
+                            icon={<Calendar className="size-3.5" />}
+                            label="Dias povoado"
+                            value={`${diasPovRow}`}
+                          />
+                          <MiniInfo
+                            icon={<TrendingUp className="size-3.5" />}
+                            label="Cresc. semanal"
+                            value={anterior || b.crescimento_semanal_g != null ? `${formatNumber(crescRow)} g` : "—"}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 text-sm">
                           <span>
                             <span className="text-muted-foreground">Peso: </span>
-                            <span className="font-semibold">
-                              {formatNumber(b.peso_medio_g)} g
-                            </span>
+                            <span className="font-semibold">{formatNumber(b.peso_medio_g)} g</span>
                           </span>
                           <span>
                             <span className="text-muted-foreground">Qtd: </span>
@@ -757,30 +801,6 @@ function HistoricoBiometrias({
                             <span className="text-muted-foreground">Total: </span>
                             <span className="font-semibold">{formatNumber(pesoTotal)} g</span>
                           </span>
-                          {b.crescimento_semanal_g != null && (
-                            <span>
-                              <span className="text-muted-foreground">Cresc: </span>
-                              <span className="font-semibold">
-                                {formatNumber(b.crescimento_semanal_g)} g/sem
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 gap-1">
-                          <button
-                            onClick={() => onEdit(b)}
-                            className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
-                            aria-label="Editar biometria"
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                          <button
-                            onClick={() => onDelete(b.id)}
-                            className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                            aria-label="Remover biometria"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
                         </div>
                       </li>
                     );
@@ -788,6 +808,7 @@ function HistoricoBiometrias({
                 </ul>
               </div>
             );
+
           })}
         </div>
       )}
