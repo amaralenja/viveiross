@@ -556,26 +556,63 @@ function EstoqueView({
             const s = saldoPorProduto.get(p.id) ?? { entradas: 0, saidas: 0 };
             const saldo = s.entradas - s.saidas;
             const baixo = saldo <= 0;
+            const entradasProduto = entradas.filter((e) => e.produto_id === p.id);
+            const aberto = expandidoId === p.id;
             return (
-              <li
-                key={p.id}
-                className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold truncate">{p.nome}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Entradas {formatNumber(s.entradas)} · Saídas {formatNumber(s.saidas)} {p.unidade}
-                  </p>
+              <li key={p.id} className="rounded-xl bg-card border overflow-hidden">
+                <div className="p-3 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setExpandidoId(aberto ? null : p.id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="font-semibold truncate">{p.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Entradas {formatNumber(s.entradas)} · Saídas {formatNumber(s.saidas)} {p.unidade}
+                      {entradasProduto.length > 0 && ` · ${entradasProduto.length} lançamento(s)`}
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpandidoId(aberto ? null : p.id)}
+                    className={`text-right shrink-0 ${baixo ? "text-destructive" : "text-foreground"}`}
+                  >
+                    <p className="text-lg font-bold flex items-center gap-1 justify-end">
+                      {baixo && <AlertTriangle className="size-4" />}
+                      {formatNumber(saldo)} {p.unidade}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{aberto ? "fechar" : "editar entradas"}</p>
+                  </button>
+                  <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
                 </div>
-                <div
-                  className={`text-right shrink-0 ${baixo ? "text-destructive" : "text-foreground"}`}
-                >
-                  <p className="text-lg font-bold flex items-center gap-1 justify-end">
-                    {baixo && <AlertTriangle className="size-4" />}
-                    {formatNumber(saldo)} {p.unidade}
-                  </p>
-                </div>
-                <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
+                {aberto && (
+                  <div className="border-t bg-muted/30 p-3 space-y-2">
+                    {entradasProduto.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        Nenhuma entrada desse produto ainda.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {entradasProduto.map((e) => (
+                          <li key={e.id} className="p-2.5 rounded-lg bg-card border flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium">
+                                {formatNumber(e.quantidade)} {e.unidade}
+                                {e.custo_total != null && ` · ${formatBRL(Number(e.custo_total))}`}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                                {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade}`}
+                                {e.fornecedor && ` · ${e.fornecedor}`}
+                              </p>
+                            </div>
+                            <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </li>
             );
           })}
