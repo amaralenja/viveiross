@@ -53,8 +53,10 @@ function AuthLayout() {
 
   const isAdmin = !!acesso?.is_admin;
   const expiraEm = acesso?.expires_at ? new Date(acesso.expires_at).getTime() : null;
-  const expirado = !isAdmin && expiraEm != null && expiraEm <= Date.now();
+  const expirado = !isAdmin && !!acesso && expiraEm != null && expiraEm <= Date.now();
+  const pendente = !isAdmin && !!acesso && expiraEm == null;
   void expiraEm;
+
 
   const MAIS: NavItem[] = [
     ...MAIS_BASE,
