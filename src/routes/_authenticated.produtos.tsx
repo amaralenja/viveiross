@@ -257,7 +257,7 @@ function ProdutosPage() {
   function openNovo() {
     if (tab === "produtos") setOpenProd(true);
     else if (tab === "funcionarios") setOpenFunc(true);
-    else if (tab === "despesas") setOpenDesp(true);
+    else if (tab === "compras") setOpenEntrada(true);
     else setOpenEntrada(true); // estoque ou compras
   }
 
