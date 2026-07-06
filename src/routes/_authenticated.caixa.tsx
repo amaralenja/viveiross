@@ -766,19 +766,6 @@ function CaixaPage() {
                       >
                         <FileSpreadsheet className="size-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`Desativar viveiro "${v.nome}"? Você pode reativar depois na aba Viveiros.`)) {
-                            desativarMut.mutate({ id: v.id, nome: v.nome });
-                          }
-                        }}
-                        className="size-9 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center hover:bg-amber-500/20"
-                        aria-label="Desativar viveiro"
-                        title="Desativar viveiro"
-                      >
-                        <Power className="size-4" />
-                      </button>
                     </div>
                   </div>
 
