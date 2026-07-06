@@ -281,7 +281,7 @@ function ProdutosPage() {
       </div>
 
       <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
-        {(["produtos", "funcionarios", "estoque", "compras", "despesas"] as const).map((t) => (
+        {(["produtos", "funcionarios", "estoque", "compras"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -291,7 +291,7 @@ function ProdutosPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : t === "compras" ? "Compras" : "Despesas"}
+            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : "Compras"}
           </button>
         ))}
       </div>
