@@ -514,6 +514,7 @@ function EstoqueView({
   onEditProduto: (p: Produto) => void;
   onDelProduto: (p: Produto) => void;
 }) {
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
 
   if (produtos.length === 0) {
     return (
