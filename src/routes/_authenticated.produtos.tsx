@@ -276,7 +276,7 @@ function ProdutosPage() {
           className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
         >
           <Plus className="size-5" />
-          {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : tab === "despesas" ? "Despesa" : "Novo"}
+          {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : "Novo"}
         </button>
       </div>
 
