@@ -802,6 +802,49 @@ function CaixaSimplesPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
+            <span>Vales dos funcionários</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              Total: <strong className="text-red-600">{brl(totais.vales)}</strong>
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {valesPorFuncionario.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum vale registrado. Use o formulário acima escolhendo "Vale".</p>
+          ) : (
+            <div className="space-y-4">
+              {valesPorFuncionario.map(([fid, g]) => (
+                <div key={fid}>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-semibold">{g.nome}</h3>
+                    <span className="text-xs font-bold text-red-600">- {brl(g.total)}</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {g.itens.map((v) => (
+                      <li key={v.id} className="flex items-center gap-2 text-sm border-b pb-1 last:border-0">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground">{fmtDate(v.data_vale)}</span>
+                            <span className="truncate">{v.motivo || "Vale"}</span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-semibold text-red-600 tabular-nums">- {brl(Number(v.valor))}</span>
+                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover vale?")) removeValeMut.mutate(v.id); }}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Compartilhar / Exportar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
