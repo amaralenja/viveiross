@@ -119,7 +119,7 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
 
 function CaixaSimplesPage() {
   const qc = useQueryClient();
-  const [modo, setModo] = useState<"despesa" | "vale" | "conta_pagar">("despesa");
+  const [modo, setModo] = useState<"vale" | "conta_pagar">("vale");
   const [funcionarioId, setFuncionarioId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
@@ -530,8 +530,7 @@ function CaixaSimplesPage() {
           <CardTitle className="flex items-center gap-2 text-base"><Plus className="size-4" /> Novo lançamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            <Button type="button" size="sm" variant={modo === "despesa" ? "default" : "outline"} onClick={() => setModo("despesa")}>Despesa</Button>
+          <div className="grid grid-cols-2 gap-2">
             <Button type="button" size="sm" variant={modo === "vale" ? "default" : "outline"} onClick={() => setModo("vale")}>Vale</Button>
             <Button type="button" size="sm" variant={modo === "conta_pagar" ? "default" : "outline"} onClick={() => setModo("conta_pagar")}>Contas a pagar</Button>
           </div>
@@ -584,7 +583,7 @@ function CaixaSimplesPage() {
 
           {modo !== "vale" && (
             <>
-              {modo === "despesa" && (
+              {false && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Quantidade (opcional)</Label>
