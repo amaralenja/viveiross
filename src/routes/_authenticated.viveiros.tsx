@@ -399,17 +399,10 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setRacaoViveiro(v)}
-                  disabled={!ativo}
-                  className="h-11 rounded-xl bg-primary/10 text-primary font-semibold flex items-center justify-center gap-2 hover:bg-primary/15 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Utensils className="size-5" /> Lançar ração
-                </button>
+              <div className="mt-3">
                 <button
                   onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })}
-                  className={`h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
+                  className={`w-full h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
                 >
                   <Power className="size-5" /> {ativo ? "Desativar" : "Ativar"}
                 </button>
