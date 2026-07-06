@@ -156,11 +156,6 @@ function AdminPage() {
                     .then(() => { toast.success(`Acesso definido para ${n} dias`); invalidate(); })
                     .catch((e) => toast.error((e as Error).message))
                 }
-                onUnlimited={() =>
-                  setAccess({ data: { user_id: u.user_id, dias: null } })
-                    .then(() => { toast.success("Acesso ilimitado"); invalidate(); })
-                    .catch((e) => toast.error((e as Error).message))
-                }
                 onToggleAdmin={() =>
                   toggleAdmin({ data: { user_id: u.user_id, is_admin: !u.is_admin } })
                     .then(() => { toast.success(u.is_admin ? "Admin removido" : "Agora é admin"); invalidate(); })
@@ -181,38 +176,44 @@ function AdminPage() {
 }
 
 function UserCard({
-  u, onPassword, onAddDays, onSetDays, onUnlimited, onToggleAdmin, onDelete,
+  u, onPassword, onAddDays, onSetDays, onToggleAdmin, onDelete,
 }: {
   u: AdminUser;
   onPassword: () => void;
   onAddDays: (n: number) => void;
   onSetDays: (n: number) => void;
-  onUnlimited: () => void;
   onToggleAdmin: () => void;
   onDelete: () => void;
 }) {
   const [customDays, setCustomDays] = useState("");
   const [showCustom, setShowCustom] = useState(false);
   const dr = diasRestantes(u.expires_at);
-  const expirado = dr != null && dr <= 0;
+  const aguardando = !u.is_admin && (!u.has_access || u.expires_at == null);
+  const expirado = !aguardando && dr != null && dr <= 0;
   const acabando = dr != null && dr > 0 && dr <= 7;
 
   // Progresso: assume ciclo de 30 dias como referência
   const pct = u.is_admin
     ? 100
-    : dr == null
-      ? 100
+    : aguardando
+      ? 0
+      : dr == null
+        ? 0
       : Math.max(0, Math.min(100, (dr / 30) * 100));
 
   const statusColor = u.is_admin
     ? "border-primary/40 bg-primary/5"
+    : aguardando
+      ? "border-amber-500/50 bg-amber-500/5"
     : expirado
       ? "border-destructive/50 bg-destructive/5"
       : acabando
         ? "border-amber-500/50 bg-amber-500/5"
         : "border-border";
 
-  const barColor = expirado
+  const barColor = aguardando
+    ? "bg-amber-500"
+    : expirado
     ? "bg-destructive"
     : acabando
       ? "bg-amber-500"
@@ -232,6 +233,11 @@ function UserCard({
             {expirado && !u.is_admin && (
               <span className="text-[10px] font-bold uppercase tracking-wide bg-destructive/10 text-destructive px-2 py-0.5 rounded inline-flex items-center gap-1">
                 <AlertTriangle className="size-3" /> Expirado
+              </span>
+            )}
+            {aguardando && (
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                <Clock className="size-3" /> Aguardando liberação
               </span>
             )}
             {acabando && !u.is_admin && (
@@ -266,13 +272,13 @@ function UserCard({
             <div className="inline-flex items-center gap-1.5">
               <Clock className={`size-4 ${expirado ? "text-destructive" : acabando ? "text-amber-500" : "text-muted-foreground"}`} />
               <span className={`text-2xl font-bold tabular-nums ${expirado ? "text-destructive" : acabando ? "text-amber-600 dark:text-amber-400" : ""}`}>
-                {expirado ? 0 : dr ?? "∞"}
+                {aguardando || expirado ? 0 : dr ?? 0}
               </span>
               <span className="text-sm text-muted-foreground">
-                {expirado ? "dias — expirado" : "dias restantes"}
+                {aguardando ? "dias — liberar conta" : expirado ? "dias — expirado" : "dias restantes"}
               </span>
             </div>
-            <span className="text-xs text-muted-foreground">{formatDate(u.expires_at)}</span>
+            <span className="text-xs text-muted-foreground">{aguardando ? "Sem acesso ativo" : formatDate(u.expires_at)}</span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
@@ -283,7 +289,13 @@ function UserCard({
       {/* Ações de renovação */}
       {!u.is_admin && (
         <div className="grid gap-2">
-          <div className="grid grid-cols-3 gap-2">
+          {aguardando ? (
+            <button onClick={() => onSetDays(30)}
+              className="h-12 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-1">
+              <ShieldCheck className="size-4" /> Liberar conta por 30 dias
+            </button>
+          ) : null}
+          <div className="grid grid-cols-2 gap-2">
             <button onClick={() => onAddDays(30)}
               className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-1">
               <CalendarPlus className="size-4" /> +30 dias
@@ -291,10 +303,6 @@ function UserCard({
             <button onClick={() => onAddDays(7)}
               className="h-11 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
               +7 dias
-            </button>
-            <button onClick={onUnlimited}
-              className="h-11 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
-              <InfinityIcon className="size-4" /> Ilimitado
             </button>
           </div>
           {showCustom ? (
