@@ -190,9 +190,13 @@ function CaixaSimplesPage() {
   const { data: vales = [] } = useQuery({
     queryKey: ["vales", "totais"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("vales").select("valor, data_vale, motivo");
+      const { data, error } = await supabase
+        .from("vales")
+        .select("id, funcionario_id, valor, data_vale, motivo")
+        .order("data_vale", { ascending: false })
+        .limit(200);
       if (error) throw error;
-      return (data ?? []) as { valor: number; data_vale: string; motivo: string | null }[];
+      return (data ?? []) as { id: string; funcionario_id: string; valor: number; data_vale: string; motivo: string | null }[];
     },
   });
 
@@ -204,6 +208,32 @@ function CaixaSimplesPage() {
       return (data ?? []) as { id: string; nome: string; salario: number | null }[];
     },
   });
+
+  const funcionarioMap = useMemo(() => new Map(funcionarios.map((f) => [f.id, f.nome])), [funcionarios]);
+
+  const removeValeMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("vales").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Vale removido");
+      qc.invalidateQueries({ queryKey: ["vales"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const valesPorFuncionario = useMemo(() => {
+    const groups = new Map<string, { nome: string; total: number; itens: typeof vales }>();
+    for (const v of vales) {
+      const nome = funcionarioMap.get(v.funcionario_id) ?? "Funcionário removido";
+      const g = groups.get(v.funcionario_id) ?? { nome, total: 0, itens: [] };
+      g.total += Number(v.valor ?? 0);
+      g.itens.push(v);
+      groups.set(v.funcionario_id, g);
+    }
+    return Array.from(groups.entries()).sort((a, b) => a[1].nome.localeCompare(b[1].nome));
+  }, [vales, funcionarioMap]);
 
   const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
   const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
