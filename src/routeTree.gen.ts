@@ -16,7 +16,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as PTokenRouteImport } from './routes/p.$token'
 import { Route as AuthenticatedViveirosRouteImport } from './routes/_authenticated.viveiros'
-import { Route as AuthenticatedValesRouteImport } from './routes/_authenticated.vales'
 import { Route as AuthenticatedSenhasRouteImport } from './routes/_authenticated.senhas'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated.relatorios'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated.produtos'
@@ -59,11 +58,6 @@ const PTokenRoute = PTokenRouteImport.update({
 const AuthenticatedViveirosRoute = AuthenticatedViveirosRouteImport.update({
   id: '/viveiros',
   path: '/viveiros',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedValesRoute = AuthenticatedValesRouteImport.update({
-  id: '/vales',
-  path: '/vales',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSenhasRoute = AuthenticatedSenhasRouteImport.update({
@@ -125,7 +119,6 @@ export interface FileRoutesByFullPath {
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/senhas': typeof AuthenticatedSenhasRoute
-  '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
   '/p/$token': typeof PTokenRoute
   '/r/$token': typeof RTokenRoute
@@ -143,7 +136,6 @@ export interface FileRoutesByTo {
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/senhas': typeof AuthenticatedSenhasRoute
-  '/vales': typeof AuthenticatedValesRoute
   '/viveiros': typeof AuthenticatedViveirosRoute
   '/p/$token': typeof PTokenRoute
   '/r/$token': typeof RTokenRoute
@@ -163,7 +155,6 @@ export interface FileRoutesById {
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/senhas': typeof AuthenticatedSenhasRoute
-  '/_authenticated/vales': typeof AuthenticatedValesRoute
   '/_authenticated/viveiros': typeof AuthenticatedViveirosRoute
   '/p/$token': typeof PTokenRoute
   '/r/$token': typeof RTokenRoute
@@ -183,7 +174,6 @@ export interface FileRouteTypes {
     | '/produtos'
     | '/relatorios'
     | '/senhas'
-    | '/vales'
     | '/viveiros'
     | '/p/$token'
     | '/r/$token'
@@ -201,7 +191,6 @@ export interface FileRouteTypes {
     | '/produtos'
     | '/relatorios'
     | '/senhas'
-    | '/vales'
     | '/viveiros'
     | '/p/$token'
     | '/r/$token'
@@ -220,7 +209,6 @@ export interface FileRouteTypes {
     | '/_authenticated/produtos'
     | '/_authenticated/relatorios'
     | '/_authenticated/senhas'
-    | '/_authenticated/vales'
     | '/_authenticated/viveiros'
     | '/p/$token'
     | '/r/$token'
@@ -286,13 +274,6 @@ declare module '@tanstack/react-router' {
       path: '/viveiros'
       fullPath: '/viveiros'
       preLoaderRoute: typeof AuthenticatedViveirosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/vales': {
-      id: '/_authenticated/vales'
-      path: '/vales'
-      fullPath: '/vales'
-      preLoaderRoute: typeof AuthenticatedValesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/senhas': {
@@ -370,7 +351,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedSenhasRoute: typeof AuthenticatedSenhasRoute
-  AuthenticatedValesRoute: typeof AuthenticatedValesRoute
   AuthenticatedViveirosRoute: typeof AuthenticatedViveirosRoute
 }
 
@@ -383,7 +363,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedSenhasRoute: AuthenticatedSenhasRoute,
-  AuthenticatedValesRoute: AuthenticatedValesRoute,
   AuthenticatedViveirosRoute: AuthenticatedViveirosRoute,
 }
 
