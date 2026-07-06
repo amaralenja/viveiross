@@ -36,7 +36,7 @@ const MAIS_BASE = [
 type NavItem = { to: string; label: string; icon: typeof FileText };
 
 function AuthLayout() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [unlocked, setUnlocked] = useState(() => isUnlocked());
@@ -44,7 +44,7 @@ function AuthLayout() {
   const [maisOpen, setMaisOpen] = useState(false);
 
   const getMyAccess = useServerFn(getMyAccessFn);
-  const { data: acesso } = useQuery({
+  const { data: acesso, isLoading: accessLoading } = useQuery({
     queryKey: ["my-access", user?.id],
     queryFn: () => getMyAccess(),
     enabled: !!user,
@@ -53,8 +53,9 @@ function AuthLayout() {
 
   const isAdmin = !!acesso?.is_admin;
   const expiraEm = acesso?.expires_at ? new Date(acesso.expires_at).getTime() : null;
-  const expirado = !isAdmin && !!acesso && expiraEm != null && expiraEm <= Date.now();
-  const pendente = !isAdmin && !!acesso && expiraEm == null;
+  const hasAccess = !!acesso?.has_access;
+  const expirado = !isAdmin && hasAccess && expiraEm != null && expiraEm <= Date.now();
+  const pendente = !isAdmin && !!acesso && (!hasAccess || expiraEm == null);
   void expiraEm;
 
 
@@ -78,6 +79,14 @@ function AuthLayout() {
       e.preventDefault();
       setPending(to);
     }
+  }
+
+  if (authLoading || (!!user && accessLoading)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-muted-foreground">
+        Carregando acesso...
+      </div>
+    );
   }
 
   if (expirado || pendente) {
