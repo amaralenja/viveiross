@@ -8,6 +8,7 @@ export type AdminUser = {
   expires_at: string | null;
   is_admin: boolean;
   created_at: string;
+  has_access: boolean;
 };
 
 export const listUsersFn = createServerFn({ method: "GET" })
@@ -66,7 +67,7 @@ export const createUserFn = createServerFn({ method: "POST" })
 export const setAccessFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (d: { user_id: string; dias: number | null; addDays?: boolean }) => d,
+    (d: { user_id: string; dias: number; addDays?: boolean }) => d,
   )
   .handler(async ({ data, context }) => {
     const ctx = context as any;
@@ -133,11 +134,13 @@ export const getMyAccessFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as any;
-    const { data: access } = await ctx.supabase
+    const { data: access, error: accessError } = await ctx.supabase
       .from("user_access")
       .select("expires_at")
       .eq("user_id", ctx.userId)
       .maybeSingle();
+    if (accessError) throw new Error(accessError.message);
+
     const { data: isAdmin } = await ctx.supabase.rpc("has_role", {
       _user_id: ctx.userId,
       _role: "admin",
@@ -145,5 +148,6 @@ export const getMyAccessFn = createServerFn({ method: "GET" })
     return {
       expires_at: (access?.expires_at as string | null) ?? null,
       is_admin: !!isAdmin,
+      has_access: !!access,
     };
   });
