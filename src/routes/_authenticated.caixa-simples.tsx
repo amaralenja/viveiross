@@ -583,7 +583,7 @@ function CaixaSimplesPage() {
 
           {modo !== "vale" && (
             <>
-              {modo === "despesa" && (
+              {false && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Quantidade (opcional)</Label>
