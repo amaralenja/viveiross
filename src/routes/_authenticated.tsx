@@ -80,15 +80,20 @@ function AuthLayout() {
     }
   }
 
-  if (expirado) {
-    const whatsappUrl = `https://wa.me/5588972968298?text=${encodeURIComponent("Vital, minha assinatura venceu")}`;
+  if (expirado || pendente) {
+    const msg = pendente ? "Vital, acabei de criar minha conta e quero liberar o acesso" : "Vital, minha assinatura venceu";
+    const whatsappUrl = `https://wa.me/5588972968298?text=${encodeURIComponent(msg)}`;
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="max-w-md rounded-2xl border-2 border-destructive/40 bg-destructive/5 p-8 text-center">
           <Clock className="mx-auto size-12 text-destructive" />
-          <h1 className="mt-4 text-2xl font-bold">Sua assinatura venceu</h1>
+          <h1 className="mt-4 text-2xl font-bold">
+            {pendente ? "Conta aguardando liberação" : "Sua assinatura venceu"}
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Fale com o Vital no WhatsApp para renovar seu acesso.
+            {pendente
+              ? "Sua conta foi criada, mas o administrador ainda precisa liberar o acesso. Fale com o Vital no WhatsApp."
+              : "Fale com o Vital no WhatsApp para renovar seu acesso."}
           </p>
           <a
             href={whatsappUrl}
@@ -108,6 +113,7 @@ function AuthLayout() {
       </div>
     );
   }
+
 
 
 
