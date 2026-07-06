@@ -722,8 +722,8 @@ function LancarRacaoModal({
             <input
               required
               type="number"
-              min="0.001"
-              step="0.001"
+              min="0"
+              step="any"
               inputMode="decimal"
               value={quantidade}
               onChange={(e) => setQuantidade(e.target.value)}
