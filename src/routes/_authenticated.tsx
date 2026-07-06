@@ -29,7 +29,6 @@ const NAV = [
 
 const MAIS_BASE = [
   { to: "/relatorios", label: "Relatórios", icon: FileText },
-  { to: "/vales", label: "Vales", icon: HandCoins },
   { to: "/caixa-simples", label: "Caixa Simples", icon: Zap },
   { to: "/senhas", label: "Senhas", icon: KeyRound },
 ] as const;
