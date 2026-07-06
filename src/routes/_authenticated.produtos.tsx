@@ -102,7 +102,7 @@ function UnidadeSelect({ value, onChange }: { value: string; onChange: (v: strin
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras" | "despesas">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
@@ -257,7 +257,7 @@ function ProdutosPage() {
   function openNovo() {
     if (tab === "produtos") setOpenProd(true);
     else if (tab === "funcionarios") setOpenFunc(true);
-    else if (tab === "despesas") setOpenDesp(true);
+    else if (tab === "compras") setOpenEntrada(true);
     else setOpenEntrada(true); // estoque ou compras
   }
 
@@ -276,12 +276,12 @@ function ProdutosPage() {
           className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
         >
           <Plus className="size-5" />
-          {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : tab === "despesas" ? "Despesa" : "Novo"}
+          {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : "Novo"}
         </button>
       </div>
 
       <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
-        {(["produtos", "funcionarios", "estoque", "compras", "despesas"] as const).map((t) => (
+        {(["produtos", "funcionarios", "estoque", "compras"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -291,7 +291,7 @@ function ProdutosPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : t === "compras" ? "Compras" : "Despesas"}
+            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : "Compras"}
           </button>
         ))}
       </div>
