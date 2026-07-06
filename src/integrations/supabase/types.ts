@@ -832,6 +832,7 @@ export type Database = {
           created_at: string
           email: string
           expires_at: string
+          has_access: boolean
           is_admin: boolean
           user_id: string
         }[]
