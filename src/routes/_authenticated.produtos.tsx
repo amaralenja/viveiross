@@ -102,7 +102,7 @@ function UnidadeSelect({ value, onChange }: { value: string; onChange: (v: strin
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras" | "despesas">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
