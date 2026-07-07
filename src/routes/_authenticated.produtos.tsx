@@ -504,6 +504,7 @@ function EstoqueView({
   entradas,
   saldoPorProduto,
   onNovaEntrada,
+  onCadastrarProduto,
   onEditEntrada,
   onDelEntrada,
   onEditProduto,
@@ -513,6 +514,7 @@ function EstoqueView({
   entradas: EstoqueEntrada[];
   saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
   onNovaEntrada: () => void;
+  onCadastrarProduto: () => void;
   onEditEntrada: (e: EstoqueEntrada) => void;
   onDelEntrada: (e: EstoqueEntrada) => void;
   onEditProduto: (p: Produto) => void;
@@ -524,12 +526,13 @@ function EstoqueView({
     return (
       <Empty
         icon={<Boxes className="size-12 mx-auto text-muted-foreground" />}
-        titulo="Cadastre produtos antes"
-        descricao="Você precisa ter produtos cadastrados pra controlar o estoque."
-        onClick={onNovaEntrada}
+        titulo="Cadastre um produto primeiro"
+        descricao="Você precisa ter pelo menos um produto cadastrado pra controlar o estoque."
+        onClick={onCadastrarProduto}
       />
     );
   }
+
 
   const produtosOrdenados = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
   const totalEstoque = produtosOrdenados.reduce((sum, p) => {
