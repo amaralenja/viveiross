@@ -665,12 +665,14 @@ function ComprasView({
   produtos,
   entradas,
   onNovaCompra,
+  onCadastrarProduto,
   onEditCompra,
   onDelCompra,
 }: {
   produtos: Produto[];
   entradas: EstoqueEntrada[];
   onNovaCompra: () => void;
+  onCadastrarProduto: () => void;
   onEditCompra: (e: EstoqueEntrada) => void;
   onDelCompra: (e: EstoqueEntrada) => void;
 }) {
@@ -678,12 +680,13 @@ function ComprasView({
     return (
       <Empty
         icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
-        titulo="Cadastre produtos antes"
-        descricao="Você precisa ter produtos cadastrados pra lançar compras."
-        onClick={onNovaCompra}
+        titulo="Cadastre um produto primeiro"
+        descricao="Pra lançar compras você precisa ter pelo menos um produto cadastrado. Assim o preço e a unidade puxam automático."
+        onClick={onCadastrarProduto}
       />
     );
   }
+
 
   const totalGasto = entradas.reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
 
