@@ -389,6 +389,7 @@ function ProdutosPage() {
           entradas={entradas}
           saldoPorProduto={saldoPorProduto}
           onNovaEntrada={() => setOpenEntrada(true)}
+          onCadastrarProduto={() => setOpenProd(true)}
           onEditEntrada={(e) => setEditandoEntrada(e)}
           onDelEntrada={(e) => {
             if (confirm(`Remover entrada de ${formatNumber(e.quantidade)} ${e.unidade}?`))
@@ -399,6 +400,7 @@ function ProdutosPage() {
             if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
           }}
         />
+
 
       ) : tab === "compras" ? (
         <ComprasView
