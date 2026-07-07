@@ -389,6 +389,7 @@ function ProdutosPage() {
           entradas={entradas}
           saldoPorProduto={saldoPorProduto}
           onNovaEntrada={() => setOpenEntrada(true)}
+          onCadastrarProduto={() => setOpenProd(true)}
           onEditEntrada={(e) => setEditandoEntrada(e)}
           onDelEntrada={(e) => {
             if (confirm(`Remover entrada de ${formatNumber(e.quantidade)} ${e.unidade}?`))
@@ -400,17 +401,20 @@ function ProdutosPage() {
           }}
         />
 
+
       ) : tab === "compras" ? (
         <ComprasView
           produtos={produtos}
           entradas={entradas}
           onNovaCompra={() => setOpenEntrada(true)}
+          onCadastrarProduto={() => setOpenProd(true)}
           onEditCompra={(e) => setEditandoEntrada(e)}
           onDelCompra={(e) => {
             if (confirm(`Remover compra de ${formatNumber(e.quantidade)} ${e.unidade}?`))
               delEntradaMut.mutate(e.id);
           }}
         />
+
       ) : (
         <DespesasView
           despesas={despesas}
@@ -500,6 +504,7 @@ function EstoqueView({
   entradas,
   saldoPorProduto,
   onNovaEntrada,
+  onCadastrarProduto,
   onEditEntrada,
   onDelEntrada,
   onEditProduto,
@@ -509,6 +514,7 @@ function EstoqueView({
   entradas: EstoqueEntrada[];
   saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
   onNovaEntrada: () => void;
+  onCadastrarProduto: () => void;
   onEditEntrada: (e: EstoqueEntrada) => void;
   onDelEntrada: (e: EstoqueEntrada) => void;
   onEditProduto: (p: Produto) => void;
@@ -520,12 +526,13 @@ function EstoqueView({
     return (
       <Empty
         icon={<Boxes className="size-12 mx-auto text-muted-foreground" />}
-        titulo="Cadastre produtos antes"
-        descricao="Você precisa ter produtos cadastrados pra controlar o estoque."
-        onClick={onNovaEntrada}
+        titulo="Cadastre um produto primeiro"
+        descricao="Você precisa ter pelo menos um produto cadastrado pra controlar o estoque."
+        onClick={onCadastrarProduto}
       />
     );
   }
+
 
   const produtosOrdenados = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
   const totalEstoque = produtosOrdenados.reduce((sum, p) => {
@@ -663,12 +670,14 @@ function ComprasView({
   produtos,
   entradas,
   onNovaCompra,
+  onCadastrarProduto,
   onEditCompra,
   onDelCompra,
 }: {
   produtos: Produto[];
   entradas: EstoqueEntrada[];
   onNovaCompra: () => void;
+  onCadastrarProduto: () => void;
   onEditCompra: (e: EstoqueEntrada) => void;
   onDelCompra: (e: EstoqueEntrada) => void;
 }) {
@@ -676,12 +685,13 @@ function ComprasView({
     return (
       <Empty
         icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
-        titulo="Cadastre produtos antes"
-        descricao="Você precisa ter produtos cadastrados pra lançar compras."
-        onClick={onNovaCompra}
+        titulo="Cadastre um produto primeiro"
+        descricao="Pra lançar compras você precisa ter pelo menos um produto cadastrado. Assim o preço e a unidade puxam automático."
+        onClick={onCadastrarProduto}
       />
     );
   }
+
 
   const totalGasto = entradas.reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
 
