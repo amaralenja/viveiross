@@ -405,12 +405,14 @@ function ProdutosPage() {
           produtos={produtos}
           entradas={entradas}
           onNovaCompra={() => setOpenEntrada(true)}
+          onCadastrarProduto={() => setOpenProd(true)}
           onEditCompra={(e) => setEditandoEntrada(e)}
           onDelCompra={(e) => {
             if (confirm(`Remover compra de ${formatNumber(e.quantidade)} ${e.unidade}?`))
               delEntradaMut.mutate(e.id);
           }}
         />
+
       ) : (
         <DespesasView
           despesas={despesas}
