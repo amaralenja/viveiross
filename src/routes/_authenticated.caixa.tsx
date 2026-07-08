@@ -535,7 +535,7 @@ function CaixaPage() {
     const totalReceitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
     const saldoGeral = totalReceitas - totalDespesas;
 
-    const rateados = lancamentos.filter((l) => !l.viveiro_id);
+    const rateados = lancamentos.filter((l) => !l.viveiro_id && l.categoria !== NR_CAT);
     const despesasGerais = rateados.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
     const receitasGerais = rateados.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
     const nAtivos = viveiros.length || 1;
