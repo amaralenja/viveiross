@@ -37,6 +37,8 @@ function fmtQtd(q: number | null, u: string | null) {
 }
 
 const TODOS = "__todos__";
+const NAO_RATEADO = "__nao_rateado__";
+const NR_CAT = "nao_rateado";
 
 function fmtBRL(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -483,12 +485,13 @@ function CaixaPage() {
       if (!descricao.trim()) throw new Error("Informe a descrição.");
       if (!valorFinal || valorFinal <= 0) throw new Error("Informe o valor.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
+      const isNR = viveiroId === NAO_RATEADO;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: userId,
-        viveiro_id: viveiroId === TODOS ? null : viveiroId,
+        viveiro_id: (viveiroId === TODOS || isNR) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: categoria.trim() || (tipo === "receita" ? "venda" : "geral"),
+        categoria: isNR ? NR_CAT : (categoria.trim() || (tipo === "receita" ? "venda" : "geral")),
         valor: valorFinal,
         tipo,
         quantidade: qNum > 0 ? qNum : null,
@@ -532,7 +535,7 @@ function CaixaPage() {
     const totalReceitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
     const saldoGeral = totalReceitas - totalDespesas;
 
-    const rateados = lancamentos.filter((l) => !l.viveiro_id);
+    const rateados = lancamentos.filter((l) => !l.viveiro_id && l.categoria !== NR_CAT);
     const despesasGerais = rateados.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
     const receitasGerais = rateados.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
     const nAtivos = viveiros.length || 1;
@@ -853,6 +856,7 @@ function CaixaPage() {
               className="app-input"
             >
               <option value={TODOS}>🔄 Todos (rateado)</option>
+              <option value={NAO_RATEADO}>🚫 Não rateado</option>
               {viveiros.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.nome}
@@ -1202,7 +1206,9 @@ function EditModal({
   onSaved: () => void;
 }) {
   const [tipo, setTipo] = useState<"despesa" | "receita">(lanc.tipo ?? "despesa");
-  const [viveiroId, setViveiroId] = useState<string>(lanc.viveiro_id ?? TODOS);
+  const [viveiroId, setViveiroId] = useState<string>(
+    lanc.categoria === NR_CAT ? NAO_RATEADO : (lanc.viveiro_id ?? TODOS)
+  );
   const [data, setData] = useState(lanc.data_lancamento);
   const [descricao, setDescricao] = useState(lanc.descricao);
   const [categoria, setCategoria] = useState(lanc.categoria);
@@ -1215,10 +1221,10 @@ function EditModal({
       const { error } = await supabase
         .from("caixa_lancamentos")
         .update({
-          viveiro_id: viveiroId === TODOS ? null : viveiroId,
+          viveiro_id: (viveiroId === TODOS || viveiroId === NAO_RATEADO) ? null : viveiroId,
           data_lancamento: data,
           descricao: descricao.trim(),
-          categoria: categoria.trim() || "geral",
+          categoria: viveiroId === NAO_RATEADO ? NR_CAT : (categoria.trim() || "geral"),
           valor: v,
           tipo,
         })
@@ -1275,6 +1281,7 @@ function EditModal({
               className="app-input"
             >
               <option value={TODOS}>🔄 Todos (rateado)</option>
+              <option value={NAO_RATEADO}>🚫 Não rateado</option>
               {viveiros.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.nome}
