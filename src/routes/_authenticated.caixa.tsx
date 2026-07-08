@@ -396,6 +396,7 @@ function CaixaPage() {
   const [unidade, setUnidade] = useState<string>("kg");
   const [valorManual, setValorManual] = useState("");
   const [socioId, setSocioId] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos"],
