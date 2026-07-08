@@ -485,12 +485,13 @@ function CaixaPage() {
       if (!descricao.trim()) throw new Error("Informe a descrição.");
       if (!valorFinal || valorFinal <= 0) throw new Error("Informe o valor.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
+      const isNR = viveiroId === NAO_RATEADO;
       const { error } = await supabase.from("caixa_lancamentos").insert({
         user_id: userId,
-        viveiro_id: viveiroId === TODOS ? null : viveiroId,
+        viveiro_id: (viveiroId === TODOS || isNR) ? null : viveiroId,
         data_lancamento: data,
         descricao: descricao.trim(),
-        categoria: categoria.trim() || (tipo === "receita" ? "venda" : "geral"),
+        categoria: isNR ? NR_CAT : (categoria.trim() || (tipo === "receita" ? "venda" : "geral")),
         valor: valorFinal,
         tipo,
         quantidade: qNum > 0 ? qNum : null,
