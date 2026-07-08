@@ -632,6 +632,7 @@ function CaixaPage() {
   }, [lancamentos, viveiros]);
 
   const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
+  const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
 
 
 
