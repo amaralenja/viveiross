@@ -856,6 +856,7 @@ function CaixaPage() {
               className="app-input"
             >
               <option value={TODOS}>🔄 Todos (rateado)</option>
+              <option value={NAO_RATEADO}>🚫 Não rateado</option>
               {viveiros.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.nome}
