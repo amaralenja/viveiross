@@ -421,40 +421,6 @@ function CaixaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const { data: produtos = [] } = useQuery({
-    queryKey: ["produtos", "caixa"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("id, nome, categoria, unidade, preco_unidade")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as Array<{
-        id: string;
-        nome: string;
-        categoria: string;
-        unidade: string;
-        preco_unidade: number | null;
-      }>;
-    },
-  });
-
-  const { data: funcionarios = [] } = useQuery({
-    queryKey: ["funcionarios", "caixa"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("funcionarios")
-        .select("id, nome, salario, viveiro_id")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as Array<{
-        id: string;
-        nome: string;
-        salario: number;
-        viveiro_id: string | null;
-      }>;
-    },
-  });
 
   const { data: socios = [] } = useQuery({
     queryKey: ["socios"],
