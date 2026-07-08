@@ -1162,6 +1162,26 @@ function CaixaPage() {
                   >
                     {l.tipo === "receita" ? "+" : "−"} {fmtBRL(Number(l.valor ?? 0))}
                   </span>
+                  <div className="flex gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(l)}
+                      className="size-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                      aria-label="Editar"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`Apagar "${l.descricao}"?`)) delMut.mutate(l.id);
+                      }}
+                      className="size-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                      aria-label="Apagar"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 </li>
               );
             })}
