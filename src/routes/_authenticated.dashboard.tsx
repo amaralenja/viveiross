@@ -211,39 +211,49 @@ function Dashboard() {
               />
             </Field>
           </div>
-          {produtosList.length > 0 && (
-            <Field label="Produto cadastrado">
-              <select
-                value={produtoId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setProdutoId(id);
-                  const p = produtosList.find((x) => x.id === id);
-                  if (p) setProduto(p.nome);
-                }}
-                className="app-input"
-              >
-                <option value="">— Selecionar produto cadastrado —</option>
-                {produtosList.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nome}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-          <Field label="Ração (nome)">
-            <input
-              required
-              value={produto}
+          <Field label="Produto">
+            <select
+              value={produtoId || (produto ? "__manual__" : "")}
               onChange={(e) => {
-                setProduto(e.target.value);
-                setProdutoId("");
+                const id = e.target.value;
+                if (id === "__manual__") {
+                  setProdutoId("");
+                  setProduto("");
+                  return;
+                }
+                setProdutoId(id);
+                const p = produtosList.find((x) => x.id === id);
+                if (p) setProduto(p.nome);
+                else setProduto("");
               }}
               className="app-input"
-              placeholder="Ex: Ração 40% — ou escolha acima"
-            />
+              required
+            >
+              <option value="">— Escolha o produto —</option>
+              {produtosList.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                  {p.preco_unidade != null ? ` — R$ ${Number(p.preco_unidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/${p.unidade}` : ""}
+                </option>
+              ))}
+              <option value="__manual__">✏️ Outro (digitar nome)</option>
+            </select>
           </Field>
+          {!produtoId && (
+            <Field label="Ração (nome)">
+              <input
+                required
+                value={produto}
+                onChange={(e) => {
+                  setProduto(e.target.value);
+                  setProdutoId("");
+                }}
+                className="app-input"
+                placeholder="Ex: Ração 40%"
+              />
+            </Field>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <Field label="Quantidade (kg)">
               <input
