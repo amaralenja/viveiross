@@ -926,7 +926,7 @@ function CaixaPage() {
             Calcular por preço × quantidade (opcional)
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Preço por kg (R$)">
+            <Field label="Preço (R$)">
               <input
                 type="text"
                 inputMode="decimal"
@@ -950,11 +950,15 @@ function CaixaPage() {
                 />
                 <select
                   value={unidade}
-                  onChange={(e) => setUnidade(e.target.value as "kg" | "g")}
-                  className="app-input w-20"
+                  onChange={(e) => setUnidade(e.target.value)}
+                  className="app-input w-24"
                 >
                   <option value="kg">kg</option>
                   <option value="g">g</option>
+                  <option value="saco">saco</option>
+                  <option value="sacola">sacola</option>
+                  <option value="litro">litro</option>
+                  <option value="un">unidade</option>
                 </select>
               </div>
             </Field>
