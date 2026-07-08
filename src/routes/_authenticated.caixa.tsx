@@ -421,40 +421,6 @@ function CaixaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const { data: produtos = [] } = useQuery({
-    queryKey: ["produtos", "caixa"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("id, nome, categoria, unidade, preco_unidade")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as Array<{
-        id: string;
-        nome: string;
-        categoria: string;
-        unidade: string;
-        preco_unidade: number | null;
-      }>;
-    },
-  });
-
-  const { data: funcionarios = [] } = useQuery({
-    queryKey: ["funcionarios", "caixa"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("funcionarios")
-        .select("id, nome, salario, viveiro_id")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as Array<{
-        id: string;
-        nome: string;
-        salario: number;
-        viveiro_id: string | null;
-      }>;
-    },
-  });
 
   const { data: socios = [] } = useQuery({
     queryKey: ["socios"],
@@ -905,61 +871,6 @@ function CaixaPage() {
           </Field>
         </div>
 
-        {(produtos.length > 0 || funcionarios.length > 0) && (
-          <Field label="Produto ou funcionário (opcional)">
-            <select
-              value={produtoId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setProdutoId(id);
-                if (id.startsWith("func:")) {
-                  const fid = id.slice(5);
-                  const f = funcionarios.find((x) => x.id === fid);
-                  if (f) {
-                    setDescricao(`Salário: ${f.nome}`);
-                    setCategoria("salario");
-                    setPrecoKg("");
-                    setQtd("");
-                    setValorManual(String(f.salario));
-                    setViveiroId(f.viveiro_id ?? TODOS);
-                  }
-                  return;
-                }
-                const p = produtos.find((x) => x.id === id);
-                if (p) {
-                  setDescricao(p.nome);
-                  if (p.categoria) setCategoria(p.categoria);
-                  if (p.preco_unidade != null) setPrecoKg(String(p.preco_unidade));
-                }
-              }}
-              className="app-input"
-            >
-              <option value="">— Digitar manualmente —</option>
-              {produtos.length > 0 && (
-                <optgroup label="Produtos">
-                  {produtos.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nome}
-                      {p.preco_unidade != null
-                        ? ` · R$ ${Number(p.preco_unidade).toLocaleString("pt-BR")}/${p.unidade}`
-                        : ""}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {funcionarios.length > 0 && (
-                <optgroup label="Funcionários (salário)">
-                  {funcionarios.map((f) => (
-                    <option key={f.id} value={`func:${f.id}`}>
-                      {f.nome} · {Number(f.salario).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                      {f.viveiro_id ? "" : " · rateado"}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </Field>
-        )}
 
         <Field label="Descrição">
           <input
