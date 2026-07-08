@@ -1221,10 +1221,10 @@ function EditModal({
       const { error } = await supabase
         .from("caixa_lancamentos")
         .update({
-          viveiro_id: viveiroId === TODOS ? null : viveiroId,
+          viveiro_id: (viveiroId === TODOS || viveiroId === NAO_RATEADO) ? null : viveiroId,
           data_lancamento: data,
           descricao: descricao.trim(),
-          categoria: categoria.trim() || "geral",
+          categoria: viveiroId === NAO_RATEADO ? NR_CAT : (categoria.trim() || "geral"),
           valor: v,
           tipo,
         })
