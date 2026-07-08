@@ -380,6 +380,67 @@ async function exportAllXLSX(viveiros: ViveiroRel[], resumo: { totalReceitas: nu
   );
 }
 
+function buildFlatPDF(doc: jsPDF, rows: Lanc[], viveiroMap: Map<string, string>, title: string) {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  let y = 20;
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, 14, y);
+  y += 7;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, y);
+  doc.setTextColor(0);
+  y += 8;
+
+  const receitas = rows.filter((r) => r.tipo === "receita").reduce((s, r) => s + Number(r.valor ?? 0), 0);
+  const despesas = rows.filter((r) => r.tipo !== "receita").reduce((s, r) => s + Number(r.valor ?? 0), 0);
+  const saldo = receitas - despesas;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Receitas:", 14, y); doc.setFont("helvetica", "normal");
+  doc.setTextColor(0, 130, 70); doc.text(fmtBRL(receitas), 40, y);
+  doc.setTextColor(0); doc.setFont("helvetica", "bold");
+  doc.text("Despesas:", 80, y); doc.setFont("helvetica", "normal");
+  doc.setTextColor(180, 30, 30); doc.text(fmtBRL(despesas), 108, y);
+  doc.setTextColor(0); doc.setFont("helvetica", "bold");
+  doc.text("Saldo:", 150, y); doc.setFont("helvetica", "normal");
+  doc.setTextColor(saldo >= 0 ? 0 : 180, saldo >= 0 ? 130 : 30, saldo >= 0 ? 70 : 30);
+  doc.text(fmtBRL(saldo), 168, y);
+  doc.setTextColor(0);
+  y += 10;
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.setFillColor(240, 240, 240);
+  doc.rect(14, y - 4, pageW - 28, 6, "F");
+  doc.text("Data", 16, y);
+  doc.text("Descrição", 36, y);
+  doc.text("Viveiro", 96, y);
+  doc.text("Tipo", 140, y);
+  doc.text("Valor", pageW - 16, y, { align: "right" });
+  y += 4;
+  doc.setFont("helvetica", "normal");
+  for (const r of rows) {
+    if (y > pageH - 20) { doc.addPage(); y = 20; }
+    y += 5;
+    doc.text(fmtDate(r.data_lancamento), 16, y);
+    const desc = r.descricao.length > 32 ? r.descricao.slice(0, 32) + "…" : r.descricao;
+    doc.text(desc, 36, y);
+    const viv = r.categoria === NR_CAT
+      ? "Não rateado"
+      : r.viveiro_id
+        ? (viveiroMap.get(r.viveiro_id) ?? "—")
+        : "Rateado";
+    doc.text(viv.length > 22 ? viv.slice(0, 22) + "…" : viv, 96, y);
+    doc.text(r.tipo === "receita" ? "Receita" : "Despesa", 140, y);
+    const sign = r.tipo === "receita" ? "+" : "-";
+    doc.text(`${sign} ${fmtBRL(Number(r.valor ?? 0))}`, pageW - 16, y, { align: "right" });
+  }
+}
+
 function CaixaPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Lanc | null>(null);
@@ -396,6 +457,7 @@ function CaixaPage() {
   const [unidade, setUnidade] = useState<string>("kg");
   const [valorManual, setValorManual] = useState("");
   const [socioId, setSocioId] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos"],
@@ -570,6 +632,7 @@ function CaixaPage() {
   }, [lancamentos, viveiros]);
 
   const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
+  const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
 
 
 
@@ -1001,6 +1064,111 @@ function CaixaPage() {
           Sem despesas ainda.
         </div>
       )}
+
+      {lancamentos.length > 0 && (
+        <section className="rounded-2xl bg-card border p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <h2 className="font-bold">Histórico geral</h2>
+              <p className="text-xs text-muted-foreground">
+                {selectedIds.size > 0
+                  ? `${selectedIds.size} selecionado(s)`
+                  : `${lancamentos.length} lançamento(s)`}
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {selectedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="h-9 px-3 rounded-lg border text-xs font-semibold hover:bg-muted"
+                >
+                  Limpar
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={selectedIds.size === 0}
+                onClick={() => {
+                  const rows = lancamentos.filter((l) => selectedIds.has(l.id));
+                  const doc = new jsPDF();
+                  buildFlatPDF(doc, rows, viveiroMap, "Caixa · Selecionados");
+                  openPdf(doc, `caixa-selecionados-${new Date().toISOString().slice(0, 10)}.pdf`);
+                  toast.success("PDF gerado");
+                }}
+                className="h-9 px-3 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 disabled:opacity-40 flex items-center gap-1.5"
+              >
+                <FileDown className="size-3.5" /> Imprimir selecionados
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const doc = new jsPDF();
+                  buildFlatPDF(doc, lancamentos, viveiroMap, "Caixa · Histórico completo");
+                  openPdf(doc, `caixa-completo-${new Date().toISOString().slice(0, 10)}.pdf`);
+                  toast.success("PDF gerado");
+                }}
+                className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 flex items-center gap-1.5"
+              >
+                <Download className="size-3.5" /> Imprimir tudo
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pb-2 border-b">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === lancamentos.length && lancamentos.length > 0}
+              onChange={(e) => {
+                if (e.target.checked) setSelectedIds(new Set(lancamentos.map((l) => l.id)));
+                else setSelectedIds(new Set());
+              }}
+              className="size-4"
+            />
+            <span className="text-xs font-semibold text-muted-foreground">Selecionar todos</span>
+          </div>
+
+          <ul className="divide-y">
+            {lancamentos.map((l) => {
+              const checked = selectedIds.has(l.id);
+              const vivLabel = l.categoria === NR_CAT
+                ? "Não rateado"
+                : l.viveiro_id
+                  ? (viveiroMap.get(l.viveiro_id) ?? "—")
+                  : "Rateado";
+              return (
+                <li key={l.id} className="flex items-center gap-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(l.id);
+                        else next.delete(l.id);
+                        return next;
+                      });
+                    }}
+                    className="size-4 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{l.descricao}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {fmtDate(l.data_lancamento)} · {vivLabel}
+                    </p>
+                  </div>
+                  <span
+                    className={`font-semibold tabular-nums text-sm shrink-0 ${l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
+                  >
+                    {l.tipo === "receita" ? "+" : "−"} {fmtBRL(Number(l.valor ?? 0))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
 
 
 
