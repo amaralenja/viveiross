@@ -37,6 +37,8 @@ function fmtQtd(q: number | null, u: string | null) {
 }
 
 const TODOS = "__todos__";
+const NAO_RATEADO = "__nao_rateado__";
+const NR_CAT = "nao_rateado";
 
 function fmtBRL(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
