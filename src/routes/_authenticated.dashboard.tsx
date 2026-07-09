@@ -58,14 +58,26 @@ function Dashboard() {
   });
 
   const { data: produtosList = [] } = useQuery({
-    queryKey: ["produtos", "racao"],
+    queryKey: ["produtos", "dashboard-select"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("id, nome, unidade, preco_unidade")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
+      const [{ data: prods, error: errP }, { data: lancs, error: errL }] = await Promise.all([
+        supabase.from("produtos").select("id, nome, unidade, preco_unidade").order("nome"),
+        supabase.from("lancamentos").select("produto_nome, unidade, preco_unidade, data_lancamento").order("data_lancamento", { ascending: false }).limit(500),
+      ]);
+      if (errP) throw errP;
+      if (errL) throw errL;
+      const list = ((prods ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[]).slice();
+      const seen = new Set(list.map((p) => p.nome.trim().toLowerCase()));
+      for (const l of (lancs ?? []) as { produto_nome: string | null; unidade: string | null; preco_unidade: number | null }[]) {
+        const nome = (l.produto_nome ?? "").trim();
+        if (!nome) continue;
+        const key = nome.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        list.push({ id: `hist:${key}`, nome, unidade: l.unidade ?? "kg", preco_unidade: l.preco_unidade });
+      }
+      list.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      return list;
     },
   });
 
