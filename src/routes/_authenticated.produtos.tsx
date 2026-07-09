@@ -470,9 +470,11 @@ function ProdutosPage() {
           }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+            qc.invalidateQueries({ queryKey: ["produtos"] });
             setOpenEntrada(false);
             setEditandoEntrada(null);
           }}
+
         />
       )}
 
