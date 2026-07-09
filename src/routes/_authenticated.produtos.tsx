@@ -816,8 +816,27 @@ function EntradaEstoqueModal({
       if (!produtoId) throw new Error("Selecione um produto");
       if (!(qtdNum > 0)) throw new Error("Quantidade inválida");
 
+      let finalProdutoId = produtoId;
+      if (isNovo) {
+        const nome = novoNome.trim();
+        if (!nome) throw new Error("Digite o nome do novo produto");
+        const { data: novoProd, error: novoErr } = await supabase
+          .from("produtos")
+          .insert({
+            user_id,
+            nome,
+            categoria: "outro",
+            unidade: unidade.trim() || "kg",
+            preco_unidade: precoNum,
+          })
+          .select("id")
+          .single();
+        if (novoErr) throw novoErr;
+        finalProdutoId = novoProd.id;
+      }
+
       const payload = {
-        produto_id: produtoId,
+        produto_id: finalProdutoId,
         quantidade: qtdNum,
         unidade: unidade.trim() || "kg",
         preco_unidade: precoNum,
@@ -841,6 +860,7 @@ function EntradaEstoqueModal({
         if (error) throw error;
         toast.success("Entrada registrada!");
       }
+
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao salvar");
