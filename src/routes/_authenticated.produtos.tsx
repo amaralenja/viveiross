@@ -470,9 +470,11 @@ function ProdutosPage() {
           }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+            qc.invalidateQueries({ queryKey: ["produtos"] });
             setOpenEntrada(false);
             setEditandoEntrada(null);
           }}
+
         />
       )}
 
@@ -685,12 +687,13 @@ function ComprasView({
     return (
       <Empty
         icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
-        titulo="Cadastre um produto primeiro"
-        descricao="Pra lançar compras você precisa ter pelo menos um produto cadastrado. Assim o preço e a unidade puxam automático."
-        onClick={onCadastrarProduto}
+        titulo="Nenhuma compra ainda"
+        descricao="Clique em Compra pra lançar. Você pode cadastrar o produto na hora."
+        onClick={onNovaCompra}
       />
     );
   }
+
 
 
   const totalGasto = entradas.reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
@@ -782,6 +785,8 @@ function EntradaEstoqueModal({
   onSaved: () => void;
 }) {
   const [produtoId, setProdutoId] = useState(entrada?.produto_id ?? produtos[0]?.id ?? "");
+  const [novoNome, setNovoNome] = useState("");
+  const isNovo = produtoId === "__novo__";
   const [quantidade, setQuantidade] = useState(
     entrada?.quantidade != null ? String(entrada.quantidade) : "",
   );
@@ -799,6 +804,7 @@ function EntradaEstoqueModal({
   const [observacao, setObservacao] = useState(entrada?.observacao ?? "");
   const [loading, setLoading] = useState(false);
 
+
   const qtdNum = Number(String(quantidade).replace(",", ".")) || 0;
   const precoNum = preco.trim() === "" ? null : Number(String(preco).replace(",", "."));
   const custoTotal = precoNum != null && qtdNum > 0 ? precoNum * qtdNum : null;
@@ -813,8 +819,27 @@ function EntradaEstoqueModal({
       if (!produtoId) throw new Error("Selecione um produto");
       if (!(qtdNum > 0)) throw new Error("Quantidade inválida");
 
+      let finalProdutoId = produtoId;
+      if (isNovo) {
+        const nome = novoNome.trim();
+        if (!nome) throw new Error("Digite o nome do novo produto");
+        const { data: novoProd, error: novoErr } = await supabase
+          .from("produtos")
+          .insert({
+            user_id,
+            nome,
+            categoria: "outro",
+            unidade: unidade.trim() || "kg",
+            preco_unidade: precoNum,
+          })
+          .select("id")
+          .single();
+        if (novoErr) throw novoErr;
+        finalProdutoId = novoProd.id;
+      }
+
       const payload = {
-        produto_id: produtoId,
+        produto_id: finalProdutoId,
         quantidade: qtdNum,
         unidade: unidade.trim() || "kg",
         preco_unidade: precoNum,
@@ -838,6 +863,7 @@ function EntradaEstoqueModal({
         if (error) throw error;
         toast.success("Entrada registrada!");
       }
+
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao salvar");
@@ -869,8 +895,20 @@ function EntradaEstoqueModal({
                 {p.nome}
               </option>
             ))}
+            <option value="__novo__">+ Cadastrar novo produto…</option>
           </select>
+          {isNovo && (
+            <input
+              required
+              autoFocus
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              placeholder="Nome do novo produto (ex: Ração 40%)"
+              className="app-input mt-2"
+            />
+          )}
         </Field>
+
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Quantidade">
