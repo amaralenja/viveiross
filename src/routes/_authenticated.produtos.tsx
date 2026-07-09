@@ -892,8 +892,20 @@ function EntradaEstoqueModal({
                 {p.nome}
               </option>
             ))}
+            <option value="__novo__">+ Cadastrar novo produto…</option>
           </select>
+          {isNovo && (
+            <input
+              required
+              autoFocus
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              placeholder="Nome do novo produto (ex: Ração 40%)"
+              className="app-input mt-2"
+            />
+          )}
         </Field>
+
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Quantidade">
