@@ -687,12 +687,13 @@ function ComprasView({
     return (
       <Empty
         icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
-        titulo="Cadastre um produto primeiro"
-        descricao="Pra lançar compras você precisa ter pelo menos um produto cadastrado. Assim o preço e a unidade puxam automático."
-        onClick={onCadastrarProduto}
+        titulo="Nenhuma compra ainda"
+        descricao="Clique em Compra pra lançar. Você pode cadastrar o produto na hora."
+        onClick={onNovaCompra}
       />
     );
   }
+
 
 
   const totalGasto = entradas.reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
