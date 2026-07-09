@@ -782,6 +782,8 @@ function EntradaEstoqueModal({
   onSaved: () => void;
 }) {
   const [produtoId, setProdutoId] = useState(entrada?.produto_id ?? produtos[0]?.id ?? "");
+  const [novoNome, setNovoNome] = useState("");
+  const isNovo = produtoId === "__novo__";
   const [quantidade, setQuantidade] = useState(
     entrada?.quantidade != null ? String(entrada.quantidade) : "",
   );
@@ -798,6 +800,7 @@ function EntradaEstoqueModal({
   const [data, setData] = useState(entrada?.data_entrada ?? new Date().toISOString().slice(0, 10));
   const [observacao, setObservacao] = useState(entrada?.observacao ?? "");
   const [loading, setLoading] = useState(false);
+
 
   const qtdNum = Number(String(quantidade).replace(",", ".")) || 0;
   const precoNum = preco.trim() === "" ? null : Number(String(preco).replace(",", "."));
