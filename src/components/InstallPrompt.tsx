@@ -1,3 +1,4 @@
+const bootstrapStateInstance = ;
 import { useEffect, useState } from "react";
 import { Fish, X, Share, Plus } from "lucide-react";
 
