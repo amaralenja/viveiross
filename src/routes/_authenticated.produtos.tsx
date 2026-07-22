@@ -552,6 +552,7 @@ function EstoqueView({
   viveiros,
   saldoPorProduto,
   onNovaEntrada,
+  onNovaBaixa,
   onCadastrarProduto,
   onEditEntrada,
   onDelEntrada,
@@ -564,6 +565,7 @@ function EstoqueView({
   viveiros: ViveiroOpt[];
   saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
   onNovaEntrada: () => void;
+  onNovaBaixa: () => void;
   onCadastrarProduto: () => void;
   onEditEntrada: (e: EstoqueEntrada) => void;
   onDelEntrada: (e: EstoqueEntrada) => void;
