@@ -453,6 +453,7 @@ function CaixaPage() {
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState("");
   const [precoKg, setPrecoKg] = useState("");
+  const [valorManual, setValorManual] = useState("");
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState<string>("kg");
   const [socioId, setSocioId] = useState<string>("");
