@@ -598,12 +598,20 @@ function EstoqueView({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Saldo total</p>
           <p className="text-2xl font-bold">{formatNumber(totalEstoque)} kg</p>
         </div>
-        <button
-          onClick={onNovaEntrada}
-          className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2"
-        >
-          <ArrowDownToLine className="size-4" /> Entrada
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onNovaBaixa}
+            className="h-11 px-4 rounded-xl border border-primary/40 text-primary font-semibold inline-flex items-center gap-2 hover:bg-primary/10"
+          >
+            <ArrowDownToLine className="size-4 rotate-180" /> Baixa
+          </button>
+          <button
+            onClick={onNovaEntrada}
+            className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2"
+          >
+            <ArrowDownToLine className="size-4" /> Entrada
+          </button>
+        </div>
       </div>
 
       <div>
