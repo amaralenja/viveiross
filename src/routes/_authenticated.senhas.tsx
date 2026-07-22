@@ -17,17 +17,24 @@ export const Route = createFileRoute("/_authenticated/senhas")({
 
 function SenhasPage() {
   const { user } = useAuth();
-  const initial = loadPwConfig(user?.id);
-  const [enabled, setEnabled] = useState(initial.enabled);
-  const [pin, setPin] = useState(initial.pin);
-  const [sections, setSections] = useState<string[]>(initial.sections);
+  const [hydrated, setHydrated] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [pin, setPin] = useState("");
+  const [sections, setSections] = useState<string[]>([]);
 
   useEffect(() => {
     const cfg = loadPwConfig(user?.id);
     setEnabled(cfg.enabled);
     setPin(cfg.pin);
     setSections(cfg.sections);
+    setHydrated(true);
   }, [user?.id]);
+
+  // Auto-salva sempre que qualquer coisa mudar (após hidratar)
+  useEffect(() => {
+    if (!hydrated) return;
+    savePwConfig(user?.id, { enabled, pin, sections });
+  }, [hydrated, enabled, pin, sections, user?.id]);
 
   function toggleSection(path: string) {
     setSections((s) =>
@@ -47,9 +54,9 @@ function SenhasPage() {
       }
     }
     savePwConfig(user?.id, { enabled, pin, sections });
-    // lockApp(); // removed to retain unlocked state after saving config
     toast.success("Configurações salvas");
   }
+
 
   return (
     <div className="space-y-6">
