@@ -1,5 +1,3 @@
-const bootstrapStateInstance = ;
-const bootstrapStateInstance = ;
 
 import { useState } from "react";
 import { Calculator as CalcIcon, Delete } from "lucide-react";
