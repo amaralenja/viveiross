@@ -329,8 +329,6 @@ function Dashboard() {
         </form>
       )}
 
-      <Calculadora />
-
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Lançamentos de hoje</h2>
@@ -386,6 +384,11 @@ function Dashboard() {
           </ul>
         )}
       </section>
+
+      <CadastroGeral />
+
+      <Calculadora />
+
 
 
       {editing && (
