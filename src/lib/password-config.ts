@@ -18,29 +18,39 @@ export const LOCKABLE_SECTIONS: { path: string; label: string }[] = [
 
 const DEFAULT: PwConfig = { enabled: false, pin: "", sections: [] };
 
-function key(userId: string | null | undefined) {
-  return `pwcfg:${userId ?? "anon"}`;
+function keys(userId: string | null | undefined): string[] {
+  const list = ["pwcfg:global", "pwcfg:anon"];
+  if (userId) list.unshift(`pwcfg:${userId}`);
+  return list;
 }
 
 export function loadPwConfig(userId: string | null | undefined): PwConfig {
   if (typeof window === "undefined") return DEFAULT;
-  try {
-    const raw = localStorage.getItem(key(userId));
-    if (!raw) return DEFAULT;
-    const parsed = JSON.parse(raw) as Partial<PwConfig>;
-    return {
-      enabled: !!parsed.enabled,
-      pin: typeof parsed.pin === "string" ? parsed.pin : "",
-      sections: Array.isArray(parsed.sections) ? parsed.sections : [],
-    };
-  } catch {
-    return DEFAULT;
+  for (const k of keys(userId)) {
+    try {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as Partial<PwConfig>;
+      if (typeof parsed.enabled === "boolean") {
+        return {
+          enabled: !!parsed.enabled,
+          pin: typeof parsed.pin === "string" ? parsed.pin : "",
+          sections: Array.isArray(parsed.sections) ? parsed.sections : [],
+        };
+      }
+    } catch {
+      /* ignore */
+    }
   }
+  return DEFAULT;
 }
 
 export function savePwConfig(userId: string | null | undefined, cfg: PwConfig) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(key(userId), JSON.stringify(cfg));
+  const json = JSON.stringify(cfg);
+  localStorage.setItem("pwcfg:global", json);
+  localStorage.setItem("pwcfg:anon", json);
+  if (userId) localStorage.setItem(`pwcfg:${userId}`, json);
   window.dispatchEvent(new CustomEvent("pwcfg:changed"));
 }
 

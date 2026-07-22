@@ -45,6 +45,7 @@ export type FuncionarioRel = {
   ativo: boolean;
   viveiro_id: string | null;
   observacao: string | null;
+  tipo_remuneracao?: "mensal" | "diaria" | null;
 };
 export type ValeRel = {
   id: string;
@@ -171,13 +172,43 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       ...(ehAtivo ? despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })) : []),
     ];
 
-    const funcsDoViveiro = funcionarios.filter((f) => f.viveiro_id === v.id);
+    const funcsDiretos = funcionarios.filter((f) => f.viveiro_id === v.id);
+    const funcsRateados = ehAtivo ? funcionarios.filter((f) => f.viveiro_id === null) : [];
+    const funcsDoViveiro = [...funcsDiretos, ...funcsRateados];
+
+    const totalDiasTodosAtivos = viveirosAtivos.reduce((sum, viv) => {
+      const pData = (lancamentos.filter((l) => l.viveiro_id === viv.id).map((l) => l.data_lancamento).sort())[0];
+      const bDate = viv.data_povoamento ?? pData ?? null;
+      return sum + (bDate ? Math.max(1, diasDeCultivo(bDate)) : 1);
+    }, 0);
+
     const funcsComVales = funcsDoViveiro.map((f) => {
       const meus = vales.filter((vv) => vv.funcionario_id === f.id);
       const totalVales = meus.reduce((s, x) => s + Number(x.valor ?? 0), 0);
-      return { ...f, vales: meus, totalVales };
+      const baseSal = Number(f.salario ?? 0);
+      let custoCalculado = baseSal;
+      const dCultivo = Math.max(1, dias ?? 1);
+
+      if (f.viveiro_id === v.id) {
+        if (f.tipo_remuneracao === "diaria") {
+          custoCalculado = baseSal * dCultivo;
+        } else {
+          custoCalculado = baseSal;
+        }
+      } else {
+        // Rateado / distribuído entre viveiros
+        if (f.tipo_remuneracao === "diaria") {
+          custoCalculado = baseSal * dCultivo;
+        } else {
+          const prop = totalDiasTodosAtivos > 0 ? dCultivo / totalDiasTodosAtivos : 1 / nViv;
+          custoCalculado = baseSal * prop;
+        }
+      }
+
+      return { ...f, vales: meus, totalVales, custoCalculado };
     });
-    const totalSalarios = funcsDoViveiro.reduce((s, f) => s + Number(f.salario ?? 0), 0);
+
+    const totalSalarios = funcsComVales.reduce((s, f) => s + f.custoCalculado, 0);
     const totalValesViv = funcsComVales.reduce((s, f) => s + f.totalVales, 0);
 
     const caixaDoViv = caixa.filter((c) => c.viveiro_id === v.id);

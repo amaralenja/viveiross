@@ -13,8 +13,13 @@ import { usePwConfig, sectionRequiresLock } from "@/lib/password-config";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/login" });
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        throw redirect({ to: "/login" });
+      }
+    }
   },
   component: AuthLayout,
 });
@@ -39,8 +44,7 @@ function AuthLayout() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [unlocked, setUnlocked] = useState(() => isUnlocked());
-  const [pending, setPending] = useState<string | null>(null);
+  const [unlockedSections, setUnlockedSections] = useState<string[]>([]);
   const [maisOpen, setMaisOpen] = useState(false);
 
   const getMyAccess = useServerFn(getMyAccessFn);
@@ -58,27 +62,39 @@ function AuthLayout() {
   const pendente = !isAdmin && !!acesso && (!hasAccess || expiraEm == null);
   void expiraEm;
 
-
   const MAIS: NavItem[] = [
     ...MAIS_BASE,
     ...(isAdmin ? [{ to: "/admin", label: "Administrador", icon: Shield }] : []),
   ];
 
   const pwCfg = usePwConfig(user?.id);
-  const needsLock = sectionRequiresLock(pwCfg, location.pathname) && !unlocked;
+
+  useEffect(() => {
+    const syncUnlocked = () => {
+      try {
+        const raw = localStorage.getItem("app_unlocked_sections");
+        setUnlockedSections(raw ? JSON.parse(raw) : []);
+      } catch {
+        setUnlockedSections([]);
+      }
+    };
+    syncUnlocked();
+    window.addEventListener("pwcfg:changed", syncUnlocked);
+    return () => window.removeEventListener("pwcfg:changed", syncUnlocked);
+  }, []);
+
+  const requiresLock = sectionRequiresLock(pwCfg, location.pathname) &&
+    !unlockedSections.some((s) => location.pathname.startsWith(s));
 
   async function handleLogout() {
     lockApp();
-    setUnlocked(false);
+    setUnlockedSections([]);
     await supabase.auth.signOut();
     navigate({ to: "/login" });
   }
 
-  function handleNav(to: string, e: React.MouseEvent) {
-    if (sectionRequiresLock(pwCfg, to) && !unlocked) {
-      e.preventDefault();
-      setPending(to);
-    }
+  function handleNav(to: string, _e: React.MouseEvent) {
+    // Navigation continues naturally; PasswordLock overlay will catch protected sections if locked
   }
 
   if (authLoading || (!!user && accessLoading)) {
@@ -149,8 +165,19 @@ function AuthLayout() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 overflow-x-hidden px-5 py-6">
-        {needsLock ? (
-          <PasswordLock pin={pwCfg.pin} onUnlock={() => setUnlocked(true)} />
+        {requiresLock ? (
+          <PasswordLock
+            pin={pwCfg.pin}
+            sectionPath={location.pathname}
+            onUnlock={() => {
+              try {
+                const raw = localStorage.getItem("app_unlocked_sections");
+                setUnlockedSections(raw ? JSON.parse(raw) : []);
+              } catch {
+                setUnlockedSections([]);
+              }
+            }}
+          />
         ) : (
           <Outlet />
         )}

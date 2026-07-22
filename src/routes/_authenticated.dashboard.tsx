@@ -125,13 +125,24 @@ function Dashboard() {
           : null;
       if (unit != null && Number.isNaN(unit)) throw new Error("Valor inválido.");
       const total = unit != null ? unit * q : null;
+      let linkedProdutoId: string | null = null;
+      if (produtoSelecionado && !produtoSelecionado.id.startsWith("hist:")) {
+        linkedProdutoId = produtoSelecionado.id;
+      } else {
+        const found = produtosList.find(
+          (p) => !p.id.startsWith("hist:") && p.nome.toLowerCase().trim() === produto.trim().toLowerCase()
+        );
+        if (found) linkedProdutoId = found.id;
+      }
+
       const { error } = await supabase.from("lancamentos").insert({
         user_id: userId,
         viveiro_id: viveiroId,
+        produto_id: linkedProdutoId,
         data_lancamento: data,
         produto_nome: produto.trim(),
         quantidade: q,
-        unidade: "kg",
+        unidade: produtoSelecionado?.unidade ?? "kg",
         tipo: "racao",
         preco_unidade: unit,
         custo_total: total,
@@ -146,6 +157,9 @@ function Dashboard() {
       setValor("");
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -159,6 +173,9 @@ function Dashboard() {
       toast.success("Removido");
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

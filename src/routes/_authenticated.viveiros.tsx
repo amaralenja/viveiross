@@ -624,6 +624,9 @@ function LancarRacaoModal({
     },
     onSuccess: () => {
       toast.success("Ração lançada!");
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
       onSaved();
     },
     onError: (err: Error) => toast.error(err.message),

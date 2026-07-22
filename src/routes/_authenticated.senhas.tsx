@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KeyRound, Lock, Unlock, Save } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,6 +22,13 @@ function SenhasPage() {
   const [pin, setPin] = useState(initial.pin);
   const [sections, setSections] = useState<string[]>(initial.sections);
 
+  useEffect(() => {
+    const cfg = loadPwConfig(user?.id);
+    setEnabled(cfg.enabled);
+    setPin(cfg.pin);
+    setSections(cfg.sections);
+  }, [user?.id]);
+
   function toggleSection(path: string) {
     setSections((s) =>
       s.includes(path) ? s.filter((x) => x !== path) : [...s, path],
@@ -40,7 +47,7 @@ function SenhasPage() {
       }
     }
     savePwConfig(user?.id, { enabled, pin, sections });
-    lockApp(); // força re-digitar após mudar a config
+    // lockApp(); // removed to retain unlocked state after saving config
     toast.success("Configurações salvas");
   }
 

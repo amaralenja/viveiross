@@ -1,18 +1,59 @@
 import { useState } from "react";
 import { Delete, Lock } from "lucide-react";
 
-const KEY = "app_unlocked";
+const UNLOCKED_SECTIONS_KEY = "app_unlocked_sections";
+
+export function isSectionUnlocked(sectionPath?: string) {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(UNLOCKED_SECTIONS_KEY);
+    if (!raw) return false;
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return false;
+    if (!sectionPath) return list.length > 0;
+    return list.some((s) => sectionPath.startsWith(s));
+  } catch {
+    return false;
+  }
+}
 
 export function isUnlocked() {
-  if (typeof window === "undefined") return false;
-  return sessionStorage.getItem(KEY) === "1";
+  return isSectionUnlocked();
+}
+
+export function unlockSection(sectionPath: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(UNLOCKED_SECTIONS_KEY);
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    if (!list.includes(sectionPath)) {
+      list.push(sectionPath);
+      localStorage.setItem(UNLOCKED_SECTIONS_KEY, JSON.stringify(list));
+    }
+  } catch {
+    localStorage.setItem(UNLOCKED_SECTIONS_KEY, JSON.stringify([sectionPath]));
+  }
 }
 
 export function lockApp() {
-  if (typeof window !== "undefined") sessionStorage.removeItem(KEY);
+  if (typeof window !== "undefined") {
+    // Clear unlocked sections but keep other config; this prevents forced re‑login on every save.
+    localStorage.removeItem(UNLOCKED_SECTIONS_KEY);
+    // Optionally clear a flag that indicates the app is currently unlocked.
+    localStorage.removeItem("app_unlocked");
+    window.dispatchEvent(new CustomEvent("pwcfg:changed"));
+  }
 }
 
-export function PasswordLock({ pin, onUnlock }: { pin: string; onUnlock: () => void }) {
+export function PasswordLock({
+  pin,
+  sectionPath,
+  onUnlock,
+}: {
+  pin: string;
+  sectionPath?: string;
+  onUnlock: () => void;
+}) {
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
   const len = Math.max(pin.length, 4);
@@ -23,7 +64,7 @@ export function PasswordLock({ pin, onUnlock }: { pin: string; onUnlock: () => v
     setValue(next);
     if (next.length === pin.length) {
       if (next === pin) {
-        sessionStorage.setItem(KEY, "1");
+        if (sectionPath) unlockSection(sectionPath);
         onUnlock();
       } else {
         setError(true);

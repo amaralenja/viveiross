@@ -23,6 +23,7 @@ type Funcionario = {
   id: string;
   nome: string;
   salario: number;
+  tipo_remuneracao?: "mensal" | "diaria" | null;
   viveiro_id: string | null;
   ativo: boolean;
 };
@@ -41,7 +42,38 @@ type EstoqueEntrada = {
   observacao: string | null;
 };
 
-type ConsumoRow = { produto_id: string | null; quantidade: number };
+type ConsumoRow = {
+  id: string;
+  produto_id: string | null;
+  produto_nome: string;
+  quantidade: number;
+  unidade: string;
+  viveiro_id: string;
+  data_lancamento: string;
+  tipo: string;
+};
+
+function normalizeQuantity(qty: number, fromUnit: string | null, toUnit: string | null): number {
+  if (!qty || !fromUnit || !toUnit) return qty;
+  const from = fromUnit.toLowerCase().trim();
+  const to = toUnit.toLowerCase().trim();
+  if (from === to) return qty;
+
+  if ((from === "g" || from === "grama" || from === "gramas") && (to === "kg" || to === "kilo" || to === "quilo")) {
+    return qty / 1000;
+  }
+  if ((from === "kg" || from === "kilo" || from === "quilo") && (to === "g" || to === "grama" || to === "gramas")) {
+    return qty * 1000;
+  }
+  if ((from === "ml" || from === "mililitro") && (to === "l" || to === "litro" || to === "litros")) {
+    return qty / 1000;
+  }
+  if ((from === "l" || from === "litro" || from === "litros") && (to === "ml" || to === "mililitro")) {
+    return qty * 1000;
+  }
+
+  return qty;
+}
 
 type Despesa = {
   id: string;
@@ -129,7 +161,7 @@ function ProdutosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("funcionarios")
-        .select("id, nome, salario, viveiro_id, ativo")
+        .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao")
         .order("nome");
       if (error) throw error;
       return (data ?? []) as Funcionario[];
@@ -166,9 +198,8 @@ function ProdutosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("produto_id, quantidade")
-        .eq("tipo", "racao")
-        .not("produto_id", "is", null);
+        .select("id, produto_id, produto_nome, quantidade, unidade, viveiro_id, data_lancamento, tipo")
+        .order("data_lancamento", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ConsumoRow[];
     },
@@ -195,15 +226,23 @@ function ProdutosPage() {
 
   const saldoPorProduto = new Map<string, { entradas: number; saidas: number }>();
   for (const e of entradas) {
+    const prod = produtos.find((x) => x.id === e.produto_id);
+    const qtyNorm = prod ? normalizeQuantity(Number(e.quantidade ?? 0), e.unidade, prod.unidade) : Number(e.quantidade ?? 0);
     const cur = saldoPorProduto.get(e.produto_id) ?? { entradas: 0, saidas: 0 };
-    cur.entradas += Number(e.quantidade ?? 0);
+    cur.entradas += qtyNorm;
     saldoPorProduto.set(e.produto_id, cur);
   }
   for (const c of consumo) {
-    if (!c.produto_id) continue;
-    const cur = saldoPorProduto.get(c.produto_id) ?? { entradas: 0, saidas: 0 };
-    cur.saidas += Number(c.quantidade ?? 0);
-    saldoPorProduto.set(c.produto_id, cur);
+    let prod = c.produto_id ? produtos.find((p) => p.id === c.produto_id) : null;
+    if (!prod && c.produto_nome) {
+      prod = produtos.find((p) => p.nome.toLowerCase().trim() === c.produto_nome.toLowerCase().trim()) ?? null;
+    }
+    if (!prod) continue;
+
+    const qtyNorm = normalizeQuantity(Number(c.quantidade ?? 0), c.unidade, prod.unidade);
+    const cur = saldoPorProduto.get(prod.id) ?? { entradas: 0, saidas: 0 };
+    cur.saidas += qtyNorm;
+    saldoPorProduto.set(prod.id, cur);
   }
 
   const delProdMut = useMutation({
@@ -365,10 +404,11 @@ function ProdutosPage() {
                       <p className="font-semibold truncate">{f.nome}</p>
                       <p className="text-sm text-muted-foreground">
                         <span className="text-primary font-semibold">
-                          {formatBRL(Number(f.salario))}/mês
+                          {formatBRL(Number(f.salario))}
+                          {f.tipo_remuneracao === "diaria" ? "/dia de cultivo" : "/mês"}
                         </span>
                         {" · "}
-                        {viv ? viv.nome : "rateado entre todos"}
+                        {viv ? viv.nome : "distribuído por dias de cultivo"}
                       </p>
                     </div>
                   </div>
@@ -387,6 +427,8 @@ function ProdutosPage() {
         <EstoqueView
           produtos={produtos}
           entradas={entradas}
+          consumo={consumo}
+          viveiros={viveiros}
           saldoPorProduto={saldoPorProduto}
           onNovaEntrada={() => setOpenEntrada(true)}
           onCadastrarProduto={() => setOpenProd(true)}
@@ -504,6 +546,8 @@ function formatNumber(v: number) {
 function EstoqueView({
   produtos,
   entradas,
+  consumo,
+  viveiros,
   saldoPorProduto,
   onNovaEntrada,
   onCadastrarProduto,
@@ -514,6 +558,8 @@ function EstoqueView({
 }: {
   produtos: Produto[];
   entradas: EstoqueEntrada[];
+  consumo: ConsumoRow[];
+  viveiros: ViveiroOpt[];
   saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
   onNovaEntrada: () => void;
   onCadastrarProduto: () => void;
@@ -534,7 +580,6 @@ function EstoqueView({
       />
     );
   }
-
 
   const produtosOrdenados = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
   const totalEstoque = produtosOrdenados.reduce((sum, p) => {
@@ -567,6 +612,9 @@ function EstoqueView({
             const saldo = s.entradas - s.saidas;
             const baixo = saldo <= 0;
             const entradasProduto = entradas.filter((e) => e.produto_id === p.id);
+            const saidasProduto = consumo.filter((c) =>
+              c.produto_id === p.id || (!c.produto_id && c.produto_nome && c.produto_nome.toLowerCase().trim() === p.nome.toLowerCase().trim())
+            );
             const aberto = expandidoId === p.id;
             return (
               <li key={p.id} className="rounded-xl bg-card border overflow-hidden">
@@ -579,7 +627,8 @@ function EstoqueView({
                     <p className="font-semibold truncate">{p.nome}</p>
                     <p className="text-xs text-muted-foreground">
                       Entradas {formatNumber(s.entradas)} · Saídas {formatNumber(s.saidas)} {p.unidade}
-                      {entradasProduto.length > 0 && ` · ${entradasProduto.length} lançamento(s)`}
+                      {entradasProduto.length > 0 && ` · ${entradasProduto.length} entrada(s)`}
+                      {saidasProduto.length > 0 && ` · ${saidasProduto.length} consumo(s)`}
                     </p>
                   </button>
                   <button
@@ -591,36 +640,64 @@ function EstoqueView({
                       {baixo && <AlertTriangle className="size-4" />}
                       {formatNumber(saldo)} {p.unidade}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">{aberto ? "fechar" : "editar entradas"}</p>
+                    <p className="text-[10px] text-muted-foreground">{aberto ? "fechar" : "detalhes"}</p>
                   </button>
                   <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
                 </div>
                 {aberto && (
-                  <div className="border-t bg-muted/30 p-3 space-y-2">
-                    {entradasProduto.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-2">
-                        Nenhuma entrada desse produto ainda.
-                      </p>
-                    ) : (
-                      <ul className="space-y-2">
-                        {entradasProduto.map((e) => (
-                          <li key={e.id} className="p-2.5 rounded-lg bg-card border flex items-center justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium">
-                                {formatNumber(e.quantidade)} {e.unidade}
-                                {e.custo_total != null && ` · ${formatBRL(Number(e.custo_total))}`}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
-                                {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade}`}
-                                {e.fornecedor && ` · ${e.fornecedor}`}
-                              </p>
-                            </div>
-                            <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                  <div className="border-t bg-muted/30 p-3 space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Entradas (Abastecimento)</p>
+                      {entradasProduto.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-1">Nenhuma entrada cadastrada.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {entradasProduto.map((e) => (
+                            <li key={e.id} className="p-2.5 rounded-lg bg-card border flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium">
+                                  {formatNumber(e.quantidade)} {e.unidade}
+                                  {e.custo_total != null && ` · ${formatBRL(Number(e.custo_total))}`}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                                  {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade}`}
+                                  {e.fornecedor && ` · ${e.fornecedor}`}
+                                </p>
+                              </div>
+                              <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Saídas (Lançamentos de Consumo)</p>
+                      {saidasProduto.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-1">Nenhum consumo registrado ainda.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {saidasProduto.slice(0, 30).map((c) => {
+                            const viv = viveiros.find((v) => v.id === c.viveiro_id);
+                            return (
+                              <li key={c.id} className="p-2.5 rounded-lg bg-card border flex items-center justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-destructive">
+                                    - {formatNumber(c.quantidade)} {c.unidade}
+                                    <span className="text-foreground font-normal ml-2">({viv ? viv.nome : "Viveiro"})</span>
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {new Date(`${c.data_lancamento}T00:00:00`).toLocaleDateString("pt-BR")}
+                                    {c.tipo && ` · ${c.tipo}`}
+                                  </p>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 )}
               </li>
@@ -1175,6 +1252,9 @@ function FuncionarioModal({
   const [salario, setSalario] = useState(
     funcionario?.salario != null ? String(funcionario.salario) : "",
   );
+  const [tipoRemuneracao, setTipoRemuneracao] = useState<"mensal" | "diaria">(
+    funcionario?.tipo_remuneracao === "diaria" ? "diaria" : "mensal"
+  );
   const [viveiroId, setViveiroId] = useState<string>(funcionario?.viveiro_id ?? "");
   const [loading, setLoading] = useState(false);
 
@@ -1187,11 +1267,12 @@ function FuncionarioModal({
       if (!user_id) throw new Error("Sem sessão");
 
       const salarioNum = Number(salario.replace(",", "."));
-      if (isNaN(salarioNum) || salarioNum < 0) throw new Error("Salário inválido");
+      if (isNaN(salarioNum) || salarioNum < 0) throw new Error("Valor inválido");
 
       const payload = {
         nome: nome.trim(),
         salario: salarioNum,
+        tipo_remuneracao: tipoRemuneracao,
         viveiro_id: viveiroId || null,
       };
 
@@ -1234,7 +1315,18 @@ function FuncionarioModal({
           />
         </Field>
 
-        <Field label="Salário mensal (R$)">
+        <Field label="Tipo de Remuneração">
+          <select
+            value={tipoRemuneracao}
+            onChange={(e) => setTipoRemuneracao(e.target.value as "mensal" | "diaria")}
+            className="app-input"
+          >
+            <option value="mensal">📅 Salário Mensal (R$/mês)</option>
+            <option value="diaria">☀️ Diária por Dia de Cultivo (R$/dia)</option>
+          </select>
+        </Field>
+
+        <Field label={tipoRemuneracao === "diaria" ? "Valor da diária por dia de cultivo (R$)" : "Salário mensal (R$)"}>
           <input
             required
             type="number"
@@ -1248,13 +1340,13 @@ function FuncionarioModal({
           />
         </Field>
 
-        <Field label="Viveiro (opcional)">
+        <Field label="Alocação ao Viveiro">
           <select
             value={viveiroId}
             onChange={(e) => setViveiroId(e.target.value)}
             className="app-input"
           >
-            <option value="">🔄 Rateado entre todos os viveiros</option>
+            <option value="">🔄 Distribuído entre os viveiros ativos por dias de cultivo</option>
             {viveiros.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.nome}
@@ -1262,7 +1354,9 @@ function FuncionarioModal({
             ))}
           </select>
           <p className="text-xs text-muted-foreground mt-1">
-            Sem viveiro = salário dividido igual entre todos.
+            {viveiroId
+              ? "Trabalha exclusivamente neste viveiro."
+              : "Calculado e distribuído de acordo com os dias de cultivo de cada viveiro ativo."}
           </p>
         </Field>
 

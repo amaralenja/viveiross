@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power, ShoppingBag, Plus, Tag, Filter } from "lucide-react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -455,9 +455,42 @@ function CaixaPage() {
   const [precoKg, setPrecoKg] = useState("");
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState<string>("kg");
-  const [valorManual, setValorManual] = useState("");
   const [socioId, setSocioId] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [subTab, setSubTab] = useState<"geral" | "compras">("geral");
+
+  const compraMut = useMutation({
+    mutationFn: async (compraData: {
+      socioId: string;
+      viveiroId: string;
+      descricao: string;
+      categoria: string;
+      valor: number;
+      data: string;
+    }) => {
+      const { data: u } = await supabase.auth.getUser();
+      const userId = u.user?.id;
+      if (!userId) throw new Error("Sessão expirada.");
+
+      const isNR = compraData.viveiroId === NAO_RATEADO;
+      const { error } = await supabase.from("caixa_lancamentos").insert({
+        user_id: userId,
+        viveiro_id: (compraData.viveiroId === TODOS || isNR) ? null : compraData.viveiroId,
+        data_lancamento: compraData.data,
+        descricao: compraData.descricao,
+        categoria: isNR ? NR_CAT : (compraData.categoria.trim() || "compras"),
+        valor: compraData.valor,
+        tipo: "despesa",
+        socio_id: compraData.socioId || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Compra/Despesa registrada");
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos"],
@@ -648,7 +681,47 @@ function CaixaPage() {
         </div>
       </div>
 
-      {/* Resumo geral */}
+      <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setSubTab("geral")}
+          className={`flex-1 min-w-[140px] h-10 rounded-lg font-semibold text-sm transition ${
+            subTab === "geral"
+              ? "bg-card shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          📊 Visão Geral & Viveiros
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("compras")}
+          className={`flex-1 min-w-[140px] h-10 rounded-lg font-semibold text-sm transition ${
+            subTab === "compras"
+              ? "bg-card shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          🛍️ Compras por Sócio
+        </button>
+      </div>
+
+      {subTab === "compras" ? (
+        <CaixaComprasPorSocioView
+          lancamentos={lancamentos}
+          viveiros={viveiros}
+          socios={socios}
+          onEdit={(l) => setEditing(l)}
+          onDel={(id) => delMut.mutate(id)}
+          onAddSocio={(nome) => addSocioMut.mutate(nome)}
+          onSaveCompra={async (data) => {
+            await compraMut.mutateAsync(data);
+          }}
+          isPending={compraMut.isPending}
+        />
+      ) : (
+        <>
+          {/* Resumo geral */}
       <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -1188,6 +1261,8 @@ function CaixaPage() {
           </ul>
         </section>
       )}
+        </>
+      )}
 
 
 
@@ -1536,5 +1611,419 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="text-sm font-medium block mb-1.5">{label}</span>
       {children}
     </label>
+  );
+}
+
+function CaixaComprasPorSocioView({
+  lancamentos,
+  viveiros,
+  socios,
+  onEdit,
+  onDel,
+  onAddSocio,
+  onSaveCompra,
+  isPending,
+}: {
+  lancamentos: Lanc[];
+  viveiros: ViveiroOpt[];
+  socios: Socio[];
+  onEdit: (l: Lanc) => void;
+  onDel: (id: string) => void;
+  onAddSocio: (nome: string) => void;
+  onSaveCompra: (data: {
+    socioId: string;
+    viveiroId: string;
+    descricao: string;
+    categoria: string;
+    valor: number;
+    data: string;
+  }) => Promise<void>;
+  isPending: boolean;
+}) {
+  const [filtroSocio, setFiltroSocio] = useState<string>("__todos__");
+  const [filtroDestino, setFiltroDestino] = useState<string>("__todos__");
+  const [busca, setBusca] = useState<string>("");
+
+  const [socioId, setSocioId] = useState<string>("");
+  const [viveiroId, setViveiroId] = useState<string>(NAO_RATEADO);
+  const [descricao, setDescricao] = useState<string>("");
+  const [categoria, setCategoria] = useState<string>("");
+  const [valor, setValor] = useState<string>("");
+  const [data, setData] = useState<string>(todayLocal());
+
+  const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
+  const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
+
+  const despesas = useMemo(() => lancamentos.filter((l) => l.tipo === "despesa"), [lancamentos]);
+
+  const resumoPorSocio = useMemo(() => {
+    const map = new Map<string, { total: number; viveiros: number; isento: number }>();
+
+    for (const s of socios) {
+      map.set(s.id, { total: 0, viveiros: 0, isento: 0 });
+    }
+
+    let semSocioTotal = 0;
+    let semSocioViv = 0;
+    let semSocioIsento = 0;
+
+    for (const d of despesas) {
+      const v = Number(d.valor ?? 0);
+      const isIsentoOuGeral = !d.viveiro_id;
+
+      if (d.socio_id && map.has(d.socio_id)) {
+        const cur = map.get(d.socio_id)!;
+        cur.total += v;
+        if (isIsentoOuGeral) cur.isento += v;
+        else cur.viveiros += v;
+      } else {
+        semSocioTotal += v;
+        if (isIsentoOuGeral) semSocioIsento += v;
+        else semSocioViv += v;
+      }
+    }
+
+    return { map, semSocioTotal, semSocioViv, semSocioIsento };
+  }, [despesas, socios]);
+
+  const despesasFiltradas = useMemo(() => {
+    return despesas.filter((d) => {
+      if (filtroSocio !== "__todos__") {
+        if (filtroSocio === "__sem_socio__" && d.socio_id) return false;
+        if (filtroSocio !== "__sem_socio__" && d.socio_id !== filtroSocio) return false;
+      }
+      if (filtroDestino !== "__todos__") {
+        if (filtroDestino === "isento") {
+          if (d.viveiro_id || d.categoria !== NR_CAT) return false;
+        } else if (filtroDestino === "rateado") {
+          if (d.viveiro_id || d.categoria === NR_CAT) return false;
+        } else {
+          if (d.viveiro_id !== filtroDestino) return false;
+        }
+      }
+      if (busca.trim()) {
+        const term = busca.toLowerCase().trim();
+        const descMatch = d.descricao.toLowerCase().includes(term);
+        const catMatch = (d.categoria ?? "").toLowerCase().includes(term);
+        const socioMatch = (socioMap.get(d.socio_id ?? "") ?? "").toLowerCase().includes(term);
+        if (!descMatch && !catMatch && !socioMatch) return false;
+      }
+      return true;
+    });
+  }, [despesas, filtroSocio, filtroDestino, busca, socioMap]);
+
+  async function handleFormSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const valNum = Number(valor.replace(",", "."));
+    if (!descricao.trim()) return toast.error("Informe a descrição da compra.");
+    if (!valNum || valNum <= 0) return toast.error("Informe um valor válido.");
+
+    await onSaveCompra({
+      socioId,
+      viveiroId,
+      descricao: descricao.trim(),
+      categoria,
+      valor: valNum,
+      data,
+    });
+
+    setDescricao("");
+    setCategoria("");
+    setValor("");
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+            <Users className="size-4" /> Compras & Despesas por Sócio
+          </h2>
+          <span className="text-xs text-muted-foreground">{socios.length} sócio(s) cadastrado(s)</span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {socios.map((s) => {
+            const dataS = resumoPorSocio.map.get(s.id) ?? { total: 0, viveiros: 0, isento: 0 };
+            return (
+              <div
+                key={s.id}
+                className="rounded-2xl border bg-card p-4 space-y-2 shadow-sm hover:border-primary/40 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-base truncate">{s.nome}</p>
+                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                    Pagador
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Pago</p>
+                  <p className="text-2xl font-black text-primary tabular-nums">
+                    {fmtBRL(dataS.total)}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/40">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Em Viveiros</p>
+                    <p className="font-semibold text-emerald-600 tabular-nums">{fmtBRL(dataS.viveiros)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Isento / Pessoal</p>
+                    <p className="font-semibold text-amber-600 tabular-nums">{fmtBRL(dataS.isento)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {resumoPorSocio.semSocioTotal > 0 && (
+            <div className="rounded-2xl border border-dashed bg-muted/20 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-bold text-base text-muted-foreground truncate">Sem Sócio Atribuído</p>
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  Geral
+                </span>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Não Atribuído</p>
+                <p className="text-2xl font-black text-muted-foreground tabular-nums">
+                  {fmtBRL(resumoPorSocio.semSocioTotal)}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/40">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Em Viveiros</p>
+                  <p className="font-semibold text-emerald-600 tabular-nums">{fmtBRL(resumoPorSocio.semSocioViv)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Isento / Pessoal</p>
+                  <p className="font-semibold text-amber-600 tabular-nums">{fmtBRL(resumoPorSocio.semSocioIsento)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <form onSubmit={handleFormSubmit} className="rounded-2xl bg-card border p-5 space-y-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg flex items-center gap-2">
+            <ShoppingBag className="size-5 text-primary" /> Registrar Nova Compra / Despesa
+          </h2>
+          <span className="text-xs text-muted-foreground">Discrimine o pagador e o destino</span>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Quem pagou? (Sócio)">
+            <div className="flex gap-2">
+              <select
+                value={socioId}
+                onChange={(e) => setSocioId(e.target.value)}
+                className="app-input flex-1"
+              >
+                <option value="">— Selecione o sócio —</option>
+                {socios.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nome}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="app-input w-auto px-3 text-xs font-semibold whitespace-nowrap"
+                onClick={() => {
+                  const n = window.prompt("Nome do novo sócio (ex: Gabriel, Luca):");
+                  if (n && n.trim()) onAddSocio(n.trim());
+                }}
+              >
+                + Novo
+              </button>
+            </div>
+          </Field>
+
+          <Field label="Destino do Gasto">
+            <select
+              value={viveiroId}
+              onChange={(e) => setViveiroId(e.target.value)}
+              className="app-input"
+            >
+              <option value={NAO_RATEADO}>🛑 Isento / Pessoal (Não rateado)</option>
+              <option value={TODOS}>🔄 Todos os Viveiros (Rateado)</option>
+              {viveiros.map((v) => (
+                <option key={v.id} value={v.id}>
+                  🏝️ {v.nome}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Data">
+            <input
+              required
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+
+          <Field label="Valor da Compra (R$)">
+            <input
+              required
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              className="app-input font-bold"
+            />
+          </Field>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Descrição da Compra">
+            <input
+              required
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Ex: Perfume, Peça de Trator, Ração 40%, Combustível"
+              className="app-input"
+            />
+          </Field>
+
+          <Field label="Categoria (Opcional)">
+            <input
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              placeholder="Ex: pessoal, manutenção, insumos, veículo"
+              className="app-input"
+            />
+          </Field>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isPending}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {isPending ? "Registrando..." : "Registrar Compra / Despesa"}
+        </button>
+      </form>
+
+      <section className="rounded-2xl bg-card border p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b">
+          <div>
+            <h3 className="font-bold text-base">Histórico Discriminado de Compras</h3>
+            <p className="text-xs text-muted-foreground">
+              {despesasFiltradas.length} compra(s) encontrada(s)
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={filtroSocio}
+              onChange={(e) => setFiltroSocio(e.target.value)}
+              className="app-input text-xs py-1.5 h-9 w-auto"
+            >
+              <option value="__todos__">👤 Todos os Sócios</option>
+              <option value="__sem_socio__">Sem Sócio</option>
+              {socios.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}</option>
+              ))}
+            </select>
+
+            <select
+              value={filtroDestino}
+              onChange={(e) => setFiltroDestino(e.target.value)}
+              className="app-input text-xs py-1.5 h-9 w-auto"
+            >
+              <option value="__todos__">🏝️ Todos os Destinos</option>
+              <option value="isento">🛑 Isento / Pessoal</option>
+              <option value="rateado">🔄 Rateado (Geral)</option>
+              {viveiros.map((v) => (
+                <option key={v.id} value={v.id}>{v.nome}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {despesasFiltradas.length === 0 ? (
+          <p className="text-center py-8 text-sm text-muted-foreground italic">
+            Nenhuma compra registrada com os filtros selecionados.
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {despesasFiltradas.map((d) => {
+              const socioNome = d.socio_id ? socioMap.get(d.socio_id) : null;
+              const isIsento = d.categoria === NR_CAT && !d.viveiro_id;
+              const isRateado = !d.viveiro_id && !isIsento;
+              const viveiroNome = d.viveiro_id ? viveiroMap.get(d.viveiro_id) : null;
+
+              return (
+                <li key={d.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm truncate">{d.descricao}</p>
+                      {socioNome ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          👤 {socioNome}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          Sem sócio
+                        </span>
+                      )}
+                      {isIsento ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                          🛑 Isento / Pessoal
+                        </span>
+                      ) : isRateado ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                          🔄 Rateado entre todos
+                        </span>
+                      ) : viveiroNome ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                          🏝️ {viveiroNome}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      {fmtDate(d.data_lancamento)}
+                      {d.categoria && d.categoria !== NR_CAT && ` · Categoria: ${d.categoria}`}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="font-bold text-base text-destructive tabular-nums">
+                      − {fmtBRL(Number(d.valor ?? 0))}
+                    </span>
+
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(d)}
+                        className="size-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                        title="Editar"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Apagar "${d.descricao}"?`)) onDel(d.id);
+                        }}
+                        className="size-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                        title="Apagar"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }

@@ -780,6 +780,9 @@ function RelatoriosPage() {
       toast.success("Lançamento removido");
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
