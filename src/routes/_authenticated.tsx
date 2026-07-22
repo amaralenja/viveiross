@@ -86,7 +86,10 @@ function AuthLayout() {
     return () => window.removeEventListener("pwcfg:changed", syncUnlocked);
   }, []);
 
-  const requiresLock = sectionRequiresLock(pwCfg, location.pathname) &&
+  const senhasRequiresLock =
+    pwCfg.enabled && !!pwCfg.pin && location.pathname.startsWith("/senhas");
+  const requiresLock =
+    (sectionRequiresLock(pwCfg, location.pathname) || senhasRequiresLock) &&
     !unlockedSections.some((s) => location.pathname.startsWith(s));
 
   async function handleLogout() {
