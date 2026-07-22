@@ -329,11 +329,11 @@ function Dashboard() {
         </form>
       )}
 
-      <RacaoHojeOntem />
+      <Calculadora />
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Histórico</h2>
+          <h2 className="text-lg font-semibold">Lançamentos de hoje</h2>
           <Link to="/relatorios" className="text-sm text-primary font-medium">
             Ver relatório
           </Link>
@@ -343,11 +343,11 @@ function Dashboard() {
           <p className="text-muted-foreground">Carregando...</p>
         ) : ultimos.length === 0 ? (
           <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-            <ClipboardList className="size-4" /> Sem lançamentos ainda.
+            <ClipboardList className="size-4" /> Sem lançamentos hoje.
           </div>
         ) : (
           <ul className="space-y-2">
-            {ultimos.map((l) => (
+            {ultimos.slice(0, 5).map((l) => (
               <li
                 key={l.id}
                 className="flex items-center justify-between p-4 rounded-xl bg-card border gap-3"
@@ -355,18 +355,13 @@ function Dashboard() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold truncate">{l.produto_nome}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {relName(l.viveiros) || "—"} · {formatDate(l.data_lancamento)}
+                    {relName(l.viveiros) || "—"}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold">
                     {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {l.unidade}
                   </p>
-                  {l.custo_total != null && (
-                    <p className="text-xs text-muted-foreground">
-                      {Number(l.custo_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </p>
-                  )}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
@@ -391,6 +386,7 @@ function Dashboard() {
           </ul>
         )}
       </section>
+
 
       {editing && (
         <EditLancModal
