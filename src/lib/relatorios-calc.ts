@@ -176,7 +176,7 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
     const funcsRateados = ehAtivo ? funcionarios.filter((f) => f.viveiro_id === null) : [];
     const funcsDoViveiro = [...funcsDiretos, ...funcsRateados];
 
-    const totalDiasTodosAtivos = viveirosAtivos.reduce((sum, viv) => {
+    const totalDiasTodosAtivos = ativos.reduce((sum: number, viv: typeof v) => {
       const pData = (lancamentos.filter((l) => l.viveiro_id === viv.id).map((l) => l.data_lancamento).sort())[0];
       const bDate = viv.data_povoamento ?? pData ?? null;
       return sum + (bDate ? Math.max(1, diasDeCultivo(bDate)) : 1);

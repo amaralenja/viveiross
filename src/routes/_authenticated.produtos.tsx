@@ -164,7 +164,7 @@ function ProdutosPage() {
         .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as Funcionario[];
+      return (data ?? []) as unknown as Funcionario[];
     },
   });
 
@@ -1279,14 +1279,14 @@ function FuncionarioModal({
       if (funcionario) {
         const { error } = await supabase
           .from("funcionarios")
-          .update(payload)
+          .update(payload as never)
           .eq("id", funcionario.id);
         if (error) throw error;
         toast.success("Funcionário atualizado!");
       } else {
         const { error } = await supabase
           .from("funcionarios")
-          .insert({ ...payload, user_id });
+          .insert({ ...payload, user_id } as never);
         if (error) throw error;
         toast.success("Funcionário criado!");
       }
