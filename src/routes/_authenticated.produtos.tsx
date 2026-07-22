@@ -537,6 +537,18 @@ function ProdutosPage() {
           }}
         />
       )}
+
+      {openBaixa && (
+        <BaixaEstoqueModal
+          produtos={produtos}
+          viveiros={viveiros}
+          onClose={() => setOpenBaixa(false)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+            setOpenBaixa(false);
+          }}
+        />
+      )}
     </div>
   );
 }
