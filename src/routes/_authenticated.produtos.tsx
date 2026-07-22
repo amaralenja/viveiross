@@ -141,6 +141,7 @@ function ProdutosPage() {
   const [editandoFunc, setEditandoFunc] = useState<Funcionario | null>(null);
   const [openEntrada, setOpenEntrada] = useState(false);
   const [editandoEntrada, setEditandoEntrada] = useState<EstoqueEntrada | null>(null);
+  const [openBaixa, setOpenBaixa] = useState(false);
   const [openDesp, setOpenDesp] = useState(false);
   const [editandoDesp, setEditandoDesp] = useState<Despesa | null>(null);
 
