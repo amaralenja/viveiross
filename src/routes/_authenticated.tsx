@@ -12,6 +12,7 @@ import { usePwConfig, sectionRequiresLock } from "@/lib/password-config";
 
 
 export const Route = createFileRoute("/_authenticated")({
+  ssr: false,
   beforeLoad: async () => {
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
