@@ -329,8 +329,6 @@ function Dashboard() {
         </form>
       )}
 
-      <Calculadora />
-
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Lançamentos de hoje</h2>
@@ -386,6 +384,11 @@ function Dashboard() {
           </ul>
         )}
       </section>
+
+      <CadastroGeral />
+
+      <Calculadora />
+
 
 
       {editing && (
@@ -659,4 +662,249 @@ function RacaoHojeOntem() {
     </section>
   );
 }
+
+type ProdutoRow = { id: string; nome: string; unidade: string; preco_unidade: number | null };
+
+function CadastroGeral() {
+  const qc = useQueryClient();
+  const [novoNome, setNovoNome] = useState("");
+  const [novaUnidade, setNovaUnidade] = useState("kg");
+  const [novoPreco, setNovoPreco] = useState("");
+  const [editRow, setEditRow] = useState<ProdutoRow | null>(null);
+
+  const { data: produtos = [], isLoading } = useQuery({
+    queryKey: ["produtos", "cadastro-geral"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, unidade, preco_unidade")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as ProdutoRow[];
+    },
+  });
+
+  const addMut = useMutation({
+    mutationFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("Sessão expirada.");
+      if (!novoNome.trim()) throw new Error("Informe o nome.");
+      const preco = novoPreco ? Number(novoPreco.replace(",", ".")) : null;
+      const { error } = await supabase.from("produtos").insert({
+        user_id: userId,
+        nome: novoNome.trim(),
+        unidade: novaUnidade || "kg",
+        preco_unidade: preco,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Cadastrado");
+      setNovoNome("");
+      setNovoPreco("");
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const delMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("produtos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Removido");
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updMut = useMutation({
+    mutationFn: async (row: ProdutoRow) => {
+      const { error } = await supabase
+        .from("produtos")
+        .update({
+          nome: row.nome.trim(),
+          unidade: row.unidade || "kg",
+          preco_unidade: row.preco_unidade,
+        })
+        .eq("id", row.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Atualizado");
+      setEditRow(null);
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-card border p-5">
+      <h2 className="text-lg font-semibold">Cadastro geral</h2>
+      <p className="text-xs text-muted-foreground">Produtos e valores para preenchimento automático.</p>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          addMut.mutate();
+        }}
+        className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+      >
+        <input
+          className="app-input col-span-2 sm:col-span-2"
+          placeholder="Nome do produto"
+          value={novoNome}
+          onChange={(e) => setNovoNome(e.target.value)}
+          required
+        />
+        <select
+          className="app-input"
+          value={novaUnidade}
+          onChange={(e) => setNovaUnidade(e.target.value)}
+        >
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+          <option value="un">un</option>
+          <option value="saco">saco</option>
+          <option value="sacola">sacola</option>
+          <option value="litro">litro</option>
+        </select>
+        <input
+          className="app-input"
+          placeholder="R$"
+          inputMode="decimal"
+          value={novoPreco}
+          onChange={(e) => setNovoPreco(e.target.value.replace(/[^0-9.,]/g, ""))}
+        />
+        <button
+          disabled={addMut.isPending}
+          className="col-span-2 sm:col-span-4 h-10 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+        >
+          {addMut.isPending ? "Salvando..." : "+ Cadastrar"}
+        </button>
+      </form>
+
+      {isLoading ? (
+        <p className="text-muted-foreground text-sm">Carregando...</p>
+      ) : produtos.length === 0 ? (
+        <div className="p-4 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
+          Nenhum produto cadastrado.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {produtos.map((p) => (
+            <li
+              key={p.id}
+              className="flex items-center justify-between p-3 rounded-xl bg-background border gap-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">{p.nome}</p>
+                <p className="text-xs text-muted-foreground">
+                  {p.preco_unidade != null
+                    ? `${Number(p.preco_unidade).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} / ${p.unidade}`
+                    : `— / ${p.unidade}`}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <button
+                  onClick={() => setEditRow(p)}
+                  className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                  aria-label="Editar"
+                >
+                  <Pencil className="size-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Apagar "${p.nome}"?`)) delMut.mutate(p.id);
+                  }}
+                  className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                  aria-label="Apagar"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editRow && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setEditRow(null)}
+        >
+          <div
+            className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl border shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-bold">Editar produto</h3>
+              <button
+                onClick={() => setEditRow(null)}
+                className="size-8 rounded-lg hover:bg-muted flex items-center justify-center"
+                aria-label="Fechar"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updMut.mutate(editRow);
+              }}
+              className="p-4 space-y-3"
+            >
+              <Field label="Nome">
+                <input
+                  className="app-input"
+                  value={editRow.nome}
+                  onChange={(e) => setEditRow({ ...editRow, nome: e.target.value })}
+                  required
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Unidade">
+                  <select
+                    className="app-input"
+                    value={editRow.unidade}
+                    onChange={(e) => setEditRow({ ...editRow, unidade: e.target.value })}
+                  >
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="un">un</option>
+                    <option value="saco">saco</option>
+                    <option value="sacola">sacola</option>
+                    <option value="litro">litro</option>
+                  </select>
+                </Field>
+                <Field label="Valor (R$)">
+                  <input
+                    className="app-input"
+                    inputMode="decimal"
+                    value={editRow.preco_unidade != null ? String(editRow.preco_unidade) : ""}
+                    onChange={(e) =>
+                      setEditRow({
+                        ...editRow,
+                        preco_unidade: e.target.value ? Number(e.target.value.replace(",", ".")) : null,
+                      })
+                    }
+                  />
+                </Field>
+              </div>
+              <button
+                disabled={updMut.isPending}
+                className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+              >
+                {updMut.isPending ? "Salvando..." : "Salvar"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 
