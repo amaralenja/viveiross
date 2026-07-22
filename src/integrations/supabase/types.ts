@@ -451,6 +451,7 @@ export type Database = {
           nome: string
           observacao: string | null
           salario: number
+          tipo_remuneracao: string
           updated_at: string
           user_id: string
           viveiro_id: string | null
@@ -462,6 +463,7 @@ export type Database = {
           nome: string
           observacao?: string | null
           salario?: number
+          tipo_remuneracao?: string
           updated_at?: string
           user_id: string
           viveiro_id?: string | null
@@ -473,6 +475,7 @@ export type Database = {
           nome?: string
           observacao?: string | null
           salario?: number
+          tipo_remuneracao?: string
           updated_at?: string
           user_id?: string
           viveiro_id?: string | null

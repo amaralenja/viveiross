@@ -1,0 +1,1 @@
+ALTER TABLE public.funcionarios ADD COLUMN IF NOT EXISTS tipo_remuneracao text NOT NULL DEFAULT 'mensal' CHECK (tipo_remuneracao IN ('mensal','diaria'));
