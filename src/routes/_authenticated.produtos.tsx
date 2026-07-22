@@ -1714,3 +1714,134 @@ function DespesaModal({
     </div>
   );
 }
+
+function BaixaEstoqueModal({
+  produtos,
+  viveiros,
+  onClose,
+  onSaved,
+}: {
+  produtos: Produto[];
+  viveiros: ViveiroOpt[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [produtoId, setProdutoId] = useState(produtos[0]?.id ?? "");
+  const produtoSel = produtos.find((p) => p.id === produtoId);
+  const [quantidade, setQuantidade] = useState("");
+  const [unidade, setUnidade] = useState(produtoSel?.unidade ?? "kg");
+  const [viveiroId, setViveiroId] = useState<string>(viveiros[0]?.id ?? "");
+  const [data, setData] = useState(todayLocal());
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const user_id = u.user?.id;
+      if (!user_id) throw new Error("Sem sessão");
+      if (!produtoSel) throw new Error("Selecione um produto");
+      if (!viveiroId) throw new Error("Selecione um viveiro");
+      const q = Number(String(quantidade).replace(",", "."));
+      if (!(q > 0)) throw new Error("Quantidade inválida");
+
+      const preco = produtoSel.preco_unidade != null ? Number(produtoSel.preco_unidade) : null;
+      const custo = preco != null ? preco * q : null;
+
+      const { error } = await supabase.from("lancamentos").insert({
+        user_id,
+        viveiro_id: viveiroId,
+        produto_id: produtoSel.id,
+        produto_nome: produtoSel.nome,
+        quantidade: q,
+        unidade: unidade.trim() || produtoSel.unidade || "kg",
+        tipo: "racao",
+        preco_unidade: preco,
+        custo_total: custo,
+        data_lancamento: data,
+      });
+      if (error) throw error;
+      toast.success("Baixa registrada!");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Baixa de estoque (consumo)" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Produto">
+          <select
+            required
+            value={produtoId}
+            onChange={(e) => {
+              setProdutoId(e.target.value);
+              const p = produtos.find((x) => x.id === e.target.value);
+              if (p) setUnidade(p.unidade);
+            }}
+            className="app-input"
+          >
+            <option value="">Selecione...</option>
+            {produtos.map((p) => (
+              <option key={p.id} value={p.id}>{p.nome}</option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quantidade">
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.001"
+              inputMode="decimal"
+              value={quantidade}
+              onChange={(e) => setQuantidade(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+          <Field label="Unidade">
+            <UnidadeSelect value={unidade} onChange={setUnidade} />
+          </Field>
+        </div>
+
+        <Field label="Viveiro">
+          <select
+            required
+            value={viveiroId}
+            onChange={(e) => setViveiroId(e.target.value)}
+            className="app-input"
+          >
+            <option value="">Selecione...</option>
+            {viveiros.map((v) => (
+              <option key={v.id} value={v.id}>{v.nome}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Data">
+          <input
+            type="date"
+            required
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="app-input"
+          />
+        </Field>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+        >
+          {loading ? "Salvando..." : "Registrar baixa"}
+        </button>
+      </form>
+    </ModalShell>
+  );
+}
