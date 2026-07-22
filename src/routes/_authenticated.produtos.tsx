@@ -432,6 +432,7 @@ function ProdutosPage() {
           viveiros={viveiros}
           saldoPorProduto={saldoPorProduto}
           onNovaEntrada={() => setOpenEntrada(true)}
+          onNovaBaixa={() => setOpenBaixa(true)}
           onCadastrarProduto={() => setOpenProd(true)}
           onEditEntrada={(e) => setEditandoEntrada(e)}
           onDelEntrada={(e) => {
