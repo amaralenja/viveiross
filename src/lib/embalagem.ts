@@ -2,8 +2,8 @@ export type EmbalagemInfo = {
   temEmbalagem: boolean;
   unidadeBase: string; // "kg", "g", "litro", "unidade", etc.
   tipoEmbalagem: string; // "saco", "pacote", "caixa", "fardo", "galao", "balde", etc.
-  pesoEmbalagem: number | null; // e.g. 10
-  rotuloEmbalagem: string; // e.g. "Saco de 10 kg"
+  pesoEmbalagem: number | null; // e.g. 10 ou 335
+  rotuloEmbalagem: string; // e.g. "Balde de 335 g"
 };
 
 export function parseProdutoEmbalagem(unidadeStr: string | null | undefined): EmbalagemInfo {
@@ -13,7 +13,7 @@ export function parseProdutoEmbalagem(unidadeStr: string | null | undefined): Em
 
   const str = unidadeStr.trim();
 
-  // Formato 1: "kg [saco:10]" or "kg [pacote:25]" or "unidade [caixa:20]"
+  // Formato 1: "g [balde:335]" or "kg [saco:10]" or "unidade [caixa:20]"
   const matchTag = str.match(/^([^[\]]+)\s*\[([a-zA-ZáàâãéèêíóôõúçÁÀÂÃÉÈÊÍÓÔÕÚÇ]+):(\d+(?:[.,]\d+)?)\]/i);
   if (matchTag) {
     const base = matchTag[1].trim() || "kg";
@@ -31,12 +31,14 @@ export function parseProdutoEmbalagem(unidadeStr: string | null | undefined): Em
     }
   }
 
-  // Formato 2: "saco (10 kg)" or "saco de 10kg" or "caixa 20 un" or "pacote de 5kg"
-  const matchLegacy = str.match(/^(saco|pacote|caixa|fardo|galao|galão|balde)\s*(?:\(|de)?\s*(\d+(?:[.,]\d+)?)\s*(kg|g|litro|litros|l|ml|un|unidade|unidades)?(?:\))?/i);
+  // Formato 2: "balde de 335g" or "saco (10 kg)" or "caixa 20 un"
+  const matchLegacy = str.match(/^(saco|pacote|caixa|fardo|galao|galão|balde|bombona|lata|frasco)\s*(?:\(|de)?\s*(\d+(?:[.,]\d+)?)\s*(kg|g|grama|gramas|litro|litros|l|ml|un|unidade|unidades)?(?:\))?/i);
   if (matchLegacy) {
     const tipo = matchLegacy[1].toLowerCase().trim();
     const peso = Number(matchLegacy[2].replace(",", "."));
-    const base = (matchLegacy[3] || "kg").toLowerCase().trim();
+    let base = (matchLegacy[3] || "kg").toLowerCase().trim();
+    if (base === "grama" || base === "gramas") base = "g";
+    if (base === "litros" || base === "l") base = "litro";
     if (peso > 0) {
       const tipoCap = tipo.charAt(0).toUpperCase() + tipo.slice(1);
       return {

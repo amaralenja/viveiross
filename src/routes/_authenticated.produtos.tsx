@@ -407,43 +407,69 @@ function ProdutosPage() {
           <ul className="space-y-3">
             {produtos.map((p) => {
               const emb = parseProdutoEmbalagem(p.unidade);
-              const precoKg = p.preco_unidade != null ? Number(p.preco_unidade) : null;
-              const precoSaco = precoKg != null && emb.temEmbalagem && emb.pesoEmbalagem ? precoKg * emb.pesoEmbalagem : null;
+              const precoUnitBase = p.preco_unidade != null ? Number(p.preco_unidade) : null;
+              const precoEmb = precoUnitBase != null && emb.temEmbalagem && emb.pesoEmbalagem ? precoUnitBase * emb.pesoEmbalagem : null;
+
+              const getIcon = () => {
+                if (!emb.temEmbalagem) return "秤";
+                switch (emb.tipoEmbalagem) {
+                  case "balde": return "🪣";
+                  case "saco": return "🌾";
+                  case "caixa": return "📦";
+                  case "pacote": return "✉️";
+                  case "galao": return "🛢️";
+                  case "frasco": return "🧪";
+                  default: return "📦";
+                }
+              };
 
               return (
                 <li
                   key={p.id}
                   className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3 shadow-xs hover:border-primary/30 transition"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                      <Package className="size-6" />
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-bold text-xl">
+                      {getIcon()}
                     </div>
-                    <div className="min-w-0 space-y-0.5">
+                    <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-base truncate">{p.nome}</p>
+                        <p className="font-bold text-base truncate">{p.nome}</p>
                         {emb.temEmbalagem && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                             📦 {emb.rotuloEmbalagem}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        Categoria: <strong className="text-foreground">{p.categoria}</strong> · Base: <strong className="text-foreground">{emb.unidadeBase}</strong>
-                        {precoKg != null && (
+                      <div className="flex items-center gap-2 text-xs flex-wrap">
+                        <span className="text-muted-foreground capitalize">
+                          Categoria: <strong className="text-foreground">{p.categoria}</strong>
+                        </span>
+
+                        {precoEmb != null && (
                           <>
-                            {" · "}
-                            <span className="text-emerald-600 font-bold normal-case">
-                              {formatBRL(precoKg)}/{emb.unidadeBase}
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-primary font-black text-sm">
+                              💰 {formatBRL(precoEmb)} / {emb.tipoEmbalagem}
                             </span>
-                            {precoSaco != null && (
-                              <span className="text-primary font-bold normal-case ml-1">
-                                ({formatBRL(precoSaco)}/{emb.tipoEmbalagem})
-                              </span>
-                            )}
                           </>
                         )}
-                      </p>
+
+                        {precoUnitBase != null && (
+                          <>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-emerald-600 font-bold">
+                              ({precoUnitBase < 0.01 ? `R$ ${precoUnitBase.toFixed(4)}` : formatBRL(precoUnitBase)}/{emb.unidadeBase})
+                            </span>
+                          </>
+                        )}
+
+                        {emb.unidadeBase === "g" && precoUnitBase != null && (
+                          <span className="text-muted-foreground text-[11px] font-semibold">
+                            (R$ {(precoUnitBase * 1000).toFixed(2)}/kg)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <RowActions
@@ -1856,10 +1882,11 @@ function ProdutoModal({
 
   const [nome, setNome] = useState(produto?.nome ?? "");
   const [categoria, setCategoria] = useState(produto?.categoria ?? "racao");
-  const [unidadeBase, setUnidadeBase] = useState(embInfo.unidadeBase || "kg");
-  const [temEmbalagem, setTemEmbalagem] = useState(embInfo.temEmbalagem);
-  const [tipoEmbalagem, setTipoEmbalagem] = useState(embInfo.tipoEmbalagem || "saco");
-  const [pesoEmbalagem, setPesoEmbalagem] = useState(embInfo.pesoEmbalagem != null ? String(embInfo.pesoEmbalagem) : "10");
+  const [formatType, setFormatType] = useState<"embalagem" | "avulso">(embInfo.temEmbalagem ? "embalagem" : "embalagem");
+  const [tipoEmbalagem, setTipoEmbalagem] = useState(embInfo.tipoEmbalagem || "balde");
+  const [pesoEmbalagem, setPesoEmbalagem] = useState(embInfo.pesoEmbalagem != null ? String(embInfo.pesoEmbalagem) : "335");
+  const [unidadeBase, setUnidadeBase] = useState(embInfo.unidadeBase || "g");
+
   const [precoKg, setPrecoKg] = useState(produto?.preco_unidade != null ? String(produto.preco_unidade) : "");
   const [precoEmbalagem, setPrecoEmbalagem] = useState(() => {
     if (produto?.preco_unidade != null && embInfo.pesoEmbalagem) {
@@ -1869,30 +1896,35 @@ function ProdutoModal({
   });
   const [loading, setLoading] = useState(false);
 
-  function handlePrecoKgChange(val: string) {
-    setPrecoKg(val);
-    const pKg = Number(val.replace(",", "."));
-    const peso = Number(pesoEmbalagem.replace(",", "."));
-    if (pKg > 0 && peso > 0 && temEmbalagem) {
-      setPrecoEmbalagem((pKg * peso).toFixed(2));
-    }
-  }
-
   function handlePrecoEmbalagemChange(val: string) {
     setPrecoEmbalagem(val);
     const pEmb = Number(val.replace(",", "."));
     const peso = Number(pesoEmbalagem.replace(",", "."));
-    if (pEmb > 0 && peso > 0 && temEmbalagem) {
-      setPrecoKg((pEmb / peso).toFixed(2));
+    if (pEmb > 0 && peso > 0) {
+      setPrecoKg((pEmb / peso).toString());
+    }
+  }
+
+  function handlePrecoKgChange(val: string) {
+    setPrecoKg(val);
+    const pKg = Number(val.replace(",", "."));
+    const peso = Number(pesoEmbalagem.replace(",", "."));
+    if (pKg > 0 && peso > 0) {
+      setPrecoEmbalagem((pKg * peso).toFixed(2));
     }
   }
 
   function handlePesoEmbalagemChange(val: string) {
     setPesoEmbalagem(val);
     const peso = Number(val.replace(",", "."));
-    const pKg = Number(precoKg.replace(",", "."));
-    if (pKg > 0 && peso > 0 && temEmbalagem) {
-      setPrecoEmbalagem((pKg * peso).toFixed(2));
+    const pEmb = Number(precoEmbalagem.replace(",", "."));
+    if (pEmb > 0 && peso > 0) {
+      setPrecoKg((pEmb / peso).toString());
+    } else {
+      const pKg = Number(precoKg.replace(",", "."));
+      if (pKg > 0 && peso > 0) {
+        setPrecoEmbalagem((pKg * peso).toFixed(2));
+      }
     }
   }
 
@@ -1909,11 +1941,12 @@ function ProdutoModal({
         throw new Error("Preço inválido");
       }
 
+      const isEmb = formatType === "embalagem";
       const pesoNum = Number(pesoEmbalagem.replace(",", "."));
       const finalUnidade = formatUnidadeDb(
         unidadeBase.trim() || "kg",
-        temEmbalagem ? tipoEmbalagem : undefined,
-        temEmbalagem ? pesoNum : null
+        isEmb ? tipoEmbalagem : undefined,
+        isEmb ? pesoNum : null
       );
 
       if (produto) {
@@ -1948,147 +1981,240 @@ function ProdutoModal({
     }
   }
 
-  return (
-    <ModalShell title={produto ? "Editar produto" : "Novo produto"} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Nome do Produto">
-          <input
-            required
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            placeholder="Ex: Ração Guabi 35%"
-            className="app-input"
-          />
-        </Field>
+  const pEmbNum = Number(precoEmbalagem.replace(",", ".")) || 0;
+  const pesoNum = Number(pesoEmbalagem.replace(",", ".")) || 0;
+  const pKgNum = Number(precoKg.replace(",", ".")) || (pEmbNum > 0 && pesoNum > 0 ? pEmbNum / pesoNum : 0);
 
-        <div className="grid grid-cols-2 gap-3">
+  return (
+    <ModalShell title={produto ? "Editar Produto" : "Cadastrar Novo Produto"} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-5">
+        
+        {/* Nome e Categoria */}
+        <div className="space-y-3">
+          <Field label="Nome do Produto">
+            <input
+              required
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Ex: Probiótico Super, Ração 35%..."
+              className="app-input text-base font-medium"
+            />
+          </Field>
+
           <Field label="Categoria">
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
               className="app-input"
             >
-              <option value="racao">Ração</option>
-              <option value="probiotico">Probiótico</option>
-              <option value="medicamento">Medicamento</option>
-              <option value="fertilizante">Fertilizante</option>
-              <option value="servico">Serviço</option>
-              <option value="outro">Outro</option>
+              <option value="racao">🌾 Ração</option>
+              <option value="probiotico">🧪 Probiótico</option>
+              <option value="medicamento">💊 Medicamento / Tratamento</option>
+              <option value="fertilizante">🌱 Fertilizante / Mineral</option>
+              <option value="servico">🛠️ Serviço</option>
+              <option value="outro">📦 Outro</option>
             </select>
-          </Field>
-
-          <Field label="Unidade Base de Estoque">
-            <UnidadeSelect value={unidadeBase} onChange={setUnidadeBase} />
           </Field>
         </div>
 
-        {/* Sacaria / Embalagem Padrão */}
-        <div className="p-3.5 rounded-2xl border bg-muted/20 space-y-3">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={temEmbalagem}
-              onChange={(e) => {
-                setTemEmbalagem(e.target.checked);
-                if (e.target.checked && precoKg && pesoEmbalagem) {
-                  const pKg = Number(precoKg.replace(",", "."));
-                  const peso = Number(pesoEmbalagem.replace(",", "."));
-                  if (pKg > 0 && peso > 0) setPrecoEmbalagem((pKg * peso).toFixed(2));
-                }
-              }}
-              className="size-4 text-primary rounded"
-            />
-            <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
-              <Package className="size-4 text-primary" /> Vendido / Comprado em Saco ou Embalagem Padrão?
-            </span>
+        {/* Formato do Produto (Botoes Didáticos Grandes) */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+            Como este produto é comprado ou cadastrado?
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setFormatType("embalagem")}
+              className={`p-3.5 rounded-2xl border text-left flex items-center gap-3 transition-all ${
+                formatType === "embalagem"
+                  ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/30 shadow-sm"
+                  : "border-border bg-card hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <div className="size-11 rounded-xl bg-primary/20 text-primary flex items-center justify-center font-bold text-xl shrink-0">
+                📦
+              </div>
+              <div>
+                <p className="font-bold text-sm text-foreground">Embalagem Fechada</p>
+                <p className="text-[11px] leading-tight text-muted-foreground">Balde, Saco, Caixa, Pacote, Galão...</p>
+              </div>
+            </button>
 
-          {temEmbalagem && (
-            <div className="space-y-3 pt-1 border-t border-border/40">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Tipo de Embalagem">
-                  <select
-                    value={tipoEmbalagem}
-                    onChange={(e) => setTipoEmbalagem(e.target.value)}
-                    className="app-input"
+            <button
+              type="button"
+              onClick={() => setFormatType("avulso")}
+              className={`p-3.5 rounded-2xl border text-left flex items-center gap-3 transition-all ${
+                formatType === "avulso"
+                  ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/30 shadow-sm"
+                  : "border-border bg-card hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <div className="size-11 rounded-xl bg-primary/20 text-primary flex items-center justify-center font-bold text-xl shrink-0">
+                秤
+              </div>
+              <div>
+                <p className="font-bold text-sm text-foreground">Por Peso / Litro</p>
+                <p className="text-[11px] leading-tight text-muted-foreground">Vendido direto por Kg, Grama ou Litro</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* CASO 1: EMBALAGEM FECHADA */}
+        {formatType === "embalagem" && (
+          <div className="p-4 rounded-2xl border-2 border-primary/30 bg-primary/5 space-y-4">
+            
+            {/* Passo 1: Tipo de Embalagem */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-primary uppercase tracking-wide block">
+                1️⃣ Escolha a Embalagem:
+              </label>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {[
+                  { id: "balde", label: "Balde", icon: "🪣" },
+                  { id: "saco", label: "Saco", icon: "🌾" },
+                  { id: "caixa", label: "Caixa", icon: "📦" },
+                  { id: "pacote", label: "Pacote", icon: "✉️" },
+                  { id: "galao", label: "Galão", icon: "🛢️" },
+                  { id: "frasco", label: "Frasco", icon: "🧪" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setTipoEmbalagem(item.id)}
+                    className={`py-2 px-1 rounded-xl border text-center font-semibold text-xs flex flex-col items-center gap-1 transition ${
+                      tipoEmbalagem === item.id
+                        ? "border-primary bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "border-border bg-card hover:bg-muted text-foreground"
+                    }`}
                   >
-                    <option value="saco">Saco</option>
-                    <option value="pacote">Pacote</option>
-                    <option value="caixa">Caixa</option>
-                    <option value="fardo">Fardo</option>
-                    <option value="galao">Galão</option>
-                    <option value="balde">Balde</option>
-                  </select>
-                </Field>
+                    <span className="text-lg">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                <Field label={`Peso/Conteúdo por ${tipoEmbalagem} (${unidadeBase})`}>
+            {/* Passo 2: Conteúdo da Embalagem */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label={`2️⃣ Quanto vem em 1 ${tipoEmbalagem.toUpperCase()}?`}>
+                <div className="flex gap-2">
                   <input
-                    required={temEmbalagem}
+                    required
                     type="number"
                     min="0.001"
                     step="any"
                     inputMode="decimal"
                     value={pesoEmbalagem}
                     onChange={(e) => handlePesoEmbalagemChange(e.target.value)}
-                    placeholder="Ex: 10"
-                    className="app-input font-bold"
+                    placeholder="Ex: 335"
+                    className="app-input flex-1 font-bold text-base border-primary/40"
                   />
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label={`Preço por ${tipoEmbalagem} (R$)`}>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={precoEmbalagem}
-                    onChange={(e) => handlePrecoEmbalagemChange(e.target.value)}
-                    placeholder="Ex: 50,00"
-                    className="app-input font-bold text-primary"
-                  />
-                </Field>
-
-                <Field label={`Preço por ${unidadeBase} (R$)`}>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={precoKg}
-                    onChange={(e) => handlePrecoKgChange(e.target.value)}
-                    placeholder="Ex: 5,00"
-                    className="app-input font-bold"
-                  />
-                </Field>
-              </div>
-
-              {Number(pesoEmbalagem) > 0 && (
-                <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
-                  💡 1 {tipoEmbalagem} de {pesoEmbalagem} {unidadeBase}
-                  {Number(precoEmbalagem) > 0 && ` = R$ ${Number(precoEmbalagem).toFixed(2)} (R$ ${Number(precoKg || 0).toFixed(2)}/${unidadeBase})`}
+                  <select
+                    value={unidadeBase}
+                    onChange={(e) => {
+                      setUnidadeBase(e.target.value);
+                      if (pEmbNum > 0 && pesoNum > 0) handlePrecoEmbalagemChange(precoEmbalagem);
+                    }}
+                    className="app-input w-36 font-bold"
+                  >
+                    <option value="g">gramas (g)</option>
+                    <option value="kg">quilos (kg)</option>
+                    <option value="ml">ml (mililitros)</option>
+                    <option value="litro">litros (l)</option>
+                    <option value="un">unidades</option>
+                  </select>
                 </div>
-              )}
-            </div>
-          )}
+              </Field>
 
-          {!temEmbalagem && (
-            <Field label={`Preço por ${unidadeBase} (R$)`}>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={precoKg}
-                onChange={(e) => setPrecoKg(e.target.value)}
-                placeholder="Ex: 5,00"
-                className="app-input font-bold"
-              />
-            </Field>
-          )}
-        </div>
+              {/* Passo 3: Preço do Balde/Embalagem */}
+              <Field label={`3️⃣ Preço total de 1 ${tipoEmbalagem.toUpperCase()} (R$)`}>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={precoEmbalagem}
+                  onChange={(e) => handlePrecoEmbalagemChange(e.target.value)}
+                  placeholder="Ex: 150,00"
+                  className="app-input font-bold text-base text-primary border-primary/40"
+                />
+              </Field>
+            </div>
+
+            {/* 📊 RESUMO DIDÁTICO DAS CONTAS AUTOMÁTICAS */}
+            {pEmbNum > 0 && pesoNum > 0 && (
+              <div className="p-3.5 rounded-xl bg-card border border-emerald-500/30 space-y-2.5 shadow-xs">
+                <p className="text-xs font-bold uppercase tracking-wide text-emerald-600 flex items-center gap-1.5">
+                  ✨ Contas Calculadas Automáticas do Produto:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-500/20">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">Valor da Embalagem</span>
+                    <span className="text-sm font-black text-primary">R$ {pEmbNum.toFixed(2)}</span>
+                    <span className="text-[10px] text-muted-foreground block">por {tipoEmbalagem}</span>
+                  </div>
+
+                  <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-500/20">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">Custo por {unidadeBase}</span>
+                    <span className="text-sm font-black text-emerald-600">
+                      R$ {pKgNum < 0.01 ? pKgNum.toFixed(4) : pKgNum.toFixed(2)} / {unidadeBase}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block">fracionado</span>
+                  </div>
+
+                  {unidadeBase === "g" && (
+                    <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-500/20">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Custo por Quilo (1.000g)</span>
+                      <span className="text-sm font-black text-foreground">
+                        R$ {(pKgNum * 1000).toFixed(2)} / kg
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block">proporcional</span>
+                    </div>
+                  )}
+
+                  {unidadeBase === "kg" && (
+                    <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-500/20">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Custo por Grama (1g)</span>
+                      <span className="text-sm font-black text-foreground">
+                        R$ {(pKgNum / 1000).toFixed(4)} / g
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block">fracionado</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CASO 2: VENDIDO POR QUILO / VOLUME AVULSO */}
+        {formatType === "avulso" && (
+          <div className="p-4 rounded-2xl border bg-muted/20 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Unidade Base">
+                <UnidadeSelect value={unidadeBase} onChange={setUnidadeBase} />
+              </Field>
+
+              <Field label={`Preço por ${unidadeBase} (R$)`}>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={precoKg}
+                  onChange={(e) => setPrecoKg(e.target.value)}
+                  placeholder="Ex: 5,00"
+                  className="app-input font-bold"
+                />
+              </Field>
+            </div>
+          </div>
+        )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold text-base shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
         >
-          {loading ? "Salvando..." : "Salvar"}
+          {loading ? "Salvando..." : "💾 Salvar Produto"}
         </button>
       </form>
     </ModalShell>
