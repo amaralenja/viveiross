@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History } from "lucide-react";
+import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History, FileDown } from "lucide-react";
 import { todayLocal } from "@/lib/date";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
@@ -629,6 +629,162 @@ function formatDateSafe(iso?: string | null) {
   }
 }
 
+async function gerarPdfEstoque(
+  produtos: Produto[],
+  saldoPorProduto: Map<string, { entradas: number; saidas: number }>,
+  movimentacoes: Array<{
+    id: string;
+    tipo: "entrada" | "saida";
+    produtoId: string;
+    produtoNome: string;
+    quantidade: number;
+    unidade: string;
+    data: string;
+    detalhe: string;
+    custo?: number | null;
+  }>,
+  totais: { totalEstoqueGlobal: number; totalEntradasGlobal: number; totalSaidasGlobal: number }
+) {
+  const [pdfModule, autoTableModule] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const jsPDF = pdfModule.default;
+  const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const dataHojeStr = new Date().toLocaleDateString("pt-BR");
+  const horaStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  // Banner Superior / Header
+  doc.setFillColor(16, 185, 129);
+  doc.rect(0, 0, 210, 22, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("RELATÓRIO DE ESTOQUE & MOVIMENTAÇÕES DE PRODUTOS", 14, 12);
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Emitido em ${dataHojeStr} às ${horaStr}`, 14, 18);
+
+  // Cards de Resumo Executivo
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("RESUMO EXECUTIVO DE ESTOQUE", 14, 30);
+
+  // Box Saldo Total
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(14, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("SALDO ATUAL EM ESTOQUE", 18, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`${totais.totalEstoqueGlobal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 18, 47);
+
+  // Box Entradas
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(76, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("TOTAL ABASTECIDO (+)", 80, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text(`+ ${totais.totalEntradasGlobal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 80, 47);
+
+  // Box Consumos
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(138, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("TOTAL CONSUMIDO (INÍCIO)", 142, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(225, 29, 72);
+  doc.text(`- ${totais.totalSaidasGlobal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 142, 47);
+
+  let currentY = 58;
+
+  // Tabela 1: Posição de Estoque por Produto
+  doc.setFontSize(9.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text("1. POSIÇÃO DE ESTOQUE POR PRODUTO", 14, currentY);
+
+  autoTable(doc, {
+    startY: currentY + 3,
+    head: [["Produto", "Categoria", "Entradas", "Consumos", "Saldo Atual", "Status"]],
+    body: produtos.map((p) => {
+      const s = saldoPorProduto.get(p.id) ?? { entradas: 0, saidas: 0 };
+      const saldo = s.entradas - s.saidas;
+      const pct = s.entradas > 0 ? (saldo / s.entradas) * 100 : (saldo > 0 ? 100 : 0);
+      const status = saldo <= 0 ? "Insuficiente" : pct <= 20 ? "Baixo" : "OK";
+
+      return [
+        p.nome,
+        p.categoria || "Geral",
+        `${s.entradas.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${p.unidade}`,
+        `${s.saidas.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${p.unidade}`,
+        `${saldo.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${p.unidade}`,
+        status,
+      ];
+    }),
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+  });
+
+  currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+
+  // Tabela 2: Últimas Movimentações (Entradas e Baixas)
+  doc.setFontSize(9.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`2. ÚLTIMAS MOVIMENTAÇÕES DE ESTOQUE (${movimentacoes.length})`, 14, currentY);
+
+  if (movimentacoes.length === 0) {
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Nenhuma movimentação registrada.", 14, currentY + 5);
+  } else {
+    autoTable(doc, {
+      startY: currentY + 3,
+      head: [["Data", "Tipo", "Produto", "Quantidade", "Detalhes / Origem"]],
+      body: movimentacoes.slice(0, 15).map((m) => [
+        formatDateSafe(m.data),
+        m.tipo === "entrada" ? "ENTRADA (+)" : "BAIXA (-)",
+        m.produtoNome,
+        `${m.tipo === "entrada" ? "+" : "-"} ${m.quantidade.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${m.unidade}`,
+        m.detalhe,
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+  }
+
+  // Footer em 1 página
+  const pageCount = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Viveiros App · Relatório de Estoque gerado em ${dataHojeStr} às ${horaStr}`, 14, 287);
+    doc.text(`Página ${i} de ${pageCount}`, 196, 287, { align: "right" });
+  }
+
+  const pdfBlob = doc.output("blob") as Blob;
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, "_blank");
+  toast.success("PDF do estoque gerado com sucesso!");
+}
+
 function EstoqueView({
   produtos,
   entradas,
@@ -746,6 +902,23 @@ function EstoqueView({
     });
   }, [movimentacoes, filtroTimeline, buscaEstoque]);
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  async function handleExportPdf() {
+    try {
+      setIsGeneratingPdf(true);
+      await gerarPdfEstoque(produtosOrdenados, saldoPorProduto, movimentacoes, {
+        totalEstoqueGlobal,
+        totalEntradasGlobal,
+        totalSaidasGlobal,
+      });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Cards de Resumo Geral */}
@@ -770,7 +943,17 @@ function EstoqueView({
           <h3 className="font-bold text-base">Controle de Estoque & Lançamentos</h3>
           <p className="text-xs text-muted-foreground">Registros automáticos de baixas do Início e compras efetuadas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={isGeneratingPdf}
+            className="h-10 px-3.5 rounded-xl border bg-background hover:bg-muted font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 shrink-0"
+            title="Gerar PDF do relatório de estoque em 1 página"
+          >
+            <FileDown className="size-4 text-emerald-600" />
+            {isGeneratingPdf ? "Gerando..." : "Gerar PDF"}
+          </button>
           <button
             onClick={onNovaBaixa}
             className="h-10 px-3.5 rounded-xl border border-destructive/40 text-destructive font-semibold text-xs inline-flex items-center gap-1.5 hover:bg-destructive/10 transition"
