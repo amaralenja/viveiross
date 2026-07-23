@@ -9,6 +9,7 @@ import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getMyAccessFn } from "@/lib/admin.functions";
 import { usePwConfig, sectionRequiresLock } from "@/lib/password-config";
+import { CalculadoraPopup } from "@/components/Calculadora";
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -188,6 +189,9 @@ function AuthLayout() {
           <Outlet />
         )}
       </main>
+
+      {/* Calculadora Flutuante Global */}
+      <CalculadoraPopup />
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
         <div className="mx-auto grid w-full max-w-5xl grid-cols-6">
