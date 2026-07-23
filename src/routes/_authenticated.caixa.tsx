@@ -593,6 +593,18 @@ function CaixaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const { data: listaProdutos = [] } = useQuery({
+    queryKey: ["produtos", "lista_caixa"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, categoria, unidade, preco_unidade")
+        .order("nome");
+      if (error) throw error;
+      return (data ?? []) as { id: string; nome: string; categoria: string | null; unidade: string | null; preco_unidade: number | null }[];
+    },
+  });
+
   const { data: lancamentos = [], isLoading } = useQuery({
     queryKey: ["caixa", "lancamentos"],
     queryFn: async () => {
@@ -639,9 +651,33 @@ function CaixaPage() {
         socio_id: socioId || null,
       });
       if (error) throw error;
+
+      // Se for despesa e tiver um produto selecionado (ou correspondência por nome), contabilizar automaticamente no estoque
+      if (tipo === "despesa") {
+        const prod = produtoId
+          ? listaProdutos.find((p) => p.id === produtoId)
+          : listaProdutos.find((p) => descricao.toLowerCase().trim().includes(p.nome.toLowerCase().trim()));
+
+        if (prod) {
+          const qNumEntrada = qNum > 0 ? qNum : 1;
+          const unitPrice = Number(precoKg.replace(",", ".")) || prod.preco_unidade || (valorFinal / qNumEntrada);
+
+          await supabase.from("estoque_entradas").insert({
+            user_id: userId,
+            produto_id: prod.id,
+            quantidade: qNumEntrada,
+            unidade: unidade || prod.unidade || "kg",
+            preco_unidade: unitPrice > 0 ? unitPrice : null,
+            custo_total: valorFinal,
+            fornecedor: "Compra via Caixa",
+            data_entrada: data,
+            observacao: `Entrada automática via lançamento de caixa: ${descricao.trim()}`,
+          });
+        }
+      }
     },
     onSuccess: () => {
-      toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada");
+      toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada e estoque atualizado!");
       setProdutoId("");
       setDescricao("");
       setCategoria("");
@@ -650,6 +686,9 @@ function CaixaPage() {
       setValorManual("");
       setSocioId("");
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1111,33 +1150,32 @@ function CaixaPage() {
 
 
         {tipo === "despesa" && (
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Atalhos Rápidos de Serviços & Categorias
-            </span>
-            <div className="flex gap-1.5 flex-wrap">
-              {[
-                { label: "⚡ Eletricista", cat: "eletricista", desc: "Serviço de Eletricista" },
-                { label: "🌾 Ração / Produtos", cat: "ração", desc: "Ração / Produtos" },
-                { label: "🛠️ Manutenção", cat: "manutenção", desc: "Manutenção e Consertos" },
-                { label: "⛽ Combustível", cat: "combustível", desc: "Combustível" },
-                { label: "👷 Mão de Obra / Serviço", cat: "serviços", desc: "Serviços Contratados" },
-                { label: "💡 Energia / Água", cat: "utilidades", desc: "Energia Elétrica / Água" },
-              ].map((a) => (
-                <button
-                  type="button"
-                  key={a.cat}
-                  onClick={() => {
-                    setCategoria(a.cat);
-                    if (!descricao) setDescricao(a.desc);
-                  }}
-                  className="px-2.5 py-1 rounded-xl border bg-muted/40 hover:bg-primary/10 hover:border-primary/40 text-xs font-semibold transition active:scale-95"
-                >
-                  {a.label}
-                </button>
+          <Field label="📦 Selecionar Produto Cadastrado (Opcional - Puxa valor e Aumenta o Estoque)">
+            <select
+              value={produtoId}
+              onChange={(e) => {
+                const pId = e.target.value;
+                setProdutoId(pId);
+                const prod = listaProdutos.find((p) => p.id === pId);
+                if (prod) {
+                  setDescricao(prod.nome);
+                  if (prod.categoria) setCategoria(prod.categoria);
+                  if (prod.unidade) setUnidade(prod.unidade);
+                  if (prod.preco_unidade && prod.preco_unidade > 0) {
+                    setPrecoKg(String(prod.preco_unidade));
+                  }
+                }
+              }}
+              className="app-input border-primary/40 bg-primary/5 font-semibold text-primary"
+            >
+              <option value="">— Nenhum produto (Lançamento manual / Serviço) —</option>
+              {listaProdutos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  📦 {p.nome} {p.preco_unidade ? `(R$ ${p.preco_unidade.toFixed(2)} / ${p.unidade || "un"})` : ""}
+                </option>
               ))}
-            </div>
-          </div>
+            </select>
+          </Field>
         )}
 
         <Field label="Descrição">
