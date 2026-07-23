@@ -2097,49 +2097,47 @@ function ProdutoModal({
             </div>
 
             {/* Passo 2: Conteúdo da Embalagem */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label={`2️⃣ Quanto vem em 1 ${tipoEmbalagem.toUpperCase()}?`}>
-                <div className="flex gap-2">
-                  <input
-                    required
-                    type="number"
-                    min="0.001"
-                    step="any"
-                    inputMode="decimal"
-                    value={pesoEmbalagem}
-                    onChange={(e) => handlePesoEmbalagemChange(e.target.value)}
-                    placeholder="Ex: 335"
-                    className="app-input flex-1 font-bold text-base border-primary/40"
-                  />
-                  <select
-                    value={unidadeBase}
-                    onChange={(e) => {
-                      setUnidadeBase(e.target.value);
-                      if (pEmbNum > 0 && pesoNum > 0) handlePrecoEmbalagemChange(precoEmbalagem);
-                    }}
-                    className="app-input w-36 font-bold"
-                  >
-                    <option value="g">gramas (g)</option>
-                    <option value="kg">quilos (kg)</option>
-                    <option value="ml">ml (mililitros)</option>
-                    <option value="litro">litros (l)</option>
-                    <option value="un">unidades</option>
-                  </select>
-                </div>
-              </Field>
-
-              {/* Passo 3: Preço do Balde/Embalagem */}
-              <Field label={`3️⃣ Preço total de 1 ${tipoEmbalagem.toUpperCase()} (R$)`}>
+            <Field label={`2️⃣ Quanto vem dentro de 1 ${tipoEmbalagem.toUpperCase()}?`}>
+              <div className="grid grid-cols-5 gap-2">
                 <input
-                  type="text"
+                  required
+                  type="number"
+                  min="0.001"
+                  step="any"
                   inputMode="decimal"
-                  value={precoEmbalagem}
-                  onChange={(e) => handlePrecoEmbalagemChange(e.target.value)}
-                  placeholder="Ex: 150,00"
-                  className="app-input font-bold text-base text-primary border-primary/40"
+                  value={pesoEmbalagem}
+                  onChange={(e) => handlePesoEmbalagemChange(e.target.value)}
+                  placeholder="Ex: 335"
+                  className="app-input col-span-3 font-bold text-base border-primary/40 text-foreground"
                 />
-              </Field>
-            </div>
+                <select
+                  value={unidadeBase}
+                  onChange={(e) => {
+                    setUnidadeBase(e.target.value);
+                    if (pEmbNum > 0 && pesoNum > 0) handlePrecoEmbalagemChange(precoEmbalagem);
+                  }}
+                  className="app-input col-span-2 font-bold px-2 text-xs sm:text-sm"
+                >
+                  <option value="g">gramas (g)</option>
+                  <option value="kg">quilos (kg)</option>
+                  <option value="ml">ml (mililitros)</option>
+                  <option value="litro">litros (l)</option>
+                  <option value="un">unidades</option>
+                </select>
+              </div>
+            </Field>
+
+            {/* Passo 3: Preço do Balde/Embalagem */}
+            <Field label={`3️⃣ Preço total de 1 ${tipoEmbalagem.toUpperCase()} (R$)`}>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={precoEmbalagem}
+                onChange={(e) => handlePrecoEmbalagemChange(e.target.value)}
+                placeholder="Ex: 150,00"
+                className="app-input font-bold text-base text-primary border-primary/40"
+              />
+            </Field>
 
             {/* 📊 RESUMO DIDÁTICO DAS CONTAS AUTOMÁTICAS */}
             {pEmbNum > 0 && pesoNum > 0 && (
