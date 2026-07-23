@@ -9,6 +9,19 @@ import { todayLocal } from "@/lib/date";
 export const Route = createFileRoute("/_authenticated/produtos")({
   head: () => ({ meta: [{ title: "Produtos & Funcionários" }] }),
   component: ProdutosPage,
+  errorComponent: ({ error }) => (
+    <div className="p-6 max-w-xl mx-auto text-center space-y-4 my-8 rounded-2xl border bg-card shadow-sm">
+      <h2 className="text-xl font-bold text-destructive">Erro na página de Estoque / Produtos</h2>
+      <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : "Erro ao carregar dados."}</p>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm"
+      >
+        Recarregar Página
+      </button>
+    </div>
+  ),
 });
 
 type Produto = {
@@ -148,73 +161,115 @@ function ProdutosPage() {
   const produtosQuery = useQuery({
     queryKey: ["produtos"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("id, nome, categoria, unidade, preco_unidade")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as Produto[];
+      try {
+        const { data, error } = await supabase
+          .from("produtos")
+          .select("id, nome, categoria, unidade, preco_unidade")
+          .order("nome");
+        if (error) {
+          console.error("Erro ao buscar produtos:", error);
+          return [];
+        }
+        return (data ?? []) as Produto[];
+      } catch {
+        return [];
+      }
     },
   });
 
   const funcionariosQuery = useQuery({
     queryKey: ["funcionarios"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("funcionarios")
-        .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as unknown as Funcionario[];
+      try {
+        const { data, error } = await supabase
+          .from("funcionarios")
+          .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao")
+          .order("nome");
+        if (error) {
+          console.error("Erro ao buscar funcionarios:", error);
+          return [];
+        }
+        return (data ?? []) as unknown as Funcionario[];
+      } catch {
+        return [];
+      }
     },
   });
 
   const viveirosQuery = useQuery({
     queryKey: ["viveiros", "ativos"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("viveiros")
-        .select("id, nome, status")
-        .eq("status", "ativo")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as ViveiroOpt[];
+      try {
+        const { data, error } = await supabase
+          .from("viveiros")
+          .select("id, nome, status")
+          .eq("status", "ativo")
+          .order("nome");
+        if (error) {
+          console.error("Erro ao buscar viveiros:", error);
+          return [];
+        }
+        return (data ?? []) as ViveiroOpt[];
+      } catch {
+        return [];
+      }
     },
   });
 
   const entradasQuery = useQuery({
     queryKey: ["estoque_entradas"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("estoque_entradas")
-        .select("id, produto_id, quantidade, unidade, preco_unidade, custo_total, fornecedor, data_entrada, observacao")
-        .order("data_entrada", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as EstoqueEntrada[];
+      try {
+        const { data, error } = await supabase
+          .from("estoque_entradas")
+          .select("id, produto_id, quantidade, unidade, preco_unidade, custo_total, fornecedor, data_entrada, observacao")
+          .order("data_entrada", { ascending: false });
+        if (error) {
+          console.error("Erro ao buscar estoque_entradas:", error);
+          return [];
+        }
+        return (data ?? []) as EstoqueEntrada[];
+      } catch {
+        return [];
+      }
     },
   });
 
   const consumoQuery = useQuery({
     queryKey: ["estoque_consumo"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lancamentos")
-        .select("id, produto_id, produto_nome, quantidade, unidade, viveiro_id, data_lancamento, tipo")
-        .order("data_lancamento", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as ConsumoRow[];
+      try {
+        const { data, error } = await supabase
+          .from("lancamentos")
+          .select("id, produto_id, produto_nome, quantidade, unidade, viveiro_id, data_lancamento, tipo")
+          .order("data_lancamento", { ascending: false });
+        if (error) {
+          console.error("Erro ao buscar estoque_consumo:", error);
+          return [];
+        }
+        return (data ?? []) as ConsumoRow[];
+      } catch {
+        return [];
+      }
     },
   });
 
   const despesasQuery = useQuery({
     queryKey: ["despesas_gerais"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("despesas_gerais")
-        .select("id, viveiro_id, descricao, categoria, valor, data_despesa, rateio, observacao")
-        .order("data_despesa", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Despesa[];
+      try {
+        const { data, error } = await supabase
+          .from("despesas_gerais")
+          .select("id, viveiro_id, descricao, categoria, valor, data_despesa, rateio, observacao")
+          .order("data_despesa", { ascending: false });
+        if (error) {
+          console.error("Erro ao buscar despesas_gerais:", error);
+          return [];
+        }
+        return (data ?? []) as Despesa[];
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -227,22 +282,25 @@ function ProdutosPage() {
 
   const saldoPorProduto = new Map<string, { entradas: number; saidas: number }>();
   for (const e of entradas) {
-    const prod = produtos.find((x) => x.id === e.produto_id);
+    if (!e || !e.produto_id) continue;
+    const prod = produtos.find((x) => x && x.id === e.produto_id);
     const qtyNorm = prod ? normalizeQuantity(Number(e.quantidade ?? 0), e.unidade, prod.unidade) : Number(e.quantidade ?? 0);
     const cur = saldoPorProduto.get(e.produto_id) ?? { entradas: 0, saidas: 0 };
-    cur.entradas += qtyNorm;
+    cur.entradas += Number.isNaN(qtyNorm) ? 0 : qtyNorm;
     saldoPorProduto.set(e.produto_id, cur);
   }
   for (const c of consumo) {
-    let prod = c.produto_id ? produtos.find((p) => p.id === c.produto_id) : null;
-    if (!prod && c.produto_nome) {
-      prod = produtos.find((p) => p.nome.toLowerCase().trim() === c.produto_nome.toLowerCase().trim()) ?? null;
+    if (!c) continue;
+    let prod = c.produto_id ? produtos.find((p) => p && p.id === c.produto_id) : null;
+    if (!prod && c.produto_nome && typeof c.produto_nome === "string") {
+      const nameLower = c.produto_nome.toLowerCase().trim();
+      prod = produtos.find((p) => p && p.nome && typeof p.nome === "string" && p.nome.toLowerCase().trim() === nameLower) ?? null;
     }
-    if (!prod) continue;
+    if (!prod || !prod.id) continue;
 
     const qtyNorm = normalizeQuantity(Number(c.quantidade ?? 0), c.unidade, prod.unidade);
     const cur = saldoPorProduto.get(prod.id) ?? { entradas: 0, saidas: 0 };
-    cur.saidas += qtyNorm;
+    cur.saidas += Number.isNaN(qtyNorm) ? 0 : qtyNorm;
     saldoPorProduto.set(prod.id, cur);
   }
 
