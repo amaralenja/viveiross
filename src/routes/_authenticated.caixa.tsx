@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power, ShoppingBag, Plus, Tag, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power, ShoppingBag, Plus, Tag, Filter, ChevronLeft, ChevronRight, Boxes } from "lucide-react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -459,6 +459,8 @@ function CaixaPage() {
   const [socioId, setSocioId] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [subTab, setSubTab] = useState<"geral" | "compras">("geral");
+  const [buscaDiscriminacao, setBuscaDiscriminacao] = useState("");
+  const [filtroDestinoDisc, setFiltroDestinoDisc] = useState("__todos__");
 
   const viveirosScrollRef = useRef<HTMLDivElement>(null);
 
@@ -709,6 +711,30 @@ function CaixaPage() {
 
   const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
   const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
+
+  const despesasDiscriminadas = useMemo(() => {
+    return lancamentos.filter((l) => {
+      if (l.tipo === "receita") return false;
+      if (filtroDestinoDisc !== "__todos__") {
+        if (filtroDestinoDisc === "rateado") {
+          if (l.viveiro_id || l.categoria === NR_CAT) return false;
+        } else if (filtroDestinoDisc === "isento") {
+          if (l.categoria !== NR_CAT) return false;
+        } else {
+          if (l.viveiro_id !== filtroDestinoDisc) return false;
+        }
+      }
+      if (buscaDiscriminacao.trim()) {
+        const term = buscaDiscriminacao.toLowerCase().trim();
+        const descMatch = (l.descricao || "").toLowerCase().includes(term);
+        const catMatch = (l.categoria || "").toLowerCase().includes(term);
+        const socioName = l.socio_id ? (socioMap.get(l.socio_id) || "") : "";
+        const socioMatch = socioName.toLowerCase().includes(term);
+        if (!descMatch && !catMatch && !socioMatch) return false;
+      }
+      return true;
+    });
+  }, [lancamentos, filtroDestinoDisc, buscaDiscriminacao, socioMap]);
 
 
 
@@ -1084,6 +1110,36 @@ function CaixaPage() {
         </div>
 
 
+        {tipo === "despesa" && (
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Atalhos Rápidos de Serviços & Categorias
+            </span>
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { label: "⚡ Eletricista", cat: "eletricista", desc: "Serviço de Eletricista" },
+                { label: "🌾 Ração / Produtos", cat: "ração", desc: "Ração / Produtos" },
+                { label: "🛠️ Manutenção", cat: "manutenção", desc: "Manutenção e Consertos" },
+                { label: "⛽ Combustível", cat: "combustível", desc: "Combustível" },
+                { label: "👷 Mão de Obra / Serviço", cat: "serviços", desc: "Serviços Contratados" },
+                { label: "💡 Energia / Água", cat: "utilidades", desc: "Energia Elétrica / Água" },
+              ].map((a) => (
+                <button
+                  type="button"
+                  key={a.cat}
+                  onClick={() => {
+                    setCategoria(a.cat);
+                    if (!descricao) setDescricao(a.desc);
+                  }}
+                  className="px-2.5 py-1 rounded-xl border bg-muted/40 hover:bg-primary/10 hover:border-primary/40 text-xs font-semibold transition active:scale-95"
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Field label="Descrição">
           <input
             required
@@ -1203,6 +1259,125 @@ function CaixaPage() {
           {saveMut.isPending ? "Salvando..." : "Salvar"}
         </button>
       </form>
+
+      {/* Seção de Discriminação de Gastos dos Viveiros */}
+      <section className="rounded-2xl bg-card border p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b">
+          <div>
+            <h2 className="font-bold text-base flex items-center gap-2">
+              <Boxes className="size-5 text-primary" /> Discriminação de Gastos & Serviços dos Viveiros
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Detalhamento de produtos, eletricista, manutenção e serviços contratados
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="text"
+              value={buscaDiscriminacao}
+              onChange={(e) => setBuscaDiscriminacao(e.target.value)}
+              placeholder="Buscar (ex: eletricista, ração, encanador)..."
+              className="app-input text-xs py-1.5 h-9 min-w-[200px]"
+            />
+            <select
+              value={filtroDestinoDisc}
+              onChange={(e) => setFiltroDestinoDisc(e.target.value)}
+              className="app-input text-xs py-1.5 h-9 w-auto"
+            >
+              <option value="__todos__">🏝️ Todos os Destinos</option>
+              <option value="rateado">🔄 Rateado (Todos os Viveiros)</option>
+              <option value="isento">🛑 Isento / Gasto Interno</option>
+              {viveiros.map((v) => (
+                <option key={v.id} value={v.id}>{v.nome}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {despesasDiscriminadas.length === 0 ? (
+          <div className="p-8 border-2 border-dashed rounded-2xl text-center text-xs text-muted-foreground italic">
+            Nenhuma despesa ou serviço discriminado encontrado.
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+            {despesasDiscriminadas.map((l) => {
+              const vivLabel = l.categoria === NR_CAT
+                ? "Isento / Não Rateado"
+                : l.viveiro_id
+                  ? (viveiroMap.get(l.viveiro_id) ?? "—")
+                  : "Rateado (Todos os Viveiros)";
+
+              const isRateado = !l.viveiro_id && l.categoria !== NR_CAT;
+              const isIsento = l.categoria === NR_CAT && !l.viveiro_id;
+              const socioNome = l.socio_id ? socioMap.get(l.socio_id) : null;
+
+              return (
+                <div key={l.id} className="p-3.5 rounded-2xl bg-card border flex items-center justify-between gap-3 text-xs shadow-2xs hover:border-primary/40 transition">
+                  <div className="min-w-0 space-y-1 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-foreground truncate">{l.descricao}</span>
+
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        isRateado
+                          ? "bg-primary/10 text-primary"
+                          : isIsento
+                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      }`}>
+                        {isRateado ? "🔄 Rateado (Todos)" : isIsento ? "🛑 Gasto Interno" : `🏝️ ${vivLabel}`}
+                      </span>
+
+                      {l.categoria && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                          {l.categoria}
+                        </span>
+                      )}
+
+                      {socioNome && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                          👤 {socioNome}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-muted-foreground text-[11px]">
+                      Data: {fmtDate(l.data_lancamento)}
+                      {l.quantidade && ` · Qtd: ${l.quantidade} ${l.unidade || "un"}`}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-base font-black text-destructive tabular-nums">
+                      − {fmtBRL(Number(l.valor ?? 0))}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(l)}
+                        className="size-8 rounded-xl border flex items-center justify-center hover:bg-accent transition"
+                        title="Editar lançamento"
+                      >
+                        <Pencil className="size-3.5 text-muted-foreground" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Apagar "${l.descricao}"?`)) delMut.mutate(l.id);
+                        }}
+                        className="size-8 rounded-xl border flex items-center justify-center hover:bg-destructive/10 text-destructive transition"
+                        title="Apagar lançamento"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {!isLoading && lancamentos.length === 0 && (
         <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
