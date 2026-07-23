@@ -557,6 +557,20 @@ function formatNumber(v: number) {
   return Number(v || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
 
+function formatDateSafe(iso?: string | null) {
+  if (!iso) return "—";
+  try {
+    const clean = iso.split("T")[0];
+    const parts = clean.split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return clean;
+  } catch {
+    return "—";
+  }
+}
+
 function EstoqueView({
   produtos,
   entradas,
@@ -619,42 +633,45 @@ function EstoqueView({
       custo?: number | null;
     }> = [];
 
-    for (const e of entradas) {
-      const prod = produtos.find((x) => x.id === e.produto_id);
+    for (const e of (entradas ?? [])) {
+      if (!e) continue;
+      const prod = (produtos ?? []).find((x) => x?.id === e.produto_id);
       list.push({
         id: `e-${e.id}`,
         tipo: "entrada",
-        produtoId: e.produto_id,
+        produtoId: e.produto_id ?? "",
         produtoNome: prod?.nome ?? "Produto",
         quantidade: Number(e.quantidade ?? 0),
         unidade: e.unidade ?? prod?.unidade ?? "kg",
-        data: e.data_entrada,
+        data: e.data_entrada ?? "",
         detalhe: e.fornecedor ? `Fornecedor: ${e.fornecedor}` : e.observacao || "Entrada de estoque / Compra",
         custo: e.custo_total != null ? Number(e.custo_total) : null,
       });
     }
 
-    for (const c of consumo) {
-      let prod = c.produto_id ? produtos.find((p) => p.id === c.produto_id) : null;
-      if (!prod && c.produto_nome) {
-        prod = produtos.find((p) => p.nome.toLowerCase().trim() === c.produto_nome.toLowerCase().trim()) ?? null;
+    for (const c of (consumo ?? [])) {
+      if (!c) continue;
+      let prod = c.produto_id ? (produtos ?? []).find((p) => p?.id === c.produto_id) : null;
+      if (!prod && c.produto_nome && typeof c.produto_nome === "string") {
+        const nameLower = c.produto_nome.toLowerCase().trim();
+        prod = (produtos ?? []).find((p) => p?.nome && p.nome.toLowerCase().trim() === nameLower) ?? null;
       }
 
-      const viv = viveiros.find((v) => v.id === c.viveiro_id);
+      const viv = (viveiros ?? []).find((v) => v?.id === c.viveiro_id);
 
       list.push({
         id: `c-${c.id}`,
         tipo: "saida",
         produtoId: prod?.id ?? "desconhecido",
-        produtoNome: prod?.nome ?? c.produto_nome ?? "Lançamento",
+        produtoNome: prod?.nome ?? (typeof c.produto_nome === "string" ? c.produto_nome : "Lançamento"),
         quantidade: Number(c.quantidade ?? 0),
         unidade: c.unidade ?? prod?.unidade ?? "kg",
-        data: c.data_lancamento,
+        data: c.data_lancamento ?? "",
         detalhe: viv ? `Lançado no ${viv.nome}` : "Lançamento de ração / Consumo",
       });
     }
 
-    return list.sort((a, b) => b.data.localeCompare(a.data));
+    return list.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
   }, [entradas, consumo, produtos, viveiros]);
 
   const movimentacoesFiltradas = useMemo(() => {
@@ -663,8 +680,8 @@ function EstoqueView({
       if (filtroTimeline === "saidas" && m.tipo !== "saida") return false;
       if (buscaEstoque.trim()) {
         const term = buscaEstoque.toLowerCase().trim();
-        const prodMatch = m.produtoNome.toLowerCase().includes(term);
-        const detMatch = m.detalhe.toLowerCase().includes(term);
+        const prodMatch = (m.produtoNome || "").toLowerCase().includes(term);
+        const detMatch = (m.detalhe || "").toLowerCase().includes(term);
         if (!prodMatch && !detMatch) return false;
       }
       return true;
@@ -726,10 +743,15 @@ function EstoqueView({
             const zerado = saldo <= 0;
             const baixo = !zerado && pctRestante <= 20;
 
-            const entradasProduto = entradas.filter((e) => e.produto_id === p.id);
-            const saidasProduto = consumo.filter((c) =>
-              c.produto_id === p.id || (!c.produto_id && c.produto_nome && c.produto_nome.toLowerCase().trim() === p.nome.toLowerCase().trim())
-            );
+            const entradasProduto = (entradas ?? []).filter((e) => e?.produto_id === p.id);
+            const saidasProduto = (consumo ?? []).filter((c) => {
+              if (!c) return false;
+              if (c.produto_id === p.id) return true;
+              if (!c.produto_id && c.produto_nome && typeof c.produto_nome === "string") {
+                return c.produto_nome.toLowerCase().trim() === p.nome.toLowerCase().trim();
+              }
+              return false;
+            });
             const aberto = expandidoId === p.id;
 
             return (
@@ -808,7 +830,7 @@ function EstoqueView({
                                   {e.custo_total != null && <span className="text-foreground font-normal ml-2">({formatBRL(Number(e.custo_total))})</span>}
                                 </p>
                                 <p className="text-muted-foreground text-[11px]">
-                                  Data: {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                                  Data: {formatDateSafe(e.data_entrada)}
                                   {e.fornecedor && ` · Fornecedor: ${e.fornecedor}`}
                                   {e.observacao && ` · ${e.observacao}`}
                                 </p>
@@ -830,7 +852,7 @@ function EstoqueView({
                       ) : (
                         <ul className="space-y-1.5">
                           {saidasProduto.map((c) => {
-                            const viv = viveiros.find((v) => v.id === c.viveiro_id);
+                            const viv = (viveiros ?? []).find((v) => v?.id === c.viveiro_id);
                             return (
                               <li key={c.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs">
                                 <div>
@@ -841,7 +863,7 @@ function EstoqueView({
                                     </span>
                                   </p>
                                   <p className="text-muted-foreground text-[11px]">
-                                    Data: {new Date(`${c.data_lancamento}T00:00:00`).toLocaleDateString("pt-BR")}
+                                    Data: {formatDateSafe(c.data_lancamento)}
                                     {" · Origem: Lançamento de Ração (Início)"}
                                   </p>
                                 </div>
@@ -913,7 +935,7 @@ function EstoqueView({
                   <div className="min-w-0">
                     <p className="font-bold text-foreground text-sm truncate">{m.produtoNome}</p>
                     <p className="text-muted-foreground text-[11px] truncate">
-                      {new Date(`${m.data}T00:00:00`).toLocaleDateString("pt-BR")} · {m.detalhe}
+                      {formatDateSafe(m.data)} · {m.detalhe}
                       {m.custo != null && ` · ${formatBRL(m.custo)}`}
                     </p>
                   </div>
