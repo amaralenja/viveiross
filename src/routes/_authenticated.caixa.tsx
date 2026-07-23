@@ -8,6 +8,7 @@ import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, D
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
+import { parseProdutoEmbalagem, getUnidadeBase } from "@/lib/embalagem";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
   head: () => ({ meta: [{ title: "Caixa" }] }),
@@ -618,14 +619,35 @@ function CaixaPage() {
     },
   });
 
-  // valor calculado a partir de preço/kg e quantidade
+  const selectedProd = useMemo(() => listaProdutos.find((p) => p.id === produtoId), [listaProdutos, produtoId]);
+  const selectedEmb = useMemo(() => parseProdutoEmbalagem(selectedProd?.unidade), [selectedProd?.unidade]);
+
+  // valor calculado a partir de preço/kg ou preço/saco e quantidade
   const valorAuto = useMemo(() => {
-    const p = Number(precoKg.replace(",", ".")) || 0;
-    const q = Number(qtd.replace(",", ".")) || 0;
-    if (!p || !q) return 0;
-    const qKg = unidade === "g" ? q / 1000 : q;
-    return p * qKg;
-  }, [precoKg, qtd, unidade]);
+    const pKg = Number(precoKg.replace(",", ".")) || 0;
+    const qInput = Number(qtd.replace(",", ".")) || 0;
+    if (!pKg || !qInput) return 0;
+
+    const isEmbalagemUnit = selectedEmb.temEmbalagem && (
+      unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) ||
+      unidade === "saco" ||
+      unidade === "pacote" ||
+      unidade === "caixa" ||
+      unidade === "fardo" ||
+      unidade === "galao"
+    );
+
+    if (isEmbalagemUnit && selectedEmb.pesoEmbalagem) {
+      const totalKg = qInput * selectedEmb.pesoEmbalagem;
+      return pKg * totalKg;
+    }
+
+    if (unidade === "g" && selectedEmb.unidadeBase === "kg") {
+      return pKg * (qInput / 1000);
+    }
+
+    return pKg * qInput;
+  }, [precoKg, qtd, unidade, selectedEmb]);
 
   const valorFinal = valorAuto > 0 ? valorAuto : Number(valorManual.replace(",", ".")) || 0;
 
@@ -659,19 +681,40 @@ function CaixaPage() {
           : listaProdutos.find((p) => descricao.toLowerCase().trim().includes(p.nome.toLowerCase().trim()));
 
         if (prod) {
-          const qNumEntrada = qNum > 0 ? qNum : 1;
-          const unitPrice = Number(precoKg.replace(",", ".")) || prod.preco_unidade || (valorFinal / qNumEntrada);
+          const emb = parseProdutoEmbalagem(prod.unidade);
+          const qNumInput = qNum > 0 ? qNum : 1;
+          const isEmbUnit = emb.temEmbalagem && (
+            unidade.toLowerCase().includes(emb.tipoEmbalagem) ||
+            unidade === "saco" ||
+            unidade === "pacote" ||
+            unidade === "caixa"
+          );
+
+          let totalQtdEstoque = qNumInput;
+          let unitNameEstoque = emb.unidadeBase || "kg";
+
+          if (isEmbUnit && emb.pesoEmbalagem) {
+            totalQtdEstoque = qNumInput * emb.pesoEmbalagem;
+          } else if (unidade === "g" && emb.unidadeBase === "kg") {
+            totalQtdEstoque = qNumInput / 1000;
+          }
+
+          const unitPriceEstoque = Number(precoKg.replace(",", ".")) || prod.preco_unidade || (valorFinal / (totalQtdEstoque || 1));
+
+          const obsEntrada = isEmbUnit && emb.pesoEmbalagem
+            ? `Entrada automática via caixa: ${prod.nome} (${qNumInput} ${emb.tipoEmbalagem}(s) de ${emb.pesoEmbalagem} ${emb.unidadeBase} = ${totalQtdEstoque} ${emb.unidadeBase})`
+            : `Entrada automática via caixa: ${prod.nome} (${totalQtdEstoque} ${unitNameEstoque})`;
 
           await supabase.from("estoque_entradas").insert({
             user_id: userId,
             produto_id: prod.id,
-            quantidade: qNumEntrada,
-            unidade: unidade || prod.unidade || "kg",
-            preco_unidade: unitPrice > 0 ? unitPrice : null,
+            quantidade: totalQtdEstoque,
+            unidade: unitNameEstoque,
+            preco_unidade: unitPriceEstoque > 0 ? unitPriceEstoque : null,
             custo_total: valorFinal,
             fornecedor: "Compra via Caixa",
             data_entrada: data,
-            observacao: `Entrada automática via lançamento de caixa: ${descricao.trim()}`,
+            observacao: obsEntrada,
           });
         }
       }
@@ -1158,22 +1201,39 @@ function CaixaPage() {
                 setProdutoId(pId);
                 const prod = listaProdutos.find((p) => p.id === pId);
                 if (prod) {
+                  const emb = parseProdutoEmbalagem(prod.unidade);
                   setDescricao(prod.nome);
                   if (prod.categoria) setCategoria(prod.categoria);
-                  if (prod.unidade) setUnidade(prod.unidade);
                   if (prod.preco_unidade && prod.preco_unidade > 0) {
                     setPrecoKg(String(prod.preco_unidade));
+                  }
+                  if (emb.temEmbalagem) {
+                    setUnidade(emb.tipoEmbalagem || "saco");
+                  } else {
+                    setUnidade(emb.unidadeBase || "kg");
                   }
                 }
               }}
               className="app-input border-primary/40 bg-primary/5 font-semibold text-primary"
             >
               <option value="">— Nenhum produto (Lançamento manual / Serviço) —</option>
-              {listaProdutos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  📦 {p.nome} {p.preco_unidade ? `(R$ ${p.preco_unidade.toFixed(2)} / ${p.unidade || "un"})` : ""}
-                </option>
-              ))}
+              {listaProdutos.map((p) => {
+                const emb = parseProdutoEmbalagem(p.unidade);
+                let labelPreco = "";
+                if (p.preco_unidade) {
+                  if (emb.temEmbalagem && emb.pesoEmbalagem) {
+                    const precoSaco = p.preco_unidade * emb.pesoEmbalagem;
+                    labelPreco = `(R$ ${p.preco_unidade.toFixed(2)}/${emb.unidadeBase} · R$ ${precoSaco.toFixed(2)}/${emb.tipoEmbalagem} de ${emb.pesoEmbalagem}${emb.unidadeBase})`;
+                  } else {
+                    labelPreco = `(R$ ${p.preco_unidade.toFixed(2)} / ${emb.unidadeBase})`;
+                  }
+                }
+                return (
+                  <option key={p.id} value={p.id}>
+                    📦 {p.nome} {labelPreco}
+                  </option>
+                );
+              })}
             </select>
           </Field>
         )}
@@ -1199,6 +1259,75 @@ function CaixaPage() {
             placeholder="Ex: ração, energia, manutenção"
           />
         </Field>
+
+        <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            Calcular por preço × quantidade (opcional)
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={`Preço por ${selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") ? selectedEmb.unidadeBase : (unidade || "un")} (R$)`}>
+              <input
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9.,]*"
+                value={precoKg}
+                onChange={(e) => setPrecoKg(e.target.value.replace(/[^0-9.,]/g, ""))}
+                className="app-input font-bold"
+                placeholder="Ex: 5,00"
+              />
+            </Field>
+            <Field label="Quantidade">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9.,]*"
+                  value={qtd}
+                  onChange={(e) => setQtd(e.target.value.replace(/[^0-9.,]/g, ""))}
+                  className="app-input flex-1 font-bold"
+                  placeholder="Ex: 1"
+                />
+                {selectedEmb.temEmbalagem ? (
+                  <select
+                    value={unidade}
+                    onChange={(e) => setUnidade(e.target.value)}
+                    className="app-input w-36 font-semibold text-primary"
+                  >
+                    <option value={selectedEmb.tipoEmbalagem}>{selectedEmb.tipoEmbalagem} ({selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase})</option>
+                    <option value={selectedEmb.unidadeBase}>{selectedEmb.unidadeBase}</option>
+                  </select>
+                ) : (
+                  <select
+                    value={unidade}
+                    onChange={(e) => setUnidade(e.target.value)}
+                    className="app-input w-24"
+                  >
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="saco">saco</option>
+                    <option value="sacola">sacola</option>
+                    <option value="litro">litro</option>
+                    <option value="un">unidade</option>
+                  </select>
+                )}
+              </div>
+            </Field>
+          </div>
+
+          {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") && Number(qtd) > 0 && selectedEmb.pesoEmbalagem && (
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+              💡 {qtd} {selectedEmb.tipoEmbalagem}(s) de {selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase} = <strong className="text-foreground">{Number(qtd) * selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase}</strong> no estoque
+              {precoKg && ` (R$ ${(Number(precoKg.replace(",", ".")) * selectedEmb.pesoEmbalagem).toFixed(2)} por ${selectedEmb.tipoEmbalagem})`}
+            </div>
+          )}
+
+          {valorAuto > 0 && (
+            <p className="text-sm">
+              Valor total calculado:{" "}
+              <span className="font-bold text-emerald-600 text-base">{fmtBRL(valorAuto)}</span>
+            </p>
+          )}
+        </div>
 
 
 

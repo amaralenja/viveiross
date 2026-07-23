@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History, FileDown } from "lucide-react";
 import { todayLocal } from "@/lib/date";
+import { parseProdutoEmbalagem, formatUnidadeDb, getUnidadeBase } from "@/lib/embalagem";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
   head: () => ({ meta: [{ title: "Produtos & Funcionários" }] }),
@@ -68,8 +69,8 @@ type ConsumoRow = {
 
 function normalizeQuantity(qty: number, fromUnit: string | null, toUnit: string | null): number {
   if (!qty || !fromUnit || !toUnit) return qty;
-  const from = fromUnit.toLowerCase().trim();
-  const to = toUnit.toLowerCase().trim();
+  const from = getUnidadeBase(fromUnit).toLowerCase().trim();
+  const to = getUnidadeBase(toUnit).toLowerCase().trim();
   if (from === to) return qty;
 
   if ((from === "g" || from === "grama" || from === "gramas") && (to === "kg" || to === "kilo" || to === "quilo")) {
@@ -404,38 +405,56 @@ function ProdutosPage() {
           />
         ) : (
           <ul className="space-y-3">
-            {produtos.map((p) => (
-              <li
-                key={p.id}
-                className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Package className="size-6" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{p.nome}</p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {p.categoria} · {p.unidade}
-                      {p.preco_unidade != null && (
-                        <>
-                          {" · "}
-                          <span className="text-primary font-semibold normal-case">
-                            {formatBRL(Number(p.preco_unidade))}/{p.unidade}
+            {produtos.map((p) => {
+              const emb = parseProdutoEmbalagem(p.unidade);
+              const precoKg = p.preco_unidade != null ? Number(p.preco_unidade) : null;
+              const precoSaco = precoKg != null && emb.temEmbalagem && emb.pesoEmbalagem ? precoKg * emb.pesoEmbalagem : null;
+
+              return (
+                <li
+                  key={p.id}
+                  className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3 shadow-xs hover:border-primary/30 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <Package className="size-6" />
+                    </div>
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-base truncate">{p.nome}</p>
+                        {emb.temEmbalagem && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                            📦 {emb.rotuloEmbalagem}
                           </span>
-                        </>
-                      )}
-                    </p>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        Categoria: <strong className="text-foreground">{p.categoria}</strong> · Base: <strong className="text-foreground">{emb.unidadeBase}</strong>
+                        {precoKg != null && (
+                          <>
+                            {" · "}
+                            <span className="text-emerald-600 font-bold normal-case">
+                              {formatBRL(precoKg)}/{emb.unidadeBase}
+                            </span>
+                            {precoSaco != null && (
+                              <span className="text-primary font-bold normal-case ml-1">
+                                ({formatBRL(precoSaco)}/{emb.tipoEmbalagem})
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <RowActions
-                  onEdit={() => setEditandoProd(p)}
-                  onDel={() => {
-                    if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
-                  }}
-                />
-              </li>
-            ))}
+                  <RowActions
+                    onEdit={() => setEditandoProd(p)}
+                    onDel={() => {
+                      if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
+                    }}
+                  />
+                </li>
+              );
+            })}
           </ul>
         )
       ) : tab === "funcionarios" ? (
@@ -1576,37 +1595,39 @@ function EntradaEstoqueModal({
       const { data: userData } = await supabase.auth.getUser();
       const user_id = userData.user?.id;
       if (!user_id) throw new Error("Sem sessão");
-      if (!produtoId) throw new Error("Selecione um produto");
-      if (!(qtdNum > 0)) throw new Error("Quantidade inválida");
-
-      let finalProdutoId = produtoId;
+      
+      let targetProdId = produtoId;
       if (isNovo) {
-        const nome = novoNome.trim();
-        if (!nome) throw new Error("Digite o nome do novo produto");
-        const { data: novoProd, error: novoErr } = await supabase
+        if (!novoNome.trim()) throw new Error("Informe o nome do novo produto");
+        const { data: pData, error: pErr } = await supabase
           .from("produtos")
-          .insert({
-            user_id,
-            nome,
-            categoria: "outro",
-            unidade: unidade.trim() || "kg",
-            preco_unidade: precoNum,
-          })
+          .insert({ user_id, nome: novoNome.trim(), categoria: "racao", unidade: "kg" })
           .select("id")
           .single();
-        if (novoErr) throw novoErr;
-        finalProdutoId = novoProd.id;
+        if (pErr) throw pErr;
+        targetProdId = pData.id;
+      }
+
+      const selectedProd = produtos.find((x) => x.id === targetProdId);
+      const emb = parseProdutoEmbalagem(selectedProd?.unidade);
+      const qNumInput = Number(quantidade);
+
+      let finalQtyEstoque = qNumInput;
+      let finalUnidadeEstoque = getUnidadeBase(unidade || selectedProd?.unidade || "kg");
+
+      if (emb.temEmbalagem && emb.pesoEmbalagem && (unidade.toLowerCase().includes(emb.tipoEmbalagem) || unidade === "saco" || unidade === "pacote" || unidade === "caixa")) {
+        finalQtyEstoque = qNumInput * emb.pesoEmbalagem;
       }
 
       const payload = {
-        produto_id: finalProdutoId,
-        quantidade: qtdNum,
-        unidade: unidade.trim() || "kg",
+        produto_id: targetProdId,
+        quantidade: finalQtyEstoque,
+        unidade: finalUnidadeEstoque,
         preco_unidade: precoNum,
         custo_total: custoTotal,
         fornecedor: fornecedor.trim() || null,
         data_entrada: data,
-        observacao: observacao.trim() || null,
+        observacao: observacao.trim() || (emb.temEmbalagem && (unidade.toLowerCase().includes(emb.tipoEmbalagem) || unidade === "saco") ? `${qNumInput} ${emb.tipoEmbalagem}(s) de ${emb.pesoEmbalagem} ${emb.unidadeBase}` : null),
       };
 
       if (entrada) {
@@ -1632,6 +1653,9 @@ function EntradaEstoqueModal({
     }
   }
 
+  const selectedProd = produtos.find((x) => x.id === produtoId);
+  const selectedEmb = parseProdutoEmbalagem(selectedProd?.unidade);
+
   return (
     <ModalShell title={entrada ? "Editar entrada" : "Entrada de mercadoria"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
@@ -1640,21 +1664,26 @@ function EntradaEstoqueModal({
             required
             value={produtoId}
             onChange={(e) => {
-              setProdutoId(e.target.value);
-              const p = produtos.find((x) => x.id === e.target.value);
+              const pId = e.target.value;
+              setProdutoId(pId);
+              const p = produtos.find((x) => x.id === pId);
               if (p) {
-                setUnidade(p.unidade);
-                if (p.preco_unidade != null && !preco) setPreco(String(p.preco_unidade));
+                const emb = parseProdutoEmbalagem(p.unidade);
+                setUnidade(emb.temEmbalagem ? emb.tipoEmbalagem : emb.unidadeBase);
+                if (p.preco_unidade != null) setPreco(String(p.preco_unidade));
               }
             }}
             className="app-input"
           >
             <option value="">Selecione...</option>
-            {produtos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
+            {produtos.map((p) => {
+              const emb = parseProdutoEmbalagem(p.unidade);
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.nome} {emb.temEmbalagem ? `(${emb.rotuloEmbalagem})` : ""}
+                </option>
+              );
+            })}
             <option value="__novo__">+ Cadastrar novo produto…</option>
           </select>
           {isNovo && (
@@ -1669,9 +1698,8 @@ function EntradaEstoqueModal({
           )}
         </Field>
 
-
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Quantidade">
+          <Field label="Quantidade Comprada">
             <input
               required
               type="number"
@@ -1680,17 +1708,33 @@ function EntradaEstoqueModal({
               inputMode="decimal"
               value={quantidade}
               onChange={(e) => setQuantidade(e.target.value)}
-              className="app-input"
+              className="app-input font-bold"
             />
           </Field>
           <Field label="Unidade">
-            <UnidadeSelect value={unidade} onChange={setUnidade} />
+            {selectedEmb.temEmbalagem ? (
+              <select
+                value={unidade}
+                onChange={(e) => setUnidade(e.target.value)}
+                className="app-input font-bold text-primary"
+              >
+                <option value={selectedEmb.tipoEmbalagem}>{selectedEmb.tipoEmbalagem} ({selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase})</option>
+                <option value={selectedEmb.unidadeBase}>{selectedEmb.unidadeBase} (unidade base)</option>
+              </select>
+            ) : (
+              <UnidadeSelect value={unidade} onChange={setUnidade} />
+            )}
           </Field>
-
         </div>
 
+        {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") && Number(quantidade) > 0 && (
+          <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+            💡 {quantidade} {selectedEmb.tipoEmbalagem}(s) de {selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase} = <strong className="text-foreground">{Number(quantidade) * (selectedEmb.pesoEmbalagem || 1)} {selectedEmb.unidadeBase}</strong> no estoque
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
-          <Field label={`Preço/${unidade || "un"} (R$)`}>
+          <Field label={`Preço por ${selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") ? selectedEmb.unidadeBase : (unidade || "un")} (R$)`}>
             <input
               type="number"
               min="0"
@@ -1707,7 +1751,7 @@ function EntradaEstoqueModal({
               readOnly
               value={custoTotal != null ? formatBRL(custoTotal) ?? "" : ""}
               placeholder="auto"
-              className="app-input bg-muted"
+              className="app-input bg-muted font-bold text-emerald-600"
             />
           </Field>
         </div>
@@ -1808,13 +1852,49 @@ function ProdutoModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const embInfo = useMemo(() => parseProdutoEmbalagem(produto?.unidade), [produto?.unidade]);
+
   const [nome, setNome] = useState(produto?.nome ?? "");
   const [categoria, setCategoria] = useState(produto?.categoria ?? "racao");
-  const [unidade, setUnidade] = useState(produto?.unidade ?? "kg");
-  const [preco, setPreco] = useState(
-    produto?.preco_unidade != null ? String(produto.preco_unidade) : "",
-  );
+  const [unidadeBase, setUnidadeBase] = useState(embInfo.unidadeBase || "kg");
+  const [temEmbalagem, setTemEmbalagem] = useState(embInfo.temEmbalagem);
+  const [tipoEmbalagem, setTipoEmbalagem] = useState(embInfo.tipoEmbalagem || "saco");
+  const [pesoEmbalagem, setPesoEmbalagem] = useState(embInfo.pesoEmbalagem != null ? String(embInfo.pesoEmbalagem) : "10");
+  const [precoKg, setPrecoKg] = useState(produto?.preco_unidade != null ? String(produto.preco_unidade) : "");
+  const [precoEmbalagem, setPrecoEmbalagem] = useState(() => {
+    if (produto?.preco_unidade != null && embInfo.pesoEmbalagem) {
+      return (produto.preco_unidade * embInfo.pesoEmbalagem).toFixed(2);
+    }
+    return "";
+  });
   const [loading, setLoading] = useState(false);
+
+  function handlePrecoKgChange(val: string) {
+    setPrecoKg(val);
+    const pKg = Number(val.replace(",", "."));
+    const peso = Number(pesoEmbalagem.replace(",", "."));
+    if (pKg > 0 && peso > 0 && temEmbalagem) {
+      setPrecoEmbalagem((pKg * peso).toFixed(2));
+    }
+  }
+
+  function handlePrecoEmbalagemChange(val: string) {
+    setPrecoEmbalagem(val);
+    const pEmb = Number(val.replace(",", "."));
+    const peso = Number(pesoEmbalagem.replace(",", "."));
+    if (pEmb > 0 && peso > 0 && temEmbalagem) {
+      setPrecoKg((pEmb / peso).toFixed(2));
+    }
+  }
+
+  function handlePesoEmbalagemChange(val: string) {
+    setPesoEmbalagem(val);
+    const peso = Number(val.replace(",", "."));
+    const pKg = Number(precoKg.replace(",", "."));
+    if (pKg > 0 && peso > 0 && temEmbalagem) {
+      setPrecoEmbalagem((pKg * peso).toFixed(2));
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1824,10 +1904,17 @@ function ProdutoModal({
       const user_id = userData.user?.id;
       if (!user_id) throw new Error("Sem sessão");
 
-      const preco_unidade = preco.trim() === "" ? null : Number(preco);
-      if (preco_unidade != null && (isNaN(preco_unidade) || preco_unidade < 0)) {
+      const pKgNum = precoKg.trim() === "" ? null : Number(precoKg.replace(",", "."));
+      if (pKgNum != null && (isNaN(pKgNum) || pKgNum < 0)) {
         throw new Error("Preço inválido");
       }
+
+      const pesoNum = Number(pesoEmbalagem.replace(",", "."));
+      const finalUnidade = formatUnidadeDb(
+        unidadeBase.trim() || "kg",
+        temEmbalagem ? tipoEmbalagem : undefined,
+        temEmbalagem ? pesoNum : null
+      );
 
       if (produto) {
         const { error } = await supabase
@@ -1835,8 +1922,8 @@ function ProdutoModal({
           .update({
             nome: nome.trim(),
             categoria,
-            unidade: unidade.trim() || "kg",
-            preco_unidade,
+            unidade: finalUnidade,
+            preco_unidade: pKgNum,
           })
           .eq("id", produto.id);
         if (error) throw error;
@@ -1846,8 +1933,8 @@ function ProdutoModal({
           user_id,
           nome: nome.trim(),
           categoria,
-          unidade: unidade.trim() || "kg",
-          preco_unidade,
+          unidade: finalUnidade,
+          preco_unidade: pKgNum,
         });
         if (error) throw error;
         toast.success("Produto criado!");
@@ -1864,48 +1951,136 @@ function ProdutoModal({
   return (
     <ModalShell title={produto ? "Editar produto" : "Novo produto"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Nome">
+        <Field label="Nome do Produto">
           <input
             required
             value={nome}
             onChange={(e) => setNome(e.target.value)}
-            placeholder="Ex: Ração 35%"
+            placeholder="Ex: Ração Guabi 35%"
             className="app-input"
           />
         </Field>
 
-        <Field label="Categoria">
-          <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-            className="app-input"
-          >
-            <option value="racao">Ração</option>
-            <option value="probiotico">Probiótico</option>
-            <option value="medicamento">Medicamento</option>
-            <option value="fertilizante">Fertilizante</option>
-            <option value="servico">Serviço (eletricista, frete, etc.)</option>
-            <option value="outro">Outro</option>
-          </select>
-        </Field>
-
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Unidade">
-            <UnidadeSelect value={unidade} onChange={setUnidade} />
+          <Field label="Categoria">
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              className="app-input"
+            >
+              <option value="racao">Ração</option>
+              <option value="probiotico">Probiótico</option>
+              <option value="medicamento">Medicamento</option>
+              <option value="fertilizante">Fertilizante</option>
+              <option value="servico">Serviço</option>
+              <option value="outro">Outro</option>
+            </select>
           </Field>
 
-          <Field label={`Preço por ${unidade || "un"} (R$)`}>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={preco}
-              onChange={(e) => setPreco(e.target.value)}
-              placeholder="0,00"
-              className="app-input"
-            />
+          <Field label="Unidade Base de Estoque">
+            <UnidadeSelect value={unidadeBase} onChange={setUnidadeBase} />
           </Field>
+        </div>
+
+        {/* Sacaria / Embalagem Padrão */}
+        <div className="p-3.5 rounded-2xl border bg-muted/20 space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={temEmbalagem}
+              onChange={(e) => {
+                setTemEmbalagem(e.target.checked);
+                if (e.target.checked && precoKg && pesoEmbalagem) {
+                  const pKg = Number(precoKg.replace(",", "."));
+                  const peso = Number(pesoEmbalagem.replace(",", "."));
+                  if (pKg > 0 && peso > 0) setPrecoEmbalagem((pKg * peso).toFixed(2));
+                }
+              }}
+              className="size-4 text-primary rounded"
+            />
+            <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+              <Package className="size-4 text-primary" /> Vendido / Comprado em Saco ou Embalagem Padrão?
+            </span>
+          </label>
+
+          {temEmbalagem && (
+            <div className="space-y-3 pt-1 border-t border-border/40">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Tipo de Embalagem">
+                  <select
+                    value={tipoEmbalagem}
+                    onChange={(e) => setTipoEmbalagem(e.target.value)}
+                    className="app-input"
+                  >
+                    <option value="saco">Saco</option>
+                    <option value="pacote">Pacote</option>
+                    <option value="caixa">Caixa</option>
+                    <option value="fardo">Fardo</option>
+                    <option value="galao">Galão</option>
+                    <option value="balde">Balde</option>
+                  </select>
+                </Field>
+
+                <Field label={`Peso/Conteúdo por ${tipoEmbalagem} (${unidadeBase})`}>
+                  <input
+                    required={temEmbalagem}
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    inputMode="decimal"
+                    value={pesoEmbalagem}
+                    onChange={(e) => handlePesoEmbalagemChange(e.target.value)}
+                    placeholder="Ex: 10"
+                    className="app-input font-bold"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={`Preço por ${tipoEmbalagem} (R$)`}>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={precoEmbalagem}
+                    onChange={(e) => handlePrecoEmbalagemChange(e.target.value)}
+                    placeholder="Ex: 50,00"
+                    className="app-input font-bold text-primary"
+                  />
+                </Field>
+
+                <Field label={`Preço por ${unidadeBase} (R$)`}>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={precoKg}
+                    onChange={(e) => handlePrecoKgChange(e.target.value)}
+                    placeholder="Ex: 5,00"
+                    className="app-input font-bold"
+                  />
+                </Field>
+              </div>
+
+              {Number(pesoEmbalagem) > 0 && (
+                <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+                  💡 1 {tipoEmbalagem} de {pesoEmbalagem} {unidadeBase}
+                  {Number(precoEmbalagem) > 0 && ` = R$ ${Number(precoEmbalagem).toFixed(2)} (R$ ${Number(precoKg || 0).toFixed(2)}/${unidadeBase})`}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!temEmbalagem && (
+            <Field label={`Preço por ${unidadeBase} (R$)`}>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={precoKg}
+                onChange={(e) => setPrecoKg(e.target.value)}
+                placeholder="Ex: 5,00"
+                className="app-input font-bold"
+              />
+            </Field>
+          )}
         </div>
 
         <button
