@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign } from "lucide-react";
 
 
 const CS_TAG = "[cs]";
@@ -53,6 +53,91 @@ type Conta = {
   viveiro_id: string | null;
   recorrencia: "none" | "diaria" | "semanal" | "mensal" | "anual";
 };
+
+export type PartialPayment = {
+  id: string;
+  data: string; // YYYY-MM-DD
+  valor: number;
+  caixa_id?: string | null;
+  observacao?: string | null;
+};
+
+const PAGAMENTOS_TAG = "__PAGAMENTOS_JSON__:";
+
+export function parseContaObservacao(rawObs: string | null): {
+  userObs: string;
+  pagamentos: PartialPayment[];
+} {
+  if (!rawObs) return { userObs: "", pagamentos: [] };
+  const idx = rawObs.indexOf(PAGAMENTOS_TAG);
+  if (idx === -1) {
+    return { userObs: rawObs, pagamentos: [] };
+  }
+  const userObs = rawObs.slice(0, idx).trim();
+  const jsonStr = rawObs.slice(idx + PAGAMENTOS_TAG.length).trim();
+  try {
+    const pagamentos = JSON.parse(jsonStr);
+    if (Array.isArray(pagamentos)) {
+      return { userObs, pagamentos };
+    }
+  } catch {
+    /* ignore error */
+  }
+  return { userObs, pagamentos: [] };
+}
+
+export function serializeContaObservacao(
+  userObs: string | null | undefined,
+  pagamentos: PartialPayment[]
+): string | null {
+  const cleanObs = (userObs ?? "").trim();
+  if (!pagamentos || pagamentos.length === 0) {
+    return cleanObs || null;
+  }
+  const jsonStr = JSON.stringify(pagamentos);
+  if (cleanObs) {
+    return `${cleanObs}\n${PAGAMENTOS_TAG}${jsonStr}`;
+  }
+  return `${PAGAMENTOS_TAG}${jsonStr}`;
+}
+
+export function getContaFinancialInfo(c: Conta) {
+  const { userObs, pagamentos } = parseContaObservacao(c.observacao);
+  const total = Number(c.valor ?? 0);
+
+  let valorPago = 0;
+  let paymentList = pagamentos;
+
+  if (pagamentos.length > 0) {
+    valorPago = pagamentos.reduce((acc, p) => acc + Number(p.valor || 0), 0);
+  } else if (c.pago) {
+    valorPago = total;
+    paymentList = [
+      {
+        id: "legacy",
+        data: c.data_pagamento || c.data_vencimento,
+        valor: total,
+        observacao: "Quitação total",
+      },
+    ];
+  }
+
+  const valorRestante = Math.max(0, total - valorPago);
+  const isPago = c.pago || (total > 0 && valorPago >= total - 0.001);
+  const isParcial = !isPago && valorPago > 0;
+  const percentualPago = total > 0 ? Math.min(100, Math.round((valorPago / total) * 100)) : 0;
+
+  return {
+    userObs,
+    pagamentos: paymentList,
+    total,
+    valorPago,
+    valorRestante,
+    isPago,
+    isParcial,
+    percentualPago,
+  };
+}
 
 const RECORRENCIA_LABEL: Record<Conta["recorrencia"], string> = {
   none: "Sem recorrência",
@@ -137,6 +222,29 @@ function CaixaSimplesPage() {
   const [selectedContasIds, setSelectedContasIds] = useState<Set<string>>(new Set());
   const [editingConta, setEditingConta] = useState<Conta | null>(null);
 
+  // Partial Payment State
+  const [payingParcialConta, setPayingParcialConta] = useState<Conta | null>(null);
+  const [valorParcial, setValorParcial] = useState("");
+  const [dataParcial, setDataParcial] = useState(todayISO);
+  const [obsParcial, setObsParcial] = useState("");
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
+
+  function toggleExpandHistory(id: string) {
+    setExpandedHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function openPagarParcial(c: Conta) {
+    const info = getContaFinancialInfo(c);
+    setPayingParcialConta(c);
+    setValorParcial(info.valorRestante > 0 ? info.valorRestante.toFixed(2) : Number(c.valor).toFixed(2));
+    setDataParcial(todayISO());
+    setObsParcial("");
+  }
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos", "simples"],
@@ -342,33 +450,78 @@ function CaixaSimplesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const pagarContaMut = useMutation({
-    mutationFn: async (conta: Conta) => {
+  const pagarParcialMut = useMutation({
+    mutationFn: async ({
+      conta,
+      valorPagamento,
+      dataPagamento,
+      obsPagamento,
+    }: {
+      conta: Conta;
+      valorPagamento: number;
+      dataPagamento: string;
+      obsPagamento?: string;
+    }) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Sessão expirada.");
-      const hoje = todayISO();
-      // 1) lança no caixa (aparece nos relatórios)
-      const { data: lanc, error: lErr } = await supabase.from("caixa_lancamentos").insert({
-        user_id: u.user.id,
-        viveiro_id: conta.viveiro_id,
-        data_lancamento: hoje,
-        descricao: `Conta paga: ${conta.descricao}`,
-        categoria: conta.categoria ?? "geral",
-        valor: Number(conta.valor),
-        tipo: "despesa",
-        socio_id: conta.socio_id,
-        observacao: `${CS_TAG} Pagamento de conta`.trim(),
-      }).select("id").single();
+
+      const info = getContaFinancialInfo(conta);
+      if (valorPagamento <= 0) throw new Error("Informe um valor válido.");
+      if (valorPagamento > info.valorRestante + 0.01) {
+        throw new Error(`O valor excede o saldo restante de ${brl(info.valorRestante)}`);
+      }
+
+      const isTotal = Math.abs(valorPagamento - info.valorRestante) < 0.01 || info.valorRestante === 0;
+      const descLancamento = isTotal
+        ? `Quitação de conta: ${conta.descricao}`
+        : `Pagamento parcial: ${conta.descricao}`;
+
+      const { data: lanc, error: lErr } = await supabase
+        .from("caixa_lancamentos")
+        .insert({
+          user_id: u.user.id,
+          viveiro_id: conta.viveiro_id,
+          data_lancamento: dataPagamento,
+          descricao: descLancamento,
+          categoria: conta.categoria ?? "geral",
+          valor: valorPagamento,
+          tipo: "despesa",
+          socio_id: conta.socio_id,
+          observacao: `${CS_TAG} [CONTA:${conta.id}] ${descLancamento}`.trim(),
+        })
+        .select("id")
+        .single();
+
       if (lErr) throw lErr;
-      // 2) marca como paga
-      const { error: uErr } = await supabase.from("contas_pagar").update({
-        pago: true,
-        data_pagamento: hoje,
-        caixa_lancamento_id: lanc?.id ?? null,
-      }).eq("id", conta.id);
+
+      const newPayment: PartialPayment = {
+        id: crypto.randomUUID(),
+        data: dataPagamento,
+        valor: valorPagamento,
+        caixa_id: lanc?.id ?? null,
+        observacao: obsPagamento?.trim() || null,
+      };
+
+      const existingPayments = info.pagamentos.filter((p) => p.id !== "legacy");
+      const newPagamentos = [...existingPayments, newPayment];
+      const totalPago = newPagamentos.reduce((acc, p) => acc + Number(p.valor || 0), 0);
+      const isNowFullyPaid = totalPago >= Number(conta.valor) - 0.001;
+
+      const newObs = serializeContaObservacao(info.userObs, newPagamentos);
+
+      const { error: uErr } = await supabase
+        .from("contas_pagar")
+        .update({
+          pago: isNowFullyPaid,
+          data_pagamento: dataPagamento,
+          observacao: newObs,
+          caixa_lancamento_id: lanc?.id ?? conta.caixa_lancamento_id,
+        })
+        .eq("id", conta.id);
+
       if (uErr) throw uErr;
-      // 3) se recorrente, cria próxima
-      if (conta.recorrencia !== "none") {
+
+      if (isNowFullyPaid && conta.recorrencia !== "none") {
         const prox = proximaData(conta.data_vencimento, conta.recorrencia);
         if (prox) {
           const { error: nErr } = await supabase.from("contas_pagar").insert({
@@ -377,7 +530,7 @@ function CaixaSimplesPage() {
             valor: conta.valor,
             data_vencimento: prox,
             categoria: conta.categoria,
-            observacao: conta.observacao,
+            observacao: info.userObs || null,
             socio_id: conta.socio_id,
             viveiro_id: conta.viveiro_id,
             recorrencia: conta.recorrencia,
@@ -388,7 +541,10 @@ function CaixaSimplesPage() {
       }
     },
     onSuccess: () => {
-      toast.success("Conta paga e lançada no caixa");
+      toast.success("Pagamento registrado com sucesso!");
+      setPayingParcialConta(null);
+      setValorParcial("");
+      setObsParcial("");
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
@@ -396,30 +552,97 @@ function CaixaSimplesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const removeContaMut = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("contas_pagar").delete().eq("id", id);
+  const removerPagamentoParcialMut = useMutation({
+    mutationFn: async ({ conta, paymentId }: { conta: Conta; paymentId: string }) => {
+      const info = getContaFinancialInfo(conta);
+      const targetPayment = info.pagamentos.find((p) => p.id === paymentId);
+
+      if (targetPayment?.caixa_id) {
+        await supabase.from("caixa_lancamentos").delete().eq("id", targetPayment.caixa_id);
+      }
+
+      const newPagamentos = info.pagamentos.filter((p) => p.id !== paymentId && p.id !== "legacy");
+      const totalPago = newPagamentos.reduce((acc, p) => acc + Number(p.valor || 0), 0);
+      const isFullyPaid = totalPago >= Number(conta.valor) - 0.001;
+
+      const newObs = serializeContaObservacao(info.userObs, newPagamentos);
+
+      const { error } = await supabase
+        .from("contas_pagar")
+        .update({
+          pago: isFullyPaid,
+          observacao: newObs,
+        })
+        .eq("id", conta.id);
+
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Conta removida");
+      toast.success("Pagamento parcial removido");
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const pagarContaMut = useMutation({
+    mutationFn: async (conta: Conta) => {
+      const info = getContaFinancialInfo(conta);
+      const valorRestante = info.valorRestante > 0 ? info.valorRestante : Number(conta.valor);
+      const hoje = todayISO();
+      await pagarParcialMut.mutateAsync({
+        conta,
+        valorPagamento: valorRestante,
+        dataPagamento: hoje,
+        obsPagamento: "Quitação total",
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeContaMut = useMutation({
+    mutationFn: async (conta: Conta) => {
+      const info = getContaFinancialInfo(conta);
+      const caixaIds = info.pagamentos.map((p) => p.caixa_id).filter(Boolean) as string[];
+      if (conta.caixa_lancamento_id) {
+        caixaIds.push(conta.caixa_lancamento_id);
+      }
+      if (caixaIds.length > 0) {
+        await supabase.from("caixa_lancamentos").delete().in("id", caixaIds);
+      }
+      const { error } = await supabase.from("contas_pagar").delete().eq("id", conta.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Conta e seus lançamentos removidos");
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const updateContaMut = useMutation({
     mutationFn: async (c: Conta) => {
-      const { error } = await supabase.from("contas_pagar").update({
-        descricao: c.descricao,
-        valor: c.valor,
-        data_vencimento: c.data_vencimento,
-        categoria: c.categoria,
-        observacao: c.observacao,
-        socio_id: c.socio_id,
-        viveiro_id: c.viveiro_id,
-        recorrencia: c.recorrencia,
-      }).eq("id", c.id);
+      const info = getContaFinancialInfo(c);
+      const updatedObs = serializeContaObservacao(c.observacao, info.pagamentos);
+      const isFullyPaid = info.valorPago >= Number(c.valor) - 0.001;
+
+      const { error } = await supabase
+        .from("contas_pagar")
+        .update({
+          descricao: c.descricao,
+          valor: c.valor,
+          data_vencimento: c.data_vencimento,
+          categoria: c.categoria,
+          observacao: updatedObs,
+          socio_id: c.socio_id,
+          viveiro_id: c.viveiro_id,
+          recorrencia: c.recorrencia,
+          pago: isFullyPaid,
+        })
+        .eq("id", c.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -433,8 +656,15 @@ function CaixaSimplesPage() {
 
   const totais = useMemo(() => {
     const despesas = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
-    const contasPendentes = contas.filter((c) => !c.pago).reduce((s, c) => s + Number(c.valor ?? 0), 0);
-    const contasPagas = contas.filter((c) => c.pago).reduce((s, c) => s + Number(c.valor ?? 0), 0);
+    let contasPendentes = 0;
+    let contasPagas = 0;
+    for (const c of contas) {
+      const info = getContaFinancialInfo(c);
+      contasPagas += info.valorPago;
+      if (!info.isPago) {
+        contasPendentes += info.valorRestante;
+      }
+    }
     const totalVales = vales.reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const mesAtual = new Date().toISOString().slice(0, 7);
     const valesMes = vales.filter((v) => v.data_vale?.startsWith(mesAtual)).reduce((s, v) => s + Number(v.valor ?? 0), 0);
@@ -702,9 +932,9 @@ function CaixaSimplesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
-            <span>Contas a pagar</span>
+            <span>Contas a pagar / Dívidas</span>
             <div className="flex items-center gap-3 text-sm font-normal">
-              <span className="text-muted-foreground">Pendente: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
+              <span className="text-muted-foreground">Saldo a pagar: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
               {contas.length > 0 && (
                 <Button size="sm" variant="ghost" onClick={toggleAllContas}>
                   {selectedContasIds.size === contas.length ? "Limpar" : "Selecionar todas"}
@@ -720,78 +950,254 @@ function CaixaSimplesPage() {
             <div className="space-y-4">
               {contasPendentes.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Pendentes</h3>
-                  <ul className="space-y-2">
-                    {contasPendentes.map((c) => (
-                      <li key={c.id} className="flex items-start gap-2 border-b pb-2 last:border-0">
-                        <Checkbox
-                          checked={selectedContasIds.has(c.id)}
-                          onCheckedChange={() => toggleSelectConta(c.id)}
-                          className="mt-1"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-red-600">- {brl(Number(c.valor))}</span>
-                            <span className="font-medium truncate">{c.descricao}</span>
-                            {c.recorrencia !== "none" && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 flex items-center gap-1">
-                                <Repeat className="size-3" /> {RECORRENCIA_LABEL[c.recorrencia]}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 space-x-1">
-                            <span>Vence {fmtDate(c.data_vencimento)}</span>
-                            {c.viveiro_id && viveiroMap.get(c.viveiro_id) && (<><span>·</span><span>{viveiroMap.get(c.viveiro_id)}</span></>)}
-                            {c.categoria === "interno" && (<><span>·</span><span>Interno</span></>)}
-                            {c.socio_id && socioMap.get(c.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(c.socio_id)}</span></>)}
-                          </div>
-                          {c.observacao && <div className="text-xs text-muted-foreground mt-1 italic">{c.observacao}</div>}
-                        </div>
-                        <Button size="sm" variant="default" disabled={pagarContaMut.isPending} onClick={() => pagarContaMut.mutate(c)}>
-                          <Check className="size-4 mr-1" /> Pagar
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover conta?")) removeContaMut.mutate(c.id); }}>
-                          <Trash2 className="size-4" />
-                        </Button>
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Dívidas e Contas Pendentes</h3>
+                  <ul className="space-y-3">
+                    {contasPendentes.map((c) => {
+                      const info = getContaFinancialInfo(c);
+                      const isExpanded = expandedHistoryIds.has(c.id);
 
-                      </li>
-                    ))}
+                      return (
+                        <li key={c.id} className="border rounded-xl p-3.5 space-y-2 bg-card/60">
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              checked={selectedContasIds.has(c.id)}
+                              onCheckedChange={() => toggleSelectConta(c.id)}
+                              className="mt-1"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-base truncate">{c.descricao}</span>
+                                {info.isParcial ? (
+                                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                    Parcialmente Paga ({info.percentualPago}%)
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+                                    Pendente
+                                  </span>
+                                )}
+                                {c.recorrencia !== "none" && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 flex items-center gap-1">
+                                    <Repeat className="size-3" /> {RECORRENCIA_LABEL[c.recorrencia]}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-4 text-sm mt-1.5 flex-wrap">
+                                <div>
+                                  <span className="text-xs text-muted-foreground block">Falta pagar</span>
+                                  <span className="font-bold text-red-600 text-base">{brl(info.valorRestante)}</span>
+                                </div>
+                                {info.valorPago > 0 && (
+                                  <div>
+                                    <span className="text-xs text-muted-foreground block">Já pago</span>
+                                    <span className="font-bold text-emerald-600 text-sm">{brl(info.valorPago)}</span>
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="text-xs text-muted-foreground block">Valor original</span>
+                                  <span className="font-medium text-muted-foreground text-sm">{brl(info.total)}</span>
+                                </div>
+                              </div>
+
+                              {info.valorPago > 0 && (
+                                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mt-2">
+                                  <div
+                                    className="bg-amber-500 h-full transition-all duration-300"
+                                    style={{ width: `${info.percentualPago}%` }}
+                                  />
+                                </div>
+                              )}
+
+                              <div className="text-xs text-muted-foreground mt-2 space-x-1">
+                                <span>Vence {fmtDate(c.data_vencimento)}</span>
+                                {c.viveiro_id && viveiroMap.get(c.viveiro_id) && (<><span>·</span><span>{viveiroMap.get(c.viveiro_id)}</span></>)}
+                                {c.categoria === "interno" && (<><span>·</span><span>Interno</span></>)}
+                                {c.socio_id && socioMap.get(c.socio_id) && (<><span>·</span><span>Sócio: {socioMap.get(c.socio_id)}</span></>)}
+                              </div>
+                              {info.userObs && <div className="text-xs text-muted-foreground mt-1 italic">{info.userObs}</div>}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                disabled={pagarContaMut.isPending || pagarParcialMut.isPending}
+                                onClick={() => pagarContaMut.mutate(c)}
+                                title="Quitar o saldo restante"
+                              >
+                                <Check className="size-4 mr-1" /> Quitar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={pagarParcialMut.isPending}
+                                onClick={() => openPagarParcial(c)}
+                                className="text-primary border-primary/30 hover:bg-primary/5"
+                              >
+                                <Receipt className="size-4 mr-1" /> Pagar Parte
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)} title="Editar conta">
+                                <Pencil className="size-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (confirm("Remover conta e seus lançamentos do caixa?")) removeContaMut.mutate(c);
+                                }}
+                                title="Remover conta"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Histórico de pagamentos */}
+                          {info.pagamentos.length > 0 && (
+                            <div className="pt-2 border-t mt-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandHistory(c.id)}
+                                className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline"
+                              >
+                                <History className="size-3.5" />
+                                {isExpanded ? "Ocultar histórico" : `Ver histórico de pagamentos (${info.pagamentos.length})`}
+                              </button>
+
+                              {isExpanded && (
+                                <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-primary/20">
+                                  <div className="text-[11px] font-semibold text-muted-foreground uppercase">
+                                    Histórico de pagamentos efetuados
+                                  </div>
+                                  {info.pagamentos.map((p, idx) => (
+                                    <div key={p.id || idx} className="flex items-center justify-between text-xs bg-muted/40 p-2 rounded-lg">
+                                      <div className="space-y-0.5">
+                                        <div className="font-semibold flex items-center gap-2">
+                                          <span className="text-emerald-600 font-bold">✓ {brl(Number(p.valor))}</span>
+                                          <span className="text-muted-foreground font-normal">em {fmtDate(p.data)}</span>
+                                        </div>
+                                        {p.observacao && <div className="text-muted-foreground text-[11px] italic">{p.observacao}</div>}
+                                      </div>
+                                      {p.id !== "legacy" && (
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="size-7 text-destructive hover:bg-destructive/10"
+                                          title="Estornar/Remover este pagamento parcial"
+                                          onClick={() => {
+                                            if (confirm(`Remover o pagamento parcial de ${brl(p.valor)} de ${fmtDate(p.data)}?`)) {
+                                              removerPagamentoParcialMut.mutate({ conta: c, paymentId: p.id });
+                                            }
+                                          }}
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}
 
               {contasPagas.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Pagas recentemente</h3>
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Contas Quitadas Recentemente</h3>
                   <ul className="space-y-2">
-                    {contasPagas.map((c) => (
-                      <li key={c.id} className="flex items-start gap-2 border-b pb-2 last:border-0 opacity-70">
-                        <Checkbox
-                          checked={selectedContasIds.has(c.id)}
-                          onCheckedChange={() => toggleSelectConta(c.id)}
-                          className="mt-1"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-emerald-600">✓ {brl(Number(c.valor))}</span>
-                            <span className="font-medium truncate line-through">{c.descricao}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            Paga em {c.data_pagamento ? fmtDate(c.data_pagamento) : "—"} · venceu {fmtDate(c.data_vencimento)}
-                          </div>
-                        </div>
-                        <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover registro?")) removeContaMut.mutate(c.id); }}>
-                          <Trash2 className="size-4" />
-                        </Button>
+                    {contasPagas.map((c) => {
+                      const info = getContaFinancialInfo(c);
+                      const isExpanded = expandedHistoryIds.has(c.id);
 
-                      </li>
-                    ))}
+                      return (
+                        <li key={c.id} className="border rounded-xl p-3 bg-card/40 opacity-85 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              checked={selectedContasIds.has(c.id)}
+                              onCheckedChange={() => toggleSelectConta(c.id)}
+                              className="mt-1"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-emerald-600">✓ {brl(Number(c.valor))}</span>
+                                <span className="font-medium truncate line-through">{c.descricao}</span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                  Quitada
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                Paga em {c.data_pagamento ? fmtDate(c.data_pagamento) : "—"} · venceu {fmtDate(c.data_vencimento)}
+                              </div>
+                              {info.userObs && <div className="text-xs text-muted-foreground mt-1 italic">{info.userObs}</div>}
+                            </div>
+                            <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)} title="Editar conta">
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm("Remover registro da conta e lançamentos do caixa?")) removeContaMut.mutate(c);
+                              }}
+                              title="Remover conta"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+
+                          {/* Histórico de pagamentos */}
+                          {info.pagamentos.length > 0 && (
+                            <div className="pt-1.5 border-t">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandHistory(c.id)}
+                                className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline"
+                              >
+                                <History className="size-3.5" />
+                                {isExpanded ? "Ocultar histórico" : `Ver histórico de pagamentos (${info.pagamentos.length})`}
+                              </button>
+
+                              {isExpanded && (
+                                <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-emerald-500/40">
+                                  {info.pagamentos.map((p, idx) => (
+                                    <div key={p.id || idx} className="flex items-center justify-between text-xs bg-muted/40 p-2 rounded-lg">
+                                      <div className="space-y-0.5">
+                                        <div className="font-semibold flex items-center gap-2">
+                                          <span className="text-emerald-600 font-bold">✓ {brl(Number(p.valor))}</span>
+                                          <span className="text-muted-foreground font-normal">em {fmtDate(p.data)}</span>
+                                        </div>
+                                        {p.observacao && <div className="text-muted-foreground text-[11px] italic">{p.observacao}</div>}
+                                      </div>
+                                      {p.id !== "legacy" && (
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="size-7 text-destructive hover:bg-destructive/10"
+                                          title="Estornar/Remover este pagamento"
+                                          onClick={() => {
+                                            if (confirm(`Remover o pagamento parcial de ${brl(p.valor)} de ${fmtDate(p.data)}?`)) {
+                                              removerPagamentoParcialMut.mutate({ conta: c, paymentId: p.id });
+                                            }
+                                          }}
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}
@@ -925,6 +1331,133 @@ function CaixaSimplesPage() {
         onSave={(c) => updateContaMut.mutate(c)}
         saving={updateContaMut.isPending}
       />
+
+      <Dialog open={!!payingParcialConta} onOpenChange={(open) => { if (!open) setPayingParcialConta(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="size-5 text-primary" /> Pagamento Parcial de Dívida
+            </DialogTitle>
+          </DialogHeader>
+
+          {payingParcialConta && (() => {
+            const info = getContaFinancialInfo(payingParcialConta);
+
+            return (
+              <div className="space-y-4 py-2">
+                <div className="bg-muted p-3.5 rounded-xl space-y-1 text-sm">
+                  <div className="font-semibold text-base">{payingParcialConta.descricao}</div>
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block">Valor Total</span>
+                      <span className="font-medium">{brl(info.total)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Já pago</span>
+                      <span className="font-medium text-emerald-600">{brl(info.valorPago)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Saldo restante</span>
+                      <span className="font-bold text-red-600">{brl(info.valorRestante)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Valor a pagar agora (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={info.valorRestante}
+                    value={valorParcial}
+                    onChange={(e) => setValorParcial(e.target.value)}
+                    placeholder={`Até ${info.valorRestante}`}
+                  />
+                  <div className="flex gap-1.5 flex-wrap pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7 px-2"
+                      onClick={() => setValorParcial((info.valorRestante * 0.25).toFixed(2))}
+                    >
+                      25% ({brl(info.valorRestante * 0.25)})
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7 px-2"
+                      onClick={() => setValorParcial((info.valorRestante * 0.5).toFixed(2))}
+                    >
+                      50% ({brl(info.valorRestante * 0.5)})
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7 px-2"
+                      onClick={() => setValorParcial((info.valorRestante * 0.75).toFixed(2))}
+                    >
+                      75% ({brl(info.valorRestante * 0.75)})
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="text-xs h-7 px-2 font-bold"
+                      onClick={() => setValorParcial(info.valorRestante.toFixed(2))}
+                    >
+                      100% Total ({brl(info.valorRestante)})
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Data do pagamento</Label>
+                  <Input
+                    type="date"
+                    value={dataParcial}
+                    onChange={(e) => setDataParcial(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Observação / Comprovante (opcional)</Label>
+                  <Input
+                    value={obsParcial}
+                    onChange={(e) => setObsParcial(e.target.value)}
+                    placeholder="Ex: 1ª parcela via PIX"
+                  />
+                </div>
+
+                <DialogFooter className="pt-2">
+                  <Button variant="outline" type="button" onClick={() => setPayingParcialConta(null)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={pagarParcialMut.isPending || !valorParcial || Number(valorParcial) <= 0}
+                    onClick={() => {
+                      const v = Number(valorParcial.replace(",", "."));
+                      if (v <= 0) return toast.error("Informe um valor válido.");
+                      pagarParcialMut.mutate({
+                        conta: payingParcialConta,
+                        valorPagamento: v,
+                        dataPagamento: dataParcial,
+                        obsPagamento: obsParcial,
+                      });
+                    }}
+                  >
+                    {pagarParcialMut.isPending ? "Registrando..." : "Confirmar Pagamento"}
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -939,9 +1472,20 @@ function EditContaModal({
   onSave: (c: Conta) => void;
   saving: boolean;
 }) {
-  const [form, setForm] = useState<Conta | null>(conta);
-  // reset when conta changes
-  useEffect(() => { setForm(conta); }, [conta]);
+  const [form, setForm] = useState<Conta | null>(() => {
+    if (!conta) return null;
+    const info = getContaFinancialInfo(conta);
+    return { ...conta, observacao: info.userObs || null };
+  });
+
+  useEffect(() => {
+    if (conta) {
+      const info = getContaFinancialInfo(conta);
+      setForm({ ...conta, observacao: info.userObs || null });
+    } else {
+      setForm(null);
+    }
+  }, [conta]);
   if (!conta || !form) return null;
   const vivValue = form.viveiro_id ?? (form.categoria === "interno" ? INTERNO : TODOS);
   return (
