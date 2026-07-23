@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users } from "lucide-react";
 
 
 const CS_TAG = "[cs]";
@@ -319,14 +319,105 @@ function CaixaSimplesPage() {
 
   const funcionarioMap = useMemo(() => new Map(funcionarios.map((f) => [f.id, f.nome])), [funcionarios]);
 
+  // Funcionario Partial Payment State
+  const [payingFuncionario, setPayingFuncionario] = useState<{ id: string; nome: string; salario: number | null } | null>(null);
+  const [valorParcialFunc, setValorParcialFunc] = useState("");
+  const [dataParcialFunc, setDataParcialFunc] = useState(todayISO);
+  const [motivoParcialFunc, setMotivoParcialFunc] = useState("");
+  const [expandedFuncHistoryIds, setExpandedFuncHistoryIds] = useState<Set<string>>(new Set());
+
+  function toggleExpandFuncHistory(id: string) {
+    setExpandedFuncHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function openPagarParcialFunc(f: { id: string; nome: string; salario: number | null }) {
+    const mesAtual = new Date().toISOString().slice(0, 7);
+    const meusVales = vales.filter((v) => v.funcionario_id === f.id);
+    const valesMes = meusVales.filter((v) => v.data_vale?.startsWith(mesAtual));
+    const totalPago = valesMes.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+    const salario = Number(f.salario ?? 0);
+    const saldoRestante = Math.max(0, salario - totalPago);
+
+    setPayingFuncionario(f);
+    setValorParcialFunc(saldoRestante > 0 ? saldoRestante.toFixed(2) : "");
+    setDataParcialFunc(todayISO());
+    setMotivoParcialFunc("Adiantamento / Pagamento de salário");
+  }
+
+  const pagarParcialFuncMut = useMutation({
+    mutationFn: async ({
+      funcionarioId,
+      nomeFuncionario,
+      valor,
+      data,
+      motivo,
+    }: {
+      funcionarioId: string;
+      nomeFuncionario: string;
+      valor: number;
+      data: string;
+      motivo?: string;
+    }) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      if (valor <= 0) throw new Error("Informe um valor válido.");
+
+      const mot = motivo?.trim() || "Pagamento parcial de salário";
+
+      const { data: valeData, error: vErr } = await supabase
+        .from("vales")
+        .insert({
+          user_id: u.user.id,
+          funcionario_id: funcionarioId,
+          valor,
+          motivo: mot,
+          data_vale: data,
+        })
+        .select("id")
+        .single();
+
+      if (vErr) throw vErr;
+
+      const { error: cErr } = await supabase.from("caixa_lancamentos").insert({
+        user_id: u.user.id,
+        data_lancamento: data,
+        descricao: `Pagamento funcionário: ${nomeFuncionario}`,
+        categoria: "folha_pagamento",
+        valor,
+        tipo: "despesa",
+        observacao: `${CS_TAG} [VALE:${valeData.id}] ${mot}`.trim(),
+      });
+
+      if (cErr) throw cErr;
+    },
+    onSuccess: () => {
+      toast.success("Pagamento de funcionário registrado no caixa com sucesso!");
+      setPayingFuncionario(null);
+      setValorParcialFunc("");
+      setMotivoParcialFunc("");
+      qc.invalidateQueries({ queryKey: ["vales"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const removeValeMut = useMutation({
     mutationFn: async (id: string) => {
+      await supabase.from("caixa_lancamentos").delete().like("observacao", `%[VALE:${id}]%`);
       const { error } = await supabase.from("vales").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Vale removido");
+      toast.success("Vale/Pagamento removido");
       qc.invalidateQueries({ queryKey: ["vales"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1209,41 +1300,159 @@ function CaixaSimplesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
-            <span>Vales dos funcionários</span>
+            <span className="flex items-center gap-2">
+              <Users className="size-5 text-primary" /> Pagamentos e Vales de Funcionários
+            </span>
             <span className="text-sm font-normal text-muted-foreground">
-              Total: <strong className="text-red-600">{brl(totais.vales)}</strong>
+              Total de vales/pagos: <strong className="text-red-600">{brl(totais.vales)}</strong>
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {valesPorFuncionario.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum vale registrado. Use o formulário acima escolhendo "Vale".</p>
+          {funcionarios.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum funcionário cadastrado. Cadastre funcionários na aba Produtos & Funcionários.</p>
           ) : (
-            <div className="space-y-4">
-              {valesPorFuncionario.map(([fid, g]) => (
-                <div key={fid}>
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold">{g.nome}</h3>
-                    <span className="text-xs font-bold text-red-600">- {brl(g.total)}</span>
-                  </div>
-                  <ul className="space-y-1">
-                    {g.itens.map((v) => (
-                      <li key={v.id} className="flex items-center gap-2 text-sm border-b pb-1 last:border-0">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-muted-foreground">{fmtDate(v.data_vale)}</span>
-                            <span className="truncate">{v.motivo || "Vale"}</span>
-                          </div>
+            <div className="space-y-3">
+              {funcionarios.map((f) => {
+                const mesAtual = new Date().toISOString().slice(0, 7);
+                const meusVales = vales.filter((v) => v.funcionario_id === f.id);
+                const valesMes = meusVales.filter((v) => v.data_vale?.startsWith(mesAtual));
+                const totalPago = valesMes.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+                const salario = Number(f.salario ?? 0);
+                const saldoRestante = Math.max(0, salario - totalPago);
+                const percentualPago = salario > 0 ? Math.min(100, Math.round((totalPago / salario) * 100)) : (totalPago > 0 ? 100 : 0);
+                const isQuitado = salario > 0 && totalPago >= salario - 0.001;
+                const isParcial = !isQuitado && totalPago > 0;
+                const isExpanded = expandedFuncHistoryIds.has(f.id);
+
+                return (
+                  <div key={f.id} className="border rounded-xl p-3.5 space-y-2 bg-card/60">
+                    <div className="flex items-start justify-between gap-2 flex-wrap sm:flex-nowrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-base">{f.nome}</span>
+                          {isQuitado ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                              Mês Quitado (100%)
+                            </span>
+                          ) : isParcial ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              Parcialmente Pago ({percentualPago}%)
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              Sem pagamentos este mês
+                            </span>
+                          )}
                         </div>
-                        <span className="text-xs font-semibold text-red-600 tabular-nums">- {brl(Number(v.valor))}</span>
-                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover vale?")) removeValeMut.mutate(v.id); }}>
-                          <Trash2 className="size-4" />
+
+                        <div className="flex items-center gap-4 text-sm mt-1.5 flex-wrap">
+                          {salario > 0 && (
+                            <div>
+                              <span className="text-xs text-muted-foreground block">Salário base</span>
+                              <span className="font-medium text-sm">{brl(salario)}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-xs text-muted-foreground block">Já pago este mês</span>
+                            <span className="font-bold text-emerald-600 text-sm">{brl(totalPago)}</span>
+                          </div>
+                          {salario > 0 && (
+                            <div>
+                              <span className="text-xs text-muted-foreground block">Saldo a pagar</span>
+                              <span className="font-bold text-red-600 text-base">{brl(saldoRestante)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {salario > 0 && (
+                          <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mt-2">
+                            <div
+                              className="bg-emerald-500 h-full transition-all duration-300"
+                              style={{ width: `${percentualPago}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {saldoRestante > 0 && salario > 0 && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            disabled={pagarParcialFuncMut.isPending}
+                            onClick={() => {
+                              pagarParcialFuncMut.mutate({
+                                funcionarioId: f.id,
+                                nomeFuncionario: f.nome,
+                                valor: saldoRestante,
+                                data: todayISO(),
+                                motivo: "Quitação de salário do mês",
+                              });
+                            }}
+                          >
+                            <Check className="size-4 mr-1" /> Quitar Mês
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openPagarParcialFunc(f)}
+                          className="text-primary border-primary/30 hover:bg-primary/5"
+                        >
+                          <Receipt className="size-4 mr-1" /> Pagar Parte / Vale
                         </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+                      </div>
+                    </div>
+
+                    {/* Histórico de pagamentos/vales do funcionário */}
+                    {meusVales.length > 0 && (
+                      <div className="pt-2 border-t mt-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandFuncHistory(f.id)}
+                          className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline"
+                        >
+                          <History className="size-3.5" />
+                          {isExpanded ? "Ocultar histórico" : `Ver histórico de pagamentos/vales (${meusVales.length})`}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-primary/20">
+                            <div className="text-[11px] font-semibold text-muted-foreground uppercase">
+                              Histórico de vales e pagamentos efetuados
+                            </div>
+                            {meusVales.map((v) => (
+                              <div key={v.id} className="flex items-center justify-between text-xs bg-muted/40 p-2 rounded-lg">
+                                <div className="space-y-0.5">
+                                  <div className="font-semibold flex items-center gap-2">
+                                    <span className="text-emerald-600 font-bold">✓ {brl(Number(v.valor))}</span>
+                                    <span className="text-muted-foreground font-normal">em {fmtDate(v.data_vale)}</span>
+                                  </div>
+                                  <div className="text-muted-foreground text-[11px] italic">{v.motivo || "Vale"}</div>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7 text-destructive hover:bg-destructive/10"
+                                  title="Remover este pagamento/vale"
+                                  onClick={() => {
+                                    if (confirm(`Remover o pagamento de ${brl(Number(v.valor))} de ${fmtDate(v.data_vale)}?`)) {
+                                      removeValeMut.mutate(v.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -1451,6 +1660,140 @@ function CaixaSimplesPage() {
                     }}
                   >
                     {pagarParcialMut.isPending ? "Registrando..." : "Confirmar Pagamento"}
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!payingFuncionario} onOpenChange={(open) => { if (!open) setPayingFuncionario(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="size-5 text-primary" /> Pagamento Parcial de Funcionário
+            </DialogTitle>
+          </DialogHeader>
+
+          {payingFuncionario && (() => {
+            const mesAtual = new Date().toISOString().slice(0, 7);
+            const meusVales = vales.filter((v) => v.funcionario_id === payingFuncionario.id);
+            const valesMes = meusVales.filter((v) => v.data_vale?.startsWith(mesAtual));
+            const totalPago = valesMes.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+            const salario = Number(payingFuncionario.salario ?? 0);
+            const saldoRestante = Math.max(0, salario - totalPago);
+
+            return (
+              <div className="space-y-4 py-2">
+                <div className="bg-muted p-3.5 rounded-xl space-y-1 text-sm">
+                  <div className="font-semibold text-base">{payingFuncionario.nome}</div>
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block">Salário Base</span>
+                      <span className="font-medium">{brl(salario)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Já pago (mês)</span>
+                      <span className="font-medium text-emerald-600">{brl(totalPago)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Saldo a pagar</span>
+                      <span className="font-bold text-red-600">{brl(saldoRestante > 0 ? saldoRestante : 0)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Valor a pagar (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={valorParcialFunc}
+                    onChange={(e) => setValorParcialFunc(e.target.value)}
+                    placeholder={saldoRestante > 0 ? `Saldo: ${saldoRestante}` : "Informe o valor"}
+                  />
+                  {saldoRestante > 0 && (
+                    <div className="flex gap-1.5 flex-wrap pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 px-2"
+                        onClick={() => setValorParcialFunc((saldoRestante * 0.25).toFixed(2))}
+                      >
+                        25% ({brl(saldoRestante * 0.25)})
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 px-2"
+                        onClick={() => setValorParcialFunc((saldoRestante * 0.5).toFixed(2))}
+                      >
+                        50% ({brl(saldoRestante * 0.5)})
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 px-2"
+                        onClick={() => setValorParcialFunc((saldoRestante * 0.75).toFixed(2))}
+                      >
+                        75% ({brl(saldoRestante * 0.75)})
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="text-xs h-7 px-2 font-bold"
+                        onClick={() => setValorParcialFunc(saldoRestante.toFixed(2))}
+                      >
+                        100% Saldo ({brl(saldoRestante)})
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Data do pagamento</Label>
+                  <Input
+                    type="date"
+                    value={dataParcialFunc}
+                    onChange={(e) => setDataParcialFunc(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Motivo / Descrição</Label>
+                  <Input
+                    value={motivoParcialFunc}
+                    onChange={(e) => setMotivoParcialFunc(e.target.value)}
+                    placeholder="Ex: Adiantamento de quinzena"
+                  />
+                </div>
+
+                <DialogFooter className="pt-2">
+                  <Button variant="outline" type="button" onClick={() => setPayingFuncionario(null)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={pagarParcialFuncMut.isPending || !valorParcialFunc || Number(valorParcialFunc) <= 0}
+                    onClick={() => {
+                      const v = Number(valorParcialFunc.replace(",", "."));
+                      if (v <= 0) return toast.error("Informe um valor válido.");
+                      pagarParcialFuncMut.mutate({
+                        funcionarioId: payingFuncionario.id,
+                        nomeFuncionario: payingFuncionario.nome,
+                        valor: v,
+                        data: dataParcialFunc,
+                        motivo: motivoParcialFunc,
+                      });
+                    }}
+                  >
+                    {pagarParcialFuncMut.isPending ? "Registrando..." : "Confirmar Pagamento"}
                   </Button>
                 </DialogFooter>
               </div>
