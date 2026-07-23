@@ -190,59 +190,62 @@ function Dashboard() {
   }, [ultimos]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Olá 👋</h1>
-        <p className="text-muted-foreground mt-1">
-          Ração hoje: <span className="font-semibold text-foreground">{totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg</span>
-        </p>
+    <div className="max-w-xl mx-auto space-y-6">
+      {/* Top Banner / Summary */}
+      <div className="bg-gradient-to-br from-emerald-500/10 via-primary/5 to-transparent p-5 rounded-2xl border flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Lançar Ração 🌾</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Lançamento simples e rápido de ração nos viveiros
+          </p>
+        </div>
+        <div className="text-right shrink-0 bg-background/80 px-3.5 py-2 rounded-xl border shadow-sm">
+          <span className="text-[11px] font-semibold text-muted-foreground block uppercase">Hoje</span>
+          <span className="text-xl font-black text-emerald-600 tabular-nums">
+            {totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+          </span>
+        </div>
       </div>
 
       {viveiros.length === 0 ? (
-        <div className="p-8 rounded-2xl border-2 border-dashed text-center">
-          <p className="font-semibold">Cadastre um viveiro primeiro</p>
+        <div className="p-8 rounded-2xl border-2 border-dashed text-center space-y-3">
+          <p className="font-semibold text-base">Nenhum viveiro cadastrado</p>
+          <p className="text-sm text-muted-foreground">Cadastre os viveiros primeiro para iniciar o lançamento de ração.</p>
           <Link
             to="/viveiros"
-            className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground"
+            className="inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow"
           >
-            Abrir viveiros
+            Cadastrar Viveiros
           </Link>
         </div>
       ) : (
+        /* Form Principal Simples */
         <form
           onSubmit={(e) => {
             e.preventDefault();
             saveMut.mutate();
           }}
-          className="space-y-4 rounded-2xl bg-card border p-5"
+          className="space-y-4 rounded-2xl bg-card border p-5 shadow-sm"
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Viveiro">
-              <select
-                required
-                value={viveiroId}
-                onChange={(e) => setViveiroId(e.target.value)}
-                className="app-input"
-              >
-                <option value="">Escolha</option>
-                {viveiros.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nome}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Data">
-              <input
-                required
-                type="date"
-                value={data}
-                onChange={(e) => setData(e.target.value)}
-                className="app-input"
-              />
-            </Field>
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-foreground block">Viveiro</label>
+            <select
+              required
+              value={viveiroId}
+              onChange={(e) => setViveiroId(e.target.value)}
+              className="app-input text-base h-12 font-medium"
+            >
+              <option value="">Selecione o viveiro...</option>
+              {viveiros.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.nome}
+                </option>
+              ))}
+            </select>
           </div>
-          <Field label="Produto">
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-foreground block">Ração / Produto</label>
             <select
               value={produtoId || (produto ? "__manual__" : "")}
               onChange={(e) => {
@@ -257,21 +260,23 @@ function Dashboard() {
                 if (p) setProduto(p.nome);
                 else setProduto("");
               }}
-              className="app-input"
+              className="app-input text-base h-12 font-medium"
               required
             >
-              <option value="">— Escolha o produto —</option>
+              <option value="">Selecione a ração...</option>
               {produtosList.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nome}
-                  {p.preco_unidade != null ? ` — R$ ${Number(p.preco_unidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/${p.unidade}` : ""}
+                  {p.preco_unidade != null ? ` — R$ ${Number(p.preco_unidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/kg` : ""}
                 </option>
               ))}
               <option value="__manual__">✏️ Outro (digitar nome)</option>
             </select>
-          </Field>
+          </div>
+
           {!produtoId && (
-            <Field label="Ração (nome)">
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-foreground block">Nome da Ração</label>
               <input
                 required
                 value={produto}
@@ -279,14 +284,15 @@ function Dashboard() {
                   setProduto(e.target.value);
                   setProdutoId("");
                 }}
-                className="app-input"
+                className="app-input h-12"
                 placeholder="Ex: Ração 40%"
               />
-            </Field>
+            </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Quantidade (kg)">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-foreground block">Quantidade (kg)</label>
               <input
                 required
                 min="0.01"
@@ -295,86 +301,87 @@ function Dashboard() {
                 inputMode="decimal"
                 value={quantidade}
                 onChange={(e) => setQuantidade(e.target.value)}
-                className="app-input"
-                placeholder="Ex: 55"
+                className="app-input h-12 text-lg font-bold"
+                placeholder="Ex: 50"
               />
-            </Field>
-            <Field label={valorIsAuto ? "Valor unit. (auto)" : "Valor unit. (R$)"}>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-foreground block">Data</label>
               <input
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9.,]*"
-                value={valorIsAuto ? String(precoCadastrado) : valor}
-                disabled={valorIsAuto}
-                onChange={(e) => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
-                className="app-input disabled:opacity-70"
-                placeholder="Opcional"
+                required
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                className="app-input h-12"
               />
-            </Field>
+            </div>
           </div>
+
           {totalCalc > 0 && (
-            <p className="text-sm text-muted-foreground">
-              Total:{" "}
-              <span className="font-semibold text-foreground">
+            <div className="bg-muted/50 p-3 rounded-xl flex items-center justify-between text-sm">
+              <span className="text-muted-foreground font-medium">Custo estimado:</span>
+              <span className="font-bold text-foreground tabular-nums text-base">
                 {totalCalc.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               </span>
-            </p>
+            </div>
           )}
+
           <button
             disabled={saveMut.isPending}
-            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+            type="submit"
+            className="w-full h-13 rounded-xl bg-emerald-600 text-white font-bold text-base shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 active:scale-[0.99] transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {saveMut.isPending ? "Salvando..." : "Salvar lançamento"}
+            {saveMut.isPending ? "Lançando..." : "🌾 Confirmar Lançamento"}
           </button>
         </form>
       )}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Lançamentos de hoje</h2>
-          <Link to="/relatorios" className="text-sm text-primary font-medium">
-            Ver relatório
-          </Link>
+      {/* Lançamentos de hoje */}
+      <section className="space-y-3 pt-2">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <ClipboardList className="size-5 text-primary" /> Lançados Hoje ({ultimos.length})
+          </h2>
         </div>
 
         {isLoading ? (
-          <p className="text-muted-foreground">Carregando...</p>
+          <p className="text-muted-foreground text-sm">Carregando lançamentos...</p>
         ) : ultimos.length === 0 ? (
-          <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-            <ClipboardList className="size-4" /> Sem lançamentos hoje.
+          <div className="p-6 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">
+            Nenhum lançamento de ração feito hoje ainda.
           </div>
         ) : (
           <ul className="space-y-2">
-            {ultimos.slice(0, 5).map((l) => (
+            {ultimos.map((l) => (
               <li
                 key={l.id}
-                className="flex items-center justify-between p-4 rounded-xl bg-card border gap-3"
+                className="flex items-center justify-between p-3.5 rounded-xl bg-card border gap-3 shadow-xs"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold truncate">{l.produto_nome}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {relName(l.viveiros) || "—"}
-                  </p>
+                  <p className="font-bold text-foreground text-sm truncate">{relName(l.viveiros) || "Viveiro"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{l.produto_nome}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-bold">
-                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {l.unidade}
+                  <p className="text-base font-black text-emerald-600 tabular-nums">
+                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
                     onClick={() => setEditing(l)}
-                    className="size-9 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                    className="size-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
                     aria-label="Editar"
+                    title="Editar"
                   >
                     <Pencil className="size-4" />
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm(`Apagar "${l.produto_nome}"?`)) delMut.mutate(l.id);
+                      if (confirm(`Apagar lançamento de ${l.quantidade}kg no ${relName(l.viveiros)}?`)) delMut.mutate(l.id);
                     }}
-                    className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                    className="size-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
                     aria-label="Apagar"
+                    title="Apagar"
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -384,12 +391,6 @@ function Dashboard() {
           </ul>
         )}
       </section>
-
-      <CadastroGeral />
-
-      <Calculadora />
-
-
 
       {editing && (
         <EditLancModal
