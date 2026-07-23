@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw } from "lucide-react";
 
 
 const CS_TAG = "[cs]";
@@ -677,6 +677,38 @@ function CaixaSimplesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const reverterDividaMut = useMutation({
+    mutationFn: async (conta: Conta) => {
+      const info = getContaFinancialInfo(conta);
+      const caixaIds = info.pagamentos.map((p) => p.caixa_id).filter(Boolean) as string[];
+      if (conta.caixa_lancamento_id) {
+        caixaIds.push(conta.caixa_lancamento_id);
+      }
+      if (caixaIds.length > 0) {
+        await supabase.from("caixa_lancamentos").delete().in("id", caixaIds);
+      }
+
+      const { error } = await supabase
+        .from("contas_pagar")
+        .update({
+          pago: false,
+          data_pagamento: null,
+          caixa_lancamento_id: null,
+          observacao: info.userObs || null,
+        })
+        .eq("id", conta.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Dívida revertida para Em Aberto! Lançamentos removidos do caixa e viveiros.");
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const pagarContaMut = useMutation({
     mutationFn: async (conta: Conta) => {
       const info = getContaFinancialInfo(conta);
@@ -1128,6 +1160,22 @@ function CaixaSimplesPage() {
                               >
                                 <Receipt className="size-4 mr-1" /> Pagar Parte
                               </Button>
+                              {info.valorPago > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={reverterDividaMut.isPending}
+                                  onClick={() => {
+                                    if (confirm(`Reverter os pagamentos efetuados da dívida "${c.descricao}"?\n\nOs pagamentos serão desfeitos, os lançamentos sairão do caixa/viveiros e a dívida voltará a ficar 100% em aberto.`)) {
+                                      reverterDividaMut.mutate(c);
+                                    }
+                                  }}
+                                  className="text-amber-700 border-amber-500/40 hover:bg-amber-50 dark:text-amber-300 dark:border-amber-700/50 font-bold text-xs"
+                                  title="Desfazer pagamentos parciais e reverter dívida para Em Aberto"
+                                >
+                                  <RotateCcw className="size-3.5 mr-1" /> Reverter
+                                </Button>
+                              )}
                               <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)} title="Editar conta">
                                 <Pencil className="size-4" />
                               </Button>
@@ -1227,6 +1275,20 @@ function CaixaSimplesPage() {
                               </div>
                               {info.userObs && <div className="text-xs text-muted-foreground mt-1 italic">{info.userObs}</div>}
                             </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={reverterDividaMut.isPending}
+                              onClick={() => {
+                                if (confirm(`Reverter a dívida "${c.descricao}" para em aberto?\n\nO pagamento será cancelado, os lançamentos sairão do caixa/viveiros e a dívida voltará a ficar pendente.`)) {
+                                  reverterDividaMut.mutate(c);
+                                }
+                              }}
+                              className="text-amber-700 border-amber-500/40 hover:bg-amber-50 dark:text-amber-300 dark:border-amber-700/50 font-bold text-xs"
+                              title="Reverter quitação e colocar dívida em aberto novamente"
+                            >
+                              <RotateCcw className="size-3.5 mr-1" /> Reverter
+                            </Button>
                             <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)} title="Editar conta">
                               <Pencil className="size-4" />
                             </Button>
@@ -1538,6 +1600,7 @@ function CaixaSimplesPage() {
         socios={socios}
         onClose={() => setEditingConta(null)}
         onSave={(c) => updateContaMut.mutate(c)}
+        onReverter={(c) => reverterDividaMut.mutate(c)}
         saving={updateContaMut.isPending}
       />
 
@@ -1806,13 +1869,14 @@ function CaixaSimplesPage() {
 }
 
 function EditContaModal({
-  conta, viveiros, socios, onClose, onSave, saving,
+  conta, viveiros, socios, onClose, onSave, onReverter, saving,
 }: {
   conta: Conta | null;
   viveiros: Viveiro[];
   socios: Socio[];
   onClose: () => void;
   onSave: (c: Conta) => void;
+  onReverter?: (c: Conta) => void;
   saving: boolean;
 }) {
   const [form, setForm] = useState<Conta | null>(() => {
@@ -1830,11 +1894,40 @@ function EditContaModal({
     }
   }, [conta]);
   if (!conta || !form) return null;
+  const info = getContaFinancialInfo(conta);
   const vivValue = form.viveiro_id ?? (form.categoria === "interno" ? INTERNO : TODOS);
   return (
     <Dialog open={!!conta} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Editar conta</DialogTitle></DialogHeader>
+
+        {info.valorPago > 0 && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+            <div className="font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
+              <span>⚠️ Dívida com pagamentos (Já pago: {brl(info.valorPago)})</span>
+            </div>
+            <p className="text-muted-foreground text-[11px] leading-relaxed">
+              Se você errou o valor pago ou o viveiro rateado, clique abaixo para desazeres os pagamentos, remover os lançamentos do caixa/viveiros e voltar a dívida para em aberto.
+            </p>
+            {onReverter && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full text-amber-800 border-amber-500/40 hover:bg-amber-100 dark:text-amber-300 font-bold"
+                onClick={() => {
+                  if (confirm(`Reverter a dívida "${conta.descricao}" para em aberto?\n\nOs lançamentos serão removidos do caixa/viveiros e a dívida voltará a ficar pendente.`)) {
+                    onReverter(conta);
+                    onClose();
+                  }
+                }}
+              >
+                <RotateCcw className="size-3.5 mr-1.5" /> Reverter Dívida para Em Aberto
+              </Button>
+            )}
+          </div>
+        )}
+
         <div className="space-y-3">
           <div>
             <Label>Descrição</Label>
