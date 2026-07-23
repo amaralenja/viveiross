@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight, FileDown, Printer } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { Calculadora } from "@/components/Calculadora";
@@ -187,23 +187,89 @@ function Dashboard() {
     return ultimos
       .filter((l) => l.tipo === "racao" && l.data_lancamento === hoje)
       .reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
-  }, [ultimos]);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  async function handleExportPdf() {
+    try {
+      setIsGeneratingPdf(true);
+      const hoje = todayLocal();
+      const ontemDate = new Date();
+      ontemDate.setDate(ontemDate.getDate() - 1);
+      const ontem = ymd(ontemDate);
+
+      const { data: linhas } = await supabase
+        .from("lancamentos")
+        .select("id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, preco_unidade, custo_total, viveiros(nome)")
+        .eq("tipo", "racao")
+        .in("data_lancamento", [hoje, ontem]);
+
+      const list = (linhas ?? []) as Array<{
+        id: string;
+        viveiro_id: string;
+        data_lancamento: string;
+        produto_nome: string;
+        quantidade: number | null;
+        unidade: string | null;
+        preco_unidade: number | null;
+        custo_total: number | null;
+        viveiros: { nome: string } | { nome: string }[] | null;
+      }>;
+
+      const map = new Map<string, { nome: string; hoje: number; ontem: number }>();
+      let tHoje = 0;
+      let tOntem = 0;
+      for (const l of list) {
+        const nome = relName(l.viveiros) || "Sem viveiro";
+        const cur = map.get(l.viveiro_id) ?? { nome, hoje: 0, ontem: 0 };
+        const q = Number(l.quantidade ?? 0);
+        if (l.data_lancamento === hoje) {
+          cur.hoje += q;
+          tHoje += q;
+        } else if (l.data_lancamento === ontem) {
+          cur.ontem += q;
+          tOntem += q;
+        }
+        map.set(l.viveiro_id, cur);
+      }
+      const porViveiro = sortByViveiroNome(Array.from(map.values()), (v) => v.nome);
+
+      await gerarPdfInicio(ultimos, { totalHoje: tHoje, totalOntem: tOntem, porViveiro });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
       {/* Top Banner / Summary */}
-      <div className="bg-gradient-to-br from-emerald-500/10 via-primary/5 to-transparent p-5 rounded-2xl border flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Lançar Ração 🌾</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Lançamento simples e rápido de ração nos viveiros
-          </p>
-        </div>
-        <div className="text-right shrink-0 bg-background/80 px-3.5 py-2 rounded-xl border shadow-sm">
-          <span className="text-[11px] font-semibold text-muted-foreground block uppercase">Hoje</span>
-          <span className="text-xl font-black text-emerald-600 tabular-nums">
-            {totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
-          </span>
+      <div className="bg-gradient-to-br from-emerald-500/10 via-primary/5 to-transparent p-5 rounded-2xl border space-y-3">
+        <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Lançar Ração 🌾</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Lançamento simples e rápido de ração nos viveiros
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-right shrink-0 bg-background/80 px-3 py-1.5 rounded-xl border shadow-xs">
+              <span className="text-[10px] font-semibold text-muted-foreground block uppercase">Hoje</span>
+              <span className="text-lg font-black text-emerald-600 tabular-nums">
+                {totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={isGeneratingPdf}
+              className="h-10 px-3 rounded-xl border bg-background hover:bg-muted font-bold text-xs flex items-center gap-1.5 shadow-xs transition shrink-0 active:scale-95"
+              title="Gerar PDF do relatório de hoje e comparativo"
+            >
+              <FileDown className="size-4 text-emerald-600" />
+              {isGeneratingPdf ? "Gerando..." : "Gerar PDF"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -536,6 +602,152 @@ function EditLancModal({
       </div>
     </div>
   );
+}
+
+async function gerarPdfInicio(
+  ultimosHoje: Lanc[],
+  statsOntemHoje: { totalHoje: number; totalOntem: number; porViveiro: Array<{ nome: string; hoje: number; ontem: number }> }
+) {
+  const [pdfModule, autoTableModule] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const jsPDF = pdfModule.default;
+  const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const dataHojeStr = new Date().toLocaleDateString("pt-BR");
+  const horaStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  // Banner Superior / Header
+  doc.setFillColor(16, 185, 129);
+  doc.rect(0, 0, 210, 22, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("RELATÓRIO DIÁRIO DE RAÇÃO & ALIMENTAÇÃO", 14, 12);
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Emitido em ${dataHojeStr} às ${horaStr}`, 14, 18);
+
+  // Cards de Resumo Executivo
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("RESUMO GERAL DO DIA", 14, 30);
+
+  const diffTotal = statsOntemHoje.totalHoje - statsOntemHoje.totalOntem;
+  const pctTotal = statsOntemHoje.totalOntem > 0 ? (diffTotal / statsOntemHoje.totalOntem) * 100 : 0;
+  const diffStr = `${diffTotal >= 0 ? "+" : ""}${diffTotal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg (${pctTotal >= 0 ? "+" : ""}${pctTotal.toFixed(1)}%)`;
+
+  // Box Hoje
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(14, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("TOTAL HOJE", 18, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text(`${statsOntemHoje.totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 18, 47);
+
+  // Box Ontem
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(76, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("TOTAL ONTEM", 80, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`${statsOntemHoje.totalOntem.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 80, 47);
+
+  // Box Variação
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(138, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("VARIAÇÃO (HOJE x ONTEM)", 142, 40);
+  doc.setFontSize(9.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(diffTotal >= 0 ? 16 : 225, diffTotal >= 0 ? 185 : 29, diffTotal >= 0 ? 129 : 72);
+  doc.text(diffStr, 142, 47);
+
+  let currentY = 58;
+
+  // Tabela 1: Comparativo por Viveiro
+  if (statsOntemHoje.porViveiro.length > 0) {
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+    doc.text("1. COMPARATIVO POR VIVEIRO (ONTEM x HOJE)", 14, currentY);
+
+    autoTable(doc, {
+      startY: currentY + 3,
+      head: [["Viveiro", "Ontem (kg)", "Hoje (kg)", "Diferença (kg)", "Variação (%)"]],
+      body: statsOntemHoje.porViveiro.map((v) => {
+        const d = v.hoje - v.ontem;
+        const p = v.ontem > 0 ? (d / v.ontem) * 100 : 0;
+        return [
+          v.nome,
+          `${v.ontem.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
+          `${v.hoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
+          `${d >= 0 ? "+" : ""}${d.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
+          `${p >= 0 ? "+" : ""}${p.toFixed(1)}%`,
+        ];
+      }),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  }
+
+  // Tabela 2: Lançamentos de Hoje
+  doc.setFontSize(9.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`2. LANÇAMENTOS DE RAÇÃO EFETUADOS HOJE (${ultimosHoje.length})`, 14, currentY);
+
+  if (ultimosHoje.length === 0) {
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Nenhum lançamento efetuado hoje ainda.", 14, currentY + 5);
+  } else {
+    autoTable(doc, {
+      startY: currentY + 3,
+      head: [["Viveiro", "Ração / Produto", "Quantidade (kg)", "Custo Unitário", "Custo Total"]],
+      body: ultimosHoje.map((l) => [
+        relName(l.viveiros) || "—",
+        l.produto_nome,
+        `${Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
+        l.preco_unidade != null ? `R$ ${Number(l.preco_unidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—",
+        l.custo_total != null ? `R$ ${Number(l.custo_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—",
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+  }
+
+  // Footer em 1 página
+  const pageCount = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Viveiros App · Relatório gerado em ${dataHojeStr} às ${horaStr}`, 14, 287);
+    doc.text(`Página ${i} de ${pageCount}`, 196, 287, { align: "right" });
+  }
+
+  const pdfBlob = doc.output("blob") as Blob;
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, "_blank");
+  toast.success("PDF do relatório gerado com sucesso!");
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
