@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, ClipboardList } from "lucide-react";
+import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { Calculadora } from "@/components/Calculadora";
@@ -336,6 +336,9 @@ function Dashboard() {
         </form>
       )}
 
+      {/* Painel Comparativo Ração Hoje x Ontem */}
+      <RacaoHojeOntem />
+
       {/* Lançamentos de hoje */}
       <section className="space-y-3 pt-2">
         <div className="flex items-center justify-between px-1">
@@ -605,16 +608,27 @@ function RacaoHojeOntem() {
   const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
   return (
-    <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-          Ração — hoje x ontem
-        </h2>
+    <section className="rounded-2xl border bg-card p-4 space-y-3.5 shadow-sm">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <Scale className="size-4" />
+          </div>
+          <h2 className="text-sm font-bold text-foreground">
+            Comparativo de Ração: Ontem x Hoje
+          </h2>
+        </div>
+
         <span
-          className={`text-xs font-bold ${
-            diff > 0 ? "text-emerald-600" : diff < 0 ? "text-destructive" : "text-muted-foreground"
+          className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
+            diff > 0
+              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+              : diff < 0
+                ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                : "bg-muted text-muted-foreground"
           }`}
         >
+          {diff > 0 ? <TrendingUp className="size-3.5" /> : diff < 0 ? <TrendingDown className="size-3.5" /> : null}
           {diff > 0 ? "+" : ""}
           {fmt(diff)} kg
           {pct !== null && (
@@ -622,43 +636,56 @@ function RacaoHojeOntem() {
           )}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-background/60 p-3">
-          <p className="text-[10px] uppercase text-muted-foreground">Hoje</p>
-          <p className="text-xl font-bold text-primary">{fmt(stats.totalHoje)} kg</p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-muted/40 p-3 border">
+          <span className="text-[11px] font-semibold uppercase text-muted-foreground block">Ontem</span>
+          <span className="text-xl font-bold text-foreground tabular-nums">{fmt(stats.totalOntem)} kg</span>
         </div>
-        <div className="rounded-xl bg-background/60 p-3">
-          <p className="text-[10px] uppercase text-muted-foreground">Ontem</p>
-          <p className="text-xl font-bold">{fmt(stats.totalOntem)} kg</p>
+        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
+          <span className="text-[11px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 block">Hoje</span>
+          <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{fmt(stats.totalHoje)} kg</span>
         </div>
       </div>
+
       {stats.porViveiro.length > 0 && (
-        <ul className="space-y-1">
-          {stats.porViveiro.map((v) => {
-            const d = v.hoje - v.ontem;
-            return (
-              <li
-                key={v.nome}
-                className="flex items-center justify-between text-xs rounded-lg bg-background/40 px-3 py-2"
-              >
-                <span className="font-medium truncate">{v.nome}</span>
-                <span className="flex items-center gap-2 shrink-0">
-                  <span className="text-muted-foreground">
-                    {fmt(v.ontem)} → <span className="font-semibold text-foreground">{fmt(v.hoje)}</span> kg
-                  </span>
-                  <span
-                    className={`font-bold tabular-nums ${
-                      d > 0 ? "text-emerald-600" : d < 0 ? "text-destructive" : "text-muted-foreground"
-                    }`}
-                  >
-                    {d > 0 ? "+" : ""}
-                    {fmt(d)}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="space-y-1.5 pt-1 border-t">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Por Viveiro</p>
+          <div className="space-y-1.5">
+            {stats.porViveiro.map((v) => {
+              const d = v.hoje - v.ontem;
+              return (
+                <div
+                  key={v.nome}
+                  className="flex items-center justify-between text-xs rounded-xl bg-muted/30 p-2.5 border gap-2"
+                >
+                  <span className="font-semibold text-foreground truncate">{v.nome}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-muted-foreground font-medium">
+                      Ontem: <span className="text-foreground font-semibold">{fmt(v.ontem)}</span> kg
+                    </span>
+                    <ArrowRight className="size-3 text-muted-foreground" />
+                    <span className="font-bold text-foreground">
+                      Hoje: <span className="text-emerald-600">{fmt(v.hoje)}</span> kg
+                    </span>
+                    <span
+                      className={`font-bold tabular-nums ml-1 px-1.5 py-0.5 rounded text-[10px] ${
+                        d > 0
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : d < 0
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {d > 0 ? "+" : ""}
+                      {fmt(d)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </section>
   );
