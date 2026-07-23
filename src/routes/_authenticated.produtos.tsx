@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt } from "lucide-react";
+import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History } from "lucide-react";
 import { todayLocal } from "@/lib/date";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
@@ -585,6 +585,8 @@ function EstoqueView({
   onDelProduto: (p: Produto) => void;
 }) {
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
+  const [filtroTimeline, setFiltroTimeline] = useState<"todas" | "entradas" | "saidas">("todas");
+  const [buscaEstoque, setBuscaEstoque] = useState("");
 
   if (produtos.length === 0) {
     return (
@@ -598,95 +600,217 @@ function EstoqueView({
   }
 
   const produtosOrdenados = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
-  const totalEstoque = produtosOrdenados.reduce((sum, p) => {
-    const s = saldoPorProduto.get(p.id);
-    return sum + Math.max(0, (s?.entradas ?? 0) - (s?.saidas ?? 0));
-  }, 0);
+
+  const totalEntradasGlobal = Array.from(saldoPorProduto.values()).reduce((sum, s) => sum + s.entradas, 0);
+  const totalSaidasGlobal = Array.from(saldoPorProduto.values()).reduce((sum, s) => sum + s.saidas, 0);
+  const totalEstoqueGlobal = Math.max(0, totalEntradasGlobal - totalSaidasGlobal);
+
+  // Unificação de todas as movimentações de estoque (entradas + lançamentos do início/saídas)
+  const movimentacoes = useMemo(() => {
+    const list: Array<{
+      id: string;
+      tipo: "entrada" | "saida";
+      produtoId: string;
+      produtoNome: string;
+      quantidade: number;
+      unidade: string;
+      data: string;
+      detalhe: string;
+      custo?: number | null;
+    }> = [];
+
+    for (const e of entradas) {
+      const prod = produtos.find((x) => x.id === e.produto_id);
+      list.push({
+        id: `e-${e.id}`,
+        tipo: "entrada",
+        produtoId: e.produto_id,
+        produtoNome: prod?.nome ?? "Produto",
+        quantidade: Number(e.quantidade ?? 0),
+        unidade: e.unidade ?? prod?.unidade ?? "kg",
+        data: e.data_entrada,
+        detalhe: e.fornecedor ? `Fornecedor: ${e.fornecedor}` : e.observacao || "Entrada de estoque / Compra",
+        custo: e.custo_total != null ? Number(e.custo_total) : null,
+      });
+    }
+
+    for (const c of consumo) {
+      let prod = c.produto_id ? produtos.find((p) => p.id === c.produto_id) : null;
+      if (!prod && c.produto_nome) {
+        prod = produtos.find((p) => p.nome.toLowerCase().trim() === c.produto_nome.toLowerCase().trim()) ?? null;
+      }
+
+      const viv = viveiros.find((v) => v.id === c.viveiro_id);
+
+      list.push({
+        id: `c-${c.id}`,
+        tipo: "saida",
+        produtoId: prod?.id ?? "desconhecido",
+        produtoNome: prod?.nome ?? c.produto_nome ?? "Lançamento",
+        quantidade: Number(c.quantidade ?? 0),
+        unidade: c.unidade ?? prod?.unidade ?? "kg",
+        data: c.data_lancamento,
+        detalhe: viv ? `Lançado no ${viv.nome}` : "Lançamento de ração / Consumo",
+      });
+    }
+
+    return list.sort((a, b) => b.data.localeCompare(a.data));
+  }, [entradas, consumo, produtos, viveiros]);
+
+  const movimentacoesFiltradas = useMemo(() => {
+    return movimentacoes.filter((m) => {
+      if (filtroTimeline === "entradas" && m.tipo !== "entrada") return false;
+      if (filtroTimeline === "saidas" && m.tipo !== "saida") return false;
+      if (buscaEstoque.trim()) {
+        const term = buscaEstoque.toLowerCase().trim();
+        const prodMatch = m.produtoNome.toLowerCase().includes(term);
+        const detMatch = m.detalhe.toLowerCase().includes(term);
+        if (!prodMatch && !detMatch) return false;
+      }
+      return true;
+    });
+  }, [movimentacoes, filtroTimeline, buscaEstoque]);
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Cards de Resumo Geral */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Saldo Total em Estoque</p>
+          <p className="text-2xl font-black text-foreground tabular-nums">{formatNumber(totalEstoqueGlobal)} kg</p>
+        </div>
+        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Total Adicionado (Entradas)</p>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+ {formatNumber(totalEntradasGlobal)} kg</p>
+        </div>
+        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Total Consumido (Saídas/Início)</p>
+          <p className="text-2xl font-black text-amber-700 dark:text-amber-400 tabular-nums">- {formatNumber(totalSaidasGlobal)} kg</p>
+        </div>
+      </div>
+
+      {/* Botões de Ação Rápida */}
+      <div className="flex items-center justify-between gap-3 flex-wrap bg-muted/40 p-3 rounded-2xl border">
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Saldo total</p>
-          <p className="text-2xl font-bold">{formatNumber(totalEstoque)} kg</p>
+          <h3 className="font-bold text-base">Controle de Estoque & Lançamentos</h3>
+          <p className="text-xs text-muted-foreground">Registros automáticos de baixas do Início e compras efetuadas</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={onNovaBaixa}
-            className="h-11 px-4 rounded-xl border border-primary/40 text-primary font-semibold inline-flex items-center gap-2 hover:bg-primary/10"
+            className="h-10 px-3.5 rounded-xl border border-destructive/40 text-destructive font-semibold text-xs inline-flex items-center gap-1.5 hover:bg-destructive/10 transition"
           >
-            <ArrowDownToLine className="size-4 rotate-180" /> Baixa
+            <ArrowDownToLine className="size-4 rotate-180" /> Baixa Manual
           </button>
           <button
             onClick={onNovaEntrada}
-            className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2"
+            className="h-10 px-3.5 rounded-xl bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm hover:bg-emerald-700 transition"
           >
-            <ArrowDownToLine className="size-4" /> Entrada
+            <ArrowDownToLine className="size-4" /> Nova Entrada / Compra
           </button>
         </div>
       </div>
 
-      <div>
-        <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-muted-foreground">
-          Saldo por produto
+      {/* Saldo por Produto */}
+      <div className="space-y-3">
+        <h3 className="font-bold text-sm uppercase tracking-wide text-muted-foreground flex items-center justify-between">
+          <span>Estoque Atual por Produto</span>
+          <span className="text-xs font-normal text-muted-foreground">{produtosOrdenados.length} produto(s)</span>
         </h3>
-        <ul className="space-y-2">
+
+        <ul className="space-y-3">
           {produtosOrdenados.map((p) => {
             const s = saldoPorProduto.get(p.id) ?? { entradas: 0, saidas: 0 };
             const saldo = s.entradas - s.saidas;
-            const baixo = saldo <= 0;
+            const pctRestante = s.entradas > 0 ? Math.max(0, Math.min(100, Math.round((saldo / s.entradas) * 100))) : (saldo > 0 ? 100 : 0);
+            const zerado = saldo <= 0;
+            const baixo = !zerado && pctRestante <= 20;
+
             const entradasProduto = entradas.filter((e) => e.produto_id === p.id);
             const saidasProduto = consumo.filter((c) =>
               c.produto_id === p.id || (!c.produto_id && c.produto_nome && c.produto_nome.toLowerCase().trim() === p.nome.toLowerCase().trim())
             );
             const aberto = expandidoId === p.id;
+
             return (
-              <li key={p.id} className="rounded-xl bg-card border overflow-hidden">
-                <div className="p-3 flex items-center justify-between gap-3">
+              <li key={p.id} className="rounded-2xl bg-card border shadow-xs overflow-hidden">
+                <div className="p-4 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
                   <button
                     type="button"
                     onClick={() => setExpandidoId(aberto ? null : p.id)}
-                    className="min-w-0 flex-1 text-left"
+                    className="min-w-0 flex-1 text-left space-y-1.5"
                   >
-                    <p className="font-semibold truncate">{p.nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Entradas {formatNumber(s.entradas)} · Saídas {formatNumber(s.saidas)} {p.unidade}
-                      {entradasProduto.length > 0 && ` · ${entradasProduto.length} entrada(s)`}
-                      {saidasProduto.length > 0 && ` · ${saidasProduto.length} consumo(s)`}
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setExpandidoId(aberto ? null : p.id)}
-                    className={`text-right shrink-0 ${baixo ? "text-destructive" : "text-foreground"}`}
-                  >
-                    <p className="text-lg font-bold flex items-center gap-1 justify-end">
-                      {baixo && <AlertTriangle className="size-4" />}
-                      {formatNumber(saldo)} {p.unidade}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">{aberto ? "fechar" : "detalhes"}</p>
-                  </button>
-                  <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
-                </div>
-                {aberto && (
-                  <div className="border-t bg-muted/30 p-3 space-y-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Entradas (Abastecimento)</p>
-                      {entradasProduto.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-1">Nenhuma entrada cadastrada.</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-base text-foreground">{p.nome}</span>
+                      {zerado ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+                          Estoque Insuficiente
+                        </span>
+                      ) : baixo ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Estoque Baixo ({pctRestante}%)
+                        </span>
                       ) : (
-                        <ul className="space-y-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          Estoque Ok ({pctRestante}%)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="text-emerald-600 font-semibold">+ {formatNumber(s.entradas)} {p.unidade} (Entradas)</span>
+                      <span>·</span>
+                      <span className="text-amber-600 font-semibold">- {formatNumber(s.saidas)} {p.unidade} (Consumos)</span>
+                    </div>
+
+                    {/* Barra Visual de Nível de Estoque */}
+                    <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mt-1">
+                      <div
+                        className={`h-full transition-all duration-300 ${zerado ? "bg-red-500" : baixo ? "bg-amber-500" : "bg-emerald-500"}`}
+                        style={{ width: `${pctRestante}%` }}
+                      />
+                    </div>
+                  </button>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setExpandidoId(aberto ? null : p.id)}
+                      className="text-right"
+                    >
+                      <span className={`text-xl font-black tabular-nums block ${zerado ? "text-red-600" : "text-foreground"}`}>
+                        {formatNumber(saldo)} {p.unidade}
+                      </span>
+                      <span className="text-[11px] text-primary font-semibold hover:underline">
+                        {aberto ? "Ocultar histórico ▲" : `Ver histórico (${entradasProduto.length + saidasProduto.length}) ▼`}
+                      </span>
+                    </button>
+                    <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
+                  </div>
+                </div>
+
+                {aberto && (
+                  <div className="border-t bg-muted/30 p-4 space-y-4">
+                    {/* Abastecimentos (+) */}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">
+                        <span>🟢 Entradas & Compras Abastecidas ({entradasProduto.length})</span>
+                      </p>
+                      {entradasProduto.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-1">Nenhuma entrada cadastrada para este produto.</p>
+                      ) : (
+                        <ul className="space-y-1.5">
                           {entradasProduto.map((e) => (
-                            <li key={e.id} className="p-2.5 rounded-lg bg-card border flex items-center justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium">
-                                  {formatNumber(e.quantidade)} {e.unidade}
-                                  {e.custo_total != null && ` · ${formatBRL(Number(e.custo_total))}`}
+                            <li key={e.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs">
+                              <div>
+                                <p className="font-bold text-emerald-600">
+                                  + {formatNumber(e.quantidade)} {e.unidade}
+                                  {e.custo_total != null && <span className="text-foreground font-normal ml-2">({formatBRL(Number(e.custo_total))})</span>}
                                 </p>
-                                <p className="text-[11px] text-muted-foreground">
-                                  {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
-                                  {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade}`}
-                                  {e.fornecedor && ` · ${e.fornecedor}`}
+                                <p className="text-muted-foreground text-[11px]">
+                                  Data: {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
+                                  {e.fornecedor && ` · Fornecedor: ${e.fornecedor}`}
+                                  {e.observacao && ` · ${e.observacao}`}
                                 </p>
                               </div>
                               <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
@@ -696,24 +820,29 @@ function EstoqueView({
                       )}
                     </div>
 
+                    {/* Saídas / Consumos (-) */}
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Saídas (Lançamentos de Consumo)</p>
+                      <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1">
+                        <span>🔴 Consumos & Lançamentos de Ração do Início ({saidasProduto.length})</span>
+                      </p>
                       {saidasProduto.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-1">Nenhum consumo registrado ainda.</p>
+                        <p className="text-xs text-muted-foreground italic py-1">Nenhum consumo ou baixa efetuada ainda.</p>
                       ) : (
-                        <ul className="space-y-2">
-                          {saidasProduto.slice(0, 30).map((c) => {
+                        <ul className="space-y-1.5">
+                          {saidasProduto.map((c) => {
                             const viv = viveiros.find((v) => v.id === c.viveiro_id);
                             return (
-                              <li key={c.id} className="p-2.5 rounded-lg bg-card border flex items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium text-destructive">
+                              <li key={c.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs">
+                                <div>
+                                  <p className="font-bold text-red-600">
                                     - {formatNumber(c.quantidade)} {c.unidade}
-                                    <span className="text-foreground font-normal ml-2">({viv ? viv.nome : "Viveiro"})</span>
+                                    <span className="text-foreground font-normal ml-2">
+                                      ({viv ? `Viveiro: ${viv.nome}` : "Consumo / Baixa Geral"})
+                                    </span>
                                   </p>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {new Date(`${c.data_lancamento}T00:00:00`).toLocaleDateString("pt-BR")}
-                                    {c.tipo && ` · ${c.tipo}`}
+                                  <p className="text-muted-foreground text-[11px]">
+                                    Data: {new Date(`${c.data_lancamento}T00:00:00`).toLocaleDateString("pt-BR")}
+                                    {" · Origem: Lançamento de Ração (Início)"}
                                   </p>
                                 </div>
                               </li>
@@ -730,39 +859,74 @@ function EstoqueView({
         </ul>
       </div>
 
+      {/* Timeline Geral de Movimentações */}
+      <div className="space-y-3 pt-4 border-t">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h3 className="font-bold text-base flex items-center gap-2">
+              <History className="size-5 text-primary" /> Histórico Unificado de Movimentação do Estoque
+            </h3>
+            <p className="text-xs text-muted-foreground">Linha do tempo de todas as entradas e baixas do sistema</p>
+          </div>
 
-      <div>
-        <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-muted-foreground">
-          Últimas entradas
-        </h3>
-        {entradas.length === 0 ? (
-          <p className="rounded-xl border border-dashed p-6 text-center text-muted-foreground text-sm">
-            Nenhuma entrada registrada.
-          </p>
+          <div className="flex items-center gap-1 rounded-xl bg-muted p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setFiltroTimeline("todas")}
+              className={`px-3 py-1.5 rounded-lg transition ${filtroTimeline === "todas" ? "bg-card shadow-xs text-foreground font-bold" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Todas ({movimentacoes.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroTimeline("entradas")}
+              className={`px-3 py-1.5 rounded-lg transition ${filtroTimeline === "entradas" ? "bg-card shadow-xs text-emerald-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Entradas (+{entradas.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroTimeline("saidas")}
+              className={`px-3 py-1.5 rounded-lg transition ${filtroTimeline === "saidas" ? "bg-card shadow-xs text-red-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Baixas (-{consumo.length})
+            </button>
+          </div>
+        </div>
+
+        {movimentacoesFiltradas.length === 0 ? (
+          <div className="p-6 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">
+            Nenhuma movimentação encontrada.
+          </div>
         ) : (
-          <ul className="space-y-2">
-            {entradas.slice(0, 20).map((e) => {
-              const p = produtos.find((x) => x.id === e.produto_id);
-              return (
-                <li
-                  key={e.id}
-                  className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3"
-                >
+          <div className="space-y-2">
+            {movimentacoesFiltradas.slice(0, 50).map((m) => (
+              <div key={m.id} className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`size-9 rounded-xl flex items-center justify-center shrink-0 font-bold ${
+                      m.tipo === "entrada" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                    }`}
+                  >
+                    {m.tipo === "entrada" ? "+" : "-"}
+                  </div>
                   <div className="min-w-0">
-                    <p className="font-semibold truncate">{p?.nome ?? "Produto"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
-                      {" · "}
-                      {formatNumber(e.quantidade)} {e.unidade}
-                      {e.custo_total != null && ` · ${formatBRL(Number(e.custo_total))}`}
-                      {e.fornecedor && ` · ${e.fornecedor}`}
+                    <p className="font-bold text-foreground text-sm truncate">{m.produtoNome}</p>
+                    <p className="text-muted-foreground text-[11px] truncate">
+                      {new Date(`${m.data}T00:00:00`).toLocaleDateString("pt-BR")} · {m.detalhe}
+                      {m.custo != null && ` · ${formatBRL(m.custo)}`}
                     </p>
                   </div>
-                  <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
-                </li>
-              );
-            })}
-          </ul>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className={`text-base font-black tabular-nums ${m.tipo === "entrada" ? "text-emerald-600" : "text-red-600"}`}>
+                    {m.tipo === "entrada" ? "+" : "-"} {formatNumber(m.quantidade)} {m.unidade}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

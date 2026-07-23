@@ -497,10 +497,40 @@ function CaixaPage() {
         socio_id: compraData.socioId || null,
       });
       if (error) throw error;
+
+      // Auto-abastecer estoque caso a descrição corresponda a algum produto cadastrado
+      const { data: prods } = await supabase.from("produtos").select("id, nome, unidade, preco_unidade");
+      if (prods && prods.length > 0) {
+        const descLower = compraData.descricao.toLowerCase().trim();
+        const match = prods.find((p) => descLower.includes(p.nome.toLowerCase().trim()) || p.nome.toLowerCase().trim().includes(descLower));
+        if (match) {
+          const matchQtd = compraData.descricao.match(/(\d+(?:[.,]\d+)?)\s*(?:kg|un|saco|sc|g)?/i);
+          let qtdNum = matchQtd ? Number(matchQtd[1].replace(",", ".")) : 0;
+          if (qtdNum <= 0 && match.preco_unidade && match.preco_unidade > 0) {
+            qtdNum = compraData.valor / match.preco_unidade;
+          }
+          if (qtdNum <= 0) qtdNum = 1;
+
+          await supabase.from("estoque_entradas").insert({
+            user_id: userId,
+            produto_id: match.id,
+            quantidade: qtdNum,
+            unidade: match.unidade ?? "kg",
+            preco_unidade: match.preco_unidade ?? null,
+            custo_total: compraData.valor,
+            fornecedor: "Compra no Caixa (Sócio)",
+            data_entrada: compraData.data,
+            observacao: `Automático via caixa: ${compraData.descricao}`,
+          });
+        }
+      }
     },
     onSuccess: () => {
-      toast.success("Compra/Despesa registrada");
+      toast.success("Compra/Despesa registrada e estoque atualizado!");
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
