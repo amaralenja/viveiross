@@ -767,11 +767,43 @@ function CaixaSimplesPage() {
         })
         .eq("id", c.id);
       if (error) throw error;
+
+      // Sincronizar todos os lançamentos do caixa/viveiros associados a esta conta
+      const caixaIds = info.pagamentos.map((p) => p.caixa_id).filter(Boolean) as string[];
+      if (c.caixa_lancamento_id) {
+        caixaIds.push(c.caixa_lancamento_id);
+      }
+
+      const newCategory = c.categoria ?? (c.viveiro_id ? "geral" : "geral");
+      const newViveiroId = c.categoria === "interno" ? null : c.viveiro_id;
+
+      if (caixaIds.length > 0) {
+        await supabase
+          .from("caixa_lancamentos")
+          .update({
+            categoria: newCategory,
+            viveiro_id: newViveiroId,
+            socio_id: c.socio_id ?? null,
+          })
+          .in("id", caixaIds);
+      }
+
+      // Atualizar também por tag [CONTA:<id>] na observação
+      await supabase
+        .from("caixa_lancamentos")
+        .update({
+          categoria: newCategory,
+          viveiro_id: newViveiroId,
+          socio_id: c.socio_id ?? null,
+        })
+        .ilike("observacao", `%[CONTA:${c.id}]%`);
     },
     onSuccess: () => {
-      toast.success("Conta atualizada");
+      toast.success("Conta atualizada e rateio dos viveiros recalculado!");
       setEditingConta(null);
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
