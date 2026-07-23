@@ -1196,6 +1196,161 @@ function EstoqueView({
   );
 }
 
+async function gerarPdfCompras(
+  produtos: Produto[],
+  entradas: EstoqueEntrada[],
+  totais: { totalGasto: number; totalVolume: number; countCompras: number }
+) {
+  const [pdfModule, autoTableModule] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const jsPDF = pdfModule.default;
+  const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const dataHojeStr = new Date().toLocaleDateString("pt-BR");
+  const horaStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  // Banner Superior / Header
+  doc.setFillColor(16, 185, 129);
+  doc.rect(0, 0, 210, 22, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("RELATÓRIO EXECUTIVO DE COMPRAS & ABASTECIMENTO", 14, 12);
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Emitido em ${dataHojeStr} às ${horaStr}`, 14, 18);
+
+  // Resumo Executivo
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("RESUMO GERAL DE COMPRAS", 14, 30);
+
+  // Box Total Gasto
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(14, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("INVESTIMENTO TOTAL GASTO", 18, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text(`R$ ${totais.totalGasto.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 18, 47);
+
+  // Box Volume Total
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(76, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("VOLUME TOTAL ADQUIRIDO", 80, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`${totais.totalVolume.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 80, 47);
+
+  // Box Qtd Compras
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(138, 34, 58, 18, 2, 2, "F");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("QTD DE REGISTROS DE COMPRA", 142, 40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`${totais.countCompras} compra(s)`, 142, 47);
+
+  let currentY = 58;
+
+  // Agrupamento por Produto
+  const prodMap = new Map<string, { nome: string; count: number; volume: number; custo: number }>();
+  for (const e of entradas) {
+    const prod = produtos.find((x) => x.id === e.produto_id);
+    const nome = prod?.nome ?? "Produto";
+    const cur = prodMap.get(nome) ?? { nome, count: 0, volume: 0, custo: 0 };
+    cur.count += 1;
+    cur.volume += Number(e.quantidade ?? 0);
+    cur.custo += Number(e.custo_total ?? 0);
+    prodMap.set(nome, cur);
+  }
+  const porProduto = Array.from(prodMap.values()).sort((a, b) => b.custo - a.custo);
+
+  // Tabela 1: Resumo Acumulado por Produto
+  if (porProduto.length > 0) {
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+    doc.text("1. INVESTIMENTO E VOLUME POR PRODUTO", 14, currentY);
+
+    autoTable(doc, {
+      startY: currentY + 3,
+      head: [["Produto", "Nº de Compras", "Volume Total", "Investimento Total (R$)"]],
+      body: porProduto.map((p) => [
+        p.nome,
+        `${p.count}x`,
+        `${p.volume.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
+        `R$ ${p.custo.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  }
+
+  // Tabela 2: Histórico Detalhado das Compras
+  doc.setFontSize(9.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`2. DETALHAMENTO HISTÓRICO DAS COMPRAS (${entradas.length})`, 14, currentY);
+
+  if (entradas.length === 0) {
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Nenhuma compra registrada.", 14, currentY + 5);
+  } else {
+    autoTable(doc, {
+      startY: currentY + 3,
+      head: [["Data", "Produto", "Quantidade", "Custo Unit.", "Fornecedor / Obs", "Total (R$)"]],
+      body: entradas.slice(0, 18).map((e) => {
+        const prod = produtos.find((x) => x.id === e.produto_id);
+        return [
+          formatDateSafe(e.data_entrada),
+          prod?.nome ?? "Produto",
+          `${Number(e.quantidade ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${e.unidade ?? "kg"}`,
+          e.preco_unidade != null ? `R$ ${Number(e.preco_unidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—",
+          e.fornecedor || e.observacao || "Geral",
+          e.custo_total != null ? `R$ ${Number(e.custo_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—",
+        ];
+      }),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+  }
+
+  // Footer em 1 página
+  const pageCount = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Viveiros App · Relatório de Compras gerado em ${dataHojeStr} às ${horaStr}`, 14, 287);
+    doc.text(`Página ${i} de ${pageCount}`, 196, 287, { align: "right" });
+  }
+
+  const pdfBlob = doc.output("blob") as Blob;
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, "_blank");
+  toast.success("PDF de Compras gerado com sucesso!");
+}
+
 function ComprasView({
   produtos,
   entradas,
@@ -1211,6 +1366,9 @@ function ComprasView({
   onEditCompra: (e: EstoqueEntrada) => void;
   onDelCompra: (e: EstoqueEntrada) => void;
 }) {
+  const [busca, setBusca] = useState("");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   if (produtos.length === 0) {
     return (
       <Empty
@@ -1222,76 +1380,150 @@ function ComprasView({
     );
   }
 
+  const totalGasto = (entradas ?? []).reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
+  const totalVolume = (entradas ?? []).reduce((s, e) => s + Number(e.quantidade ?? 0), 0);
 
+  const entradasFiltradas = useMemo(() => {
+    return (entradas ?? []).filter((e) => {
+      if (!busca.trim()) return true;
+      const term = busca.toLowerCase().trim();
+      const prod = produtos.find((p) => p.id === e.produto_id);
+      const prodMatch = (prod?.nome || "").toLowerCase().includes(term);
+      const fornMatch = (e.fornecedor || "").toLowerCase().includes(term);
+      const obsMatch = (e.observacao || "").toLowerCase().includes(term);
+      return prodMatch || fornMatch || obsMatch;
+    });
+  }, [entradas, produtos, busca]);
 
-  const totalGasto = entradas.reduce((s, e) => s + Number(e.custo_total ?? 0), 0);
+  async function handleExportPdf() {
+    try {
+      setIsGeneratingPdf(true);
+      await gerarPdfCompras(produtos, entradas, {
+        totalGasto,
+        totalVolume,
+        countCompras: entradas.length,
+      });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total gasto</p>
-          <p className="text-2xl font-bold truncate">
-            {formatBRL(totalGasto) ?? "R$ 0,00"}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {entradas.length} {entradas.length === 1 ? "compra" : "compras"} · vai pro estoque
+    <div className="space-y-6">
+      {/* Resumo Executivo / KPIs */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Investimento Total Gasto</p>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+            {formatBRL(totalGasto)}
           </p>
         </div>
-        <button
-          onClick={onNovaCompra}
-          className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center gap-2 shrink-0"
-        >
-          <Plus className="size-4" /> Compra
-        </button>
+        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Volume Total Comprado</p>
+          <p className="text-2xl font-black text-foreground tabular-nums">
+            {formatNumber(totalVolume)} kg
+          </p>
+        </div>
+        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Registros de Compras</p>
+          <p className="text-2xl font-black text-foreground tabular-nums">
+            {entradas.length} {entradas.length === 1 ? "compra" : "compras"}
+          </p>
+        </div>
       </div>
 
-      {entradas.length === 0 ? (
-        <Empty
-          icon={<ShoppingCart className="size-12 mx-auto text-muted-foreground" />}
-          titulo="Nenhuma compra ainda"
-          descricao="Lance a nota e o estoque atualiza sozinho."
-          onClick={onNovaCompra}
-        />
+      {/* Banner de Ações Rápidas */}
+      <div className="flex items-center justify-between gap-3 flex-wrap bg-muted/40 p-3 rounded-2xl border">
+        <div>
+          <h3 className="font-bold text-base">Histórico de Compras & Abastecimento</h3>
+          <p className="text-xs text-muted-foreground">Gestão financeira de compras e insumos abastecidos</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={isGeneratingPdf}
+            className="h-10 px-3.5 rounded-xl border bg-background hover:bg-muted font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 shrink-0"
+            title="Gerar PDF do relatório de compras em 1 página"
+          >
+            <FileDown className="size-4 text-emerald-600" />
+            {isGeneratingPdf ? "Gerando..." : "Gerar PDF"}
+          </button>
+          <button
+            onClick={onNovaCompra}
+            className="h-10 px-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs inline-flex items-center gap-1.5 shadow-sm hover:opacity-90 transition shrink-0"
+          >
+            <Plus className="size-4" /> Nova Compra
+          </button>
+        </div>
+      </div>
+
+      {/* Barra de Busca de Compras */}
+      {entradas.length > 0 && (
+        <div className="relative">
+          <input
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por produto, fornecedor ou nota…"
+            className="app-input w-full pl-3 text-sm"
+          />
+        </div>
+      )}
+
+      {/* Lista do Histórico de Compras */}
+      {entradasFiltradas.length === 0 ? (
+        <div className="p-8 rounded-2xl border-2 border-dashed text-center space-y-2">
+          <p className="font-semibold">Nenhuma compra encontrada</p>
+          <p className="text-xs text-muted-foreground">Tente alterar o termo de busca ou faça um novo lançamento.</p>
+        </div>
       ) : (
-        <ul className="space-y-2">
-          {entradas.map((e) => {
+        <ul className="space-y-3">
+          {entradasFiltradas.map((e) => {
             const p = produtos.find((x) => x.id === e.produto_id);
             return (
               <li
                 key={e.id}
-                className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-3"
+                className="p-4 rounded-2xl bg-card border flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap shadow-xs hover:border-primary/40 transition"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <ShoppingCart className="size-6" />
+                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                  <div className="size-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center shrink-0 font-bold">
+                    <ShoppingCart className="size-5" />
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{p?.nome ?? "Produto"}</p>
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-base text-foreground truncate">{p?.nome ?? "Produto"}</p>
+                      {p?.categoria && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                          {p.categoria}
+                        </span>
+                      )}
+                    </div>
+
                     <p className="text-xs text-muted-foreground">
-                      {new Date(`${e.data_entrada}T00:00:00`).toLocaleDateString("pt-BR")}
-                      {" · "}
-                      {formatNumber(e.quantidade)} {e.unidade}
-                      {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade}`}
+                      {formatDateSafe(e.data_entrada)}
+                      {e.preco_unidade != null && ` · ${formatBRL(Number(e.preco_unidade))}/${e.unidade || "kg"}`}
+                      {e.fornecedor && ` · Fornecedor: ${e.fornecedor}`}
+                      {e.observacao && ` · Obs: ${e.observacao}`}
                     </p>
-                    {(e.custo_total != null || e.fornecedor) && (
-                      <p className="text-xs mt-0.5">
-                        {e.custo_total != null && (
-                          <span className="text-primary font-semibold">
-                            {formatBRL(Number(e.custo_total))}
-                          </span>
-                        )}
-                        {e.fornecedor && (
-                          <span className="text-muted-foreground">
-                            {e.custo_total != null ? " · " : ""}
-                            {e.fornecedor}
-                          </span>
-                        )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      + {formatNumber(Number(e.quantidade ?? 0))} {e.unidade || "kg"}
+                    </p>
+                    {e.custo_total != null && (
+                      <p className="text-xs font-bold text-foreground tabular-nums">
+                        {formatBRL(Number(e.custo_total))}
                       </p>
                     )}
                   </div>
+                  <RowActions onEdit={() => onEditCompra(e)} onDel={() => onDelCompra(e)} />
                 </div>
-                <RowActions onEdit={() => onEditCompra(e)} onDel={() => onDelCompra(e)} />
               </li>
             );
           })}
