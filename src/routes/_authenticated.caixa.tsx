@@ -1,10 +1,10 @@
 import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power, ShoppingBag, Plus, Tag, Filter } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power, ShoppingBag, Plus, Tag, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -460,6 +460,18 @@ function CaixaPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [subTab, setSubTab] = useState<"geral" | "compras">("geral");
 
+  const viveirosScrollRef = useRef<HTMLDivElement>(null);
+
+  function scrollViveiros(direction: "left" | "right") {
+    if (viveirosScrollRef.current) {
+      const scrollAmount = 320;
+      viveirosScrollRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  }
+
   const compraMut = useMutation({
     mutationFn: async (compraData: {
       socioId: string;
@@ -807,153 +819,182 @@ function CaixaPage() {
         </button>
       </section>
 
-
-
       {/* Carrossel de caixas por viveiro */}
       {relatorio.porViveiro.length > 0 && (
-        <section className="space-y-2">
+        <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-              Caixa por viveiro
-            </h2>
-            <span className="text-[10px] text-muted-foreground">deslize →</span>
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                Caixa por viveiro ({relatorio.porViveiro.length})
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Arraste pro lado ou use as setas para navegar entre os viveiros
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => scrollViveiros("left")}
+                className="size-9 rounded-xl border bg-card hover:bg-accent flex items-center justify-center text-foreground transition active:scale-95 shadow-sm"
+                title="Rolar para esquerda"
+                aria-label="Rolar para esquerda"
+              >
+                <ChevronLeft className="size-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollViveiros("right")}
+                className="size-9 rounded-xl border bg-card hover:bg-accent flex items-center justify-center text-foreground transition active:scale-95 shadow-sm"
+                title="Rolar para direita"
+                aria-label="Rolar para direita"
+              >
+                <ChevronRight className="size-5" />
+              </button>
+            </div>
           </div>
-          <div className="-mx-4 px-4 overflow-x-auto snap-x snap-mandatory scrollbar-none">
-            <ul className="flex gap-3 pb-2">
-              {relatorio.porViveiro.map((v) => (
-                <li
-                  key={v.id}
-                  className="snap-start shrink-0 w-[78%] sm:w-[300px] rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Viveiro
-                      </p>
-                      <p className="font-bold text-base truncate">{v.nome || "—"}</p>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setDetailView(v)}
-                        className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
-                        aria-label="Ver detalhes"
-                        title="Ver relatório completo"
-                      >
-                        <Maximize2 className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const doc = new jsPDF();
-                          buildViveiroPDF(doc, v, 20);
-                          openPdf(doc, `caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
-                          toast.success("PDF gerado");
-                        }}
-                        className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
-                        aria-label="Baixar PDF"
-                        title="Baixar PDF deste viveiro"
-                      >
-                        <Download className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await exportViveiroXLSX(v);
-                            toast.success("Planilha gerada");
-                          } catch (e) {
-                            toast.error((e as Error).message);
-                          }
-                        }}
-                        className="size-9 rounded-xl bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-600/20"
-                        aria-label="Baixar planilha"
-                        title="Baixar planilha Excel deste viveiro"
-                      >
-                        <FileSpreadsheet className="size-4" />
-                      </button>
-                    </div>
-                  </div>
 
-                  <div>
+          <div
+            ref={viveirosScrollRef}
+            className="w-full overflow-x-auto scroll-smooth touch-pan-x py-2 px-1 flex gap-4 snap-x snap-mandatory focus:outline-none"
+            style={{
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            {relatorio.porViveiro.map((v) => (
+              <div
+                key={v.id}
+                className="snap-start shrink-0 w-[85%] sm:w-[320px] rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Saldo
+                      Viveiro
                     </p>
-                    <p
-                      className={`text-2xl font-black tabular-nums ${v.saldo >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                    <p className="font-bold text-base truncate">{v.nome || "—"}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setDetailView(v)}
+                      className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
+                      aria-label="Ver detalhes"
+                      title="Ver relatório completo"
                     >
-                      {fmtBRL(v.saldo)}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground tabular-nums">
-                      <span className="text-emerald-600">+ {fmtBRL(v.receitaTotal)}</span>
-                      <span className="text-destructive">− {fmtBRL(v.despesaTotal)}</span>
-                    </div>
+                      <Maximize2 className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const doc = new jsPDF();
+                        buildViveiroPDF(doc, v, 20);
+                        openPdf(doc, `caixa-${v.nome.replace(/\s+/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
+                        toast.success("PDF gerado");
+                      }}
+                      className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"
+                      aria-label="Baixar PDF"
+                      title="Baixar PDF deste viveiro"
+                    >
+                      <Download className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await exportViveiroXLSX(v);
+                          toast.success("Planilha gerada");
+                        } catch (e) {
+                          toast.error((e as Error).message);
+                        }
+                      }}
+                      className="size-9 rounded-xl bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-600/20"
+                      aria-label="Baixar planilha"
+                      title="Baixar planilha Excel deste viveiro"
+                    >
+                      <FileSpreadsheet className="size-4" />
+                    </button>
                   </div>
+                </div>
 
-                  <div className="border-t pt-2">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                      Histórico
-                    </p>
-                    {v.historico.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">
-                        Nada lançado pra esse viveiro ainda.
-                      </p>
-                    ) : (
-                      <ul className="space-y-1 max-h-56 overflow-y-auto pr-1">
-                        {v.historico.map((h) => (
-                          <li
-                            key={`${v.id}-${h.l.id}`}
-                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0"
-                          >
-                            <span className="truncate">
-                              <span className="text-muted-foreground">
-                                {fmtDate(h.l.data_lancamento)}
-                              </span>{" "}
-                              <span className="font-medium">{h.l.descricao}</span>
-                              {h.rateado && (
-                                <span className="ml-1 text-[9px] uppercase tracking-wide text-primary/80">
-                                  · rateado
-                                </span>
-                              )}
-                              {h.l.socio_id && socioMap.get(h.l.socio_id) && (
-                                <span className="ml-1 text-[10px] text-primary/80">
-                                  · {socioMap.get(h.l.socio_id)}
-                                </span>
-                              )}
-                            </span>
-                            <span
-                              className={`font-semibold tabular-nums shrink-0 ${h.l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
-                            >
-                              {h.l.tipo === "receita" ? "+" : "−"} {fmtBRL(Math.abs(h.valorMostrado))}
-                            </span>
-                            <div className="flex gap-0.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => setEditing(h.l)}
-                                className="size-6 rounded text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
-                                aria-label="Editar"
-                              >
-                                <Pencil className="size-3" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (confirm(`Apagar "${h.l.descricao}"?`)) delMut.mutate(h.l.id);
-                                }}
-                                className="size-6 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                                aria-label="Apagar"
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Saldo
+                  </p>
+                  <p
+                    className={`text-2xl font-black tabular-nums ${v.saldo >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                  >
+                    {fmtBRL(v.saldo)}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground tabular-nums">
+                    <span className="text-emerald-600">+ {fmtBRL(v.receitaTotal)}</span>
+                    <span className="text-destructive">− {fmtBRL(v.despesaTotal)}</span>
                   </div>
-                </li>
-              ))}
-            </ul>
+                </div>
+
+                <div className="border-t pt-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                    Histórico
+                  </p>
+                  {v.historico.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      Nada lançado pra esse viveiro ainda.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                      {v.historico.map((h) => (
+                        <li
+                          key={`${v.id}-${h.l.id}`}
+                          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0"
+                        >
+                          <span className="truncate">
+                            <span className="text-muted-foreground">
+                              {fmtDate(h.l.data_lancamento)}
+                            </span>{" "}
+                            <span className="font-medium">{h.l.descricao}</span>
+                            {h.rateado && (
+                              <span className="ml-1 text-[9px] uppercase tracking-wide text-primary/80">
+                                · rateado
+                              </span>
+                            )}
+                            {h.l.socio_id && socioMap.get(h.l.socio_id) && (
+                              <span className="ml-1 text-[10px] text-primary/80">
+                                · {socioMap.get(h.l.socio_id)}
+                              </span>
+                            )}
+                          </span>
+
+                          <span
+                            className={`font-semibold tabular-nums ${h.l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
+                          >
+                            {h.l.tipo === "receita" ? "+" : "−"} {fmtBRL(h.valorMostrado)}
+                          </span>
+
+                          <div className="flex gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditing(h.l)}
+                              className="size-6 rounded text-muted-foreground hover:bg-muted flex items-center justify-center"
+                              aria-label="Editar"
+                            >
+                              <Pencil className="size-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Apagar "${h.l.descricao}"?`)) delMut.mutate(h.l.id);
+                              }}
+                              className="size-6 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                              aria-label="Apagar"
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}
