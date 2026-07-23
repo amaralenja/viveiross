@@ -187,6 +187,8 @@ function Dashboard() {
     return ultimos
       .filter((l) => l.tipo === "racao" && l.data_lancamento === hoje)
       .reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
+  }, [ultimos]);
+
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   async function handleExportPdf() {
