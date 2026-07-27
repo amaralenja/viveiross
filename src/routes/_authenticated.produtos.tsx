@@ -859,7 +859,6 @@ function EstoqueView({
 }) {
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [filtroTimeline, setFiltroTimeline] = useState<"todas" | "entradas" | "saidas">("todas");
-  const [buscaEstoque, setBuscaEstoque] = useState("");
 
   if (produtos.length === 0) {
     return (
@@ -937,15 +936,9 @@ function EstoqueView({
     return movimentacoes.filter((m) => {
       if (filtroTimeline === "entradas" && m.tipo !== "entrada") return false;
       if (filtroTimeline === "saidas" && m.tipo !== "saida") return false;
-      if (buscaEstoque.trim()) {
-        const term = buscaEstoque.toLowerCase().trim();
-        const prodMatch = (m.produtoNome || "").toLowerCase().includes(term);
-        const detMatch = (m.detalhe || "").toLowerCase().includes(term);
-        if (!prodMatch && !detMatch) return false;
-      }
       return true;
     });
-  }, [movimentacoes, filtroTimeline, buscaEstoque]);
+  }, [movimentacoes, filtroTimeline]);
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -965,63 +958,80 @@ function EstoqueView({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Cards de Resumo Geral */}
+    <div className="space-y-5">
+      {/* Cards de Resumo Geral - redesign */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Saldo Total em Estoque</p>
-          <p className="text-2xl font-black text-foreground tabular-nums">{formatNumber(totalEstoqueGlobal)} kg</p>
+        <div className="rounded-2xl bg-gradient-to-br from-card to-muted/50 border p-4 shadow-xs space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Boxes className="size-4" />
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Saldo em Estoque</p>
+          </div>
+          <p className="text-2xl font-black text-foreground tabular-nums pl-10">{formatNumber(totalEstoqueGlobal)} kg</p>
         </div>
-        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 shadow-sm space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Total Adicionado (Entradas)</p>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">+ {formatNumber(totalEntradasGlobal)} kg</p>
+        <div className="rounded-2xl bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 border border-emerald-500/20 p-4 shadow-xs space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
+              <ArrowDownToLine className="size-4" />
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Abastecido (+)</p>
+          </div>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums pl-10">+ {formatNumber(totalEntradasGlobal)} kg</p>
         </div>
-        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 shadow-sm space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Total Consumido (Saídas/Início)</p>
-          <p className="text-2xl font-black text-amber-700 dark:text-amber-400 tabular-nums">- {formatNumber(totalSaidasGlobal)} kg</p>
+        <div className="rounded-2xl bg-gradient-to-br from-rose-500/5 to-rose-500/10 border border-rose-500/20 p-4 shadow-xs space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-rose-500/15 text-rose-600 flex items-center justify-center shrink-0">
+              <ArrowDownToLine className="size-4 rotate-180" />
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-400">Consumido (-)</p>
+          </div>
+          <p className="text-2xl font-black text-rose-700 dark:text-rose-400 tabular-nums pl-10">- {formatNumber(totalSaidasGlobal)} kg</p>
         </div>
       </div>
 
-      {/* Botões de Ação Rápida */}
-      <div className="flex items-center justify-between gap-3 flex-wrap bg-muted/40 p-3 rounded-2xl border">
+      {/* Barra de Ações */}
+      <div className="flex items-center justify-between gap-3 flex-wrap bg-gradient-to-r from-muted/40 to-muted/20 p-3 px-4 rounded-2xl border shadow-xs">
         <div>
-          <h3 className="font-bold text-base">Controle de Estoque & Lançamentos</h3>
-          <p className="text-xs text-muted-foreground">Registros automáticos de baixas do Início e compras efetuadas</p>
+          <h3 className="font-bold text-sm">Movimentações de Estoque</h3>
+          <p className="text-[11px] text-muted-foreground">Gerencie entradas, baixas e acompanhe o consumo por produto</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
             type="button"
             onClick={handleExportPdf}
             disabled={isGeneratingPdf}
-            className="h-10 px-3.5 rounded-xl border bg-background hover:bg-muted font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 shrink-0"
-            title="Gerar PDF do relatório de estoque em 1 página"
+            className="h-9 px-3 rounded-xl border bg-background hover:bg-muted font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 shrink-0"
+            title="Gerar PDF do relatório de estoque"
           >
-            <FileDown className="size-4 text-emerald-600" />
-            {isGeneratingPdf ? "Gerando..." : "Gerar PDF"}
+            <FileDown className="size-3.5 text-emerald-600" />
+            {isGeneratingPdf ? "Gerando..." : "PDF"}
           </button>
           <button
             onClick={onNovaBaixa}
-            className="h-10 px-3.5 rounded-xl border border-destructive/40 text-destructive font-semibold text-xs inline-flex items-center gap-1.5 hover:bg-destructive/10 transition"
+            className="h-9 px-3 rounded-xl border border-rose-500/40 text-rose-600 font-semibold text-xs inline-flex items-center gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950 transition"
           >
-            <ArrowDownToLine className="size-4 rotate-180" /> Baixa Manual
+            <ArrowDownToLine className="size-3.5 rotate-180" /> Baixa Manual
           </button>
           <button
             onClick={onNovaEntrada}
-            className="h-10 px-3.5 rounded-xl bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm hover:bg-emerald-700 transition"
+            className="h-9 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 hover:bg-emerald-700 transition"
           >
-            <ArrowDownToLine className="size-4" /> Nova Entrada / Compra
+            <ArrowDownToLine className="size-3.5" /> Nova Entrada
           </button>
         </div>
       </div>
 
-      {/* Saldo por Produto */}
-      <div className="space-y-3">
-        <h3 className="font-bold text-sm uppercase tracking-wide text-muted-foreground flex items-center justify-between">
-          <span>Estoque Atual por Produto</span>
-          <span className="text-xs font-normal text-muted-foreground">{produtosOrdenados.length} produto(s)</span>
-        </h3>
+      {/* Saldo por Produto - redesign */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="font-bold text-xs uppercase tracking-widest text-muted-foreground">
+            Saldo por Produto
+          </h3>
+          <span className="text-[11px] text-muted-foreground font-medium">{produtosOrdenados.length} produto(s)</span>
+        </div>
 
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {produtosOrdenados.map((p) => {
             const s = saldoPorProduto.get(p.id) ?? { entradas: 0, saidas: 0 };
             const saldo = s.entradas - s.saidas;
@@ -1040,8 +1050,11 @@ function EstoqueView({
             });
             const aberto = expandidoId === p.id;
 
+            const barColor = zerado ? "bg-red-500" : baixo ? "bg-amber-500" : "bg-emerald-500";
+            const barShadow = zerado ? "shadow-red-500/20" : baixo ? "shadow-amber-500/20" : "shadow-emerald-500/20";
+
             return (
-              <li key={p.id} className="rounded-2xl bg-card border shadow-xs overflow-hidden">
+              <li key={p.id} className="rounded-2xl bg-card border shadow-xs overflow-hidden transition-shadow hover:shadow-sm">
                 <div className="p-4 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
                   <button
                     type="button"
@@ -1049,33 +1062,30 @@ function EstoqueView({
                     className="min-w-0 flex-1 text-left space-y-1.5"
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-base text-foreground">{p.nome}</span>
-                      {zerado ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
-                          Estoque Insuficiente
-                        </span>
-                      ) : baixo ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                          Estoque Baixo ({pctRestante}%)
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                          Estoque Ok ({pctRestante}%)
-                        </span>
-                      )}
+                      <span className="font-bold text-sm text-foreground">{p.nome}</span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          zerado
+                            ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                            : baixo
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                        }`}
+                      >
+                        {zerado ? "Zerado" : baixo ? `Baixo ${pctRestante}%` : `OK ${pctRestante}%`}
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="text-emerald-600 font-semibold">+ {formatNumber(s.entradas)} {p.unidade} (Entradas)</span>
-                      <span>·</span>
-                      <span className="text-amber-600 font-semibold">- {formatNumber(s.saidas)} {p.unidade} (Consumos)</span>
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                      <span className="text-emerald-600 font-semibold">+ {formatNumber(s.entradas)} {p.unidade}</span>
+                      <span className="text-muted-foreground/40">|</span>
+                      <span className="text-rose-600 font-semibold">- {formatNumber(s.saidas)} {p.unidade}</span>
                     </div>
 
-                    {/* Barra Visual de Nível de Estoque */}
-                    <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mt-1">
+                    <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden mt-1">
                       <div
-                        className={`h-full transition-all duration-300 ${zerado ? "bg-red-500" : baixo ? "bg-amber-500" : "bg-emerald-500"}`}
-                        style={{ width: `${pctRestante}%` }}
+                        className={`h-full rounded-full transition-all duration-500 shadow-sm ${barColor} ${barShadow}`}
+                        style={{ width: `${Math.min(100, pctRestante)}%` }}
                       />
                     </div>
                   </button>
@@ -1084,13 +1094,13 @@ function EstoqueView({
                     <button
                       type="button"
                       onClick={() => setExpandidoId(aberto ? null : p.id)}
-                      className="text-right"
+                      className="text-right min-w-[60px]"
                     >
-                      <span className={`text-xl font-black tabular-nums block ${zerado ? "text-red-600" : "text-foreground"}`}>
-                        {formatNumber(saldo)} {p.unidade}
+                      <span className={`text-lg font-black tabular-nums block ${zerado ? "text-red-600" : "text-foreground"}`}>
+                        {formatNumber(saldo)}
                       </span>
-                      <span className="text-[11px] text-primary font-semibold hover:underline">
-                        {aberto ? "Ocultar histórico ▲" : `Ver histórico (${entradasProduto.length + saidasProduto.length}) ▼`}
+                      <span className="text-[10px] text-primary font-semibold hover:underline">
+                        {aberto ? "Ocultar ▲" : `Histórico ▼`}
                       </span>
                     </button>
                     <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
@@ -1098,66 +1108,76 @@ function EstoqueView({
                 </div>
 
                 {aberto && (
-                  <div className="border-t bg-muted/30 p-4 space-y-4">
-                    {/* Abastecimentos (+) */}
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">
-                        <span>🟢 Entradas & Compras Abastecidas ({entradasProduto.length})</span>
-                      </p>
-                      {entradasProduto.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-1">Nenhuma entrada cadastrada para este produto.</p>
-                      ) : (
-                        <ul className="space-y-1.5">
-                          {entradasProduto.map((e) => (
-                            <li key={e.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs">
-                              <div>
-                                <p className="font-bold text-emerald-600">
-                                  + {formatNumber(e.quantidade)} {e.unidade}
-                                  {e.custo_total != null && <span className="text-foreground font-normal ml-2">({formatBRL(Number(e.custo_total))})</span>}
-                                </p>
-                                <p className="text-muted-foreground text-[11px]">
-                                  Data: {formatDateSafe(e.data_entrada)}
-                                  {e.fornecedor && ` · Fornecedor: ${e.fornecedor}`}
-                                  {e.observacao && ` · ${e.observacao}`}
-                                </p>
-                              </div>
-                              <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-
-                    {/* Saídas / Consumos (-) */}
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1">
-                        <span>🔴 Consumos & Lançamentos de Ração do Início ({saidasProduto.length})</span>
-                      </p>
-                      {saidasProduto.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-1">Nenhum consumo ou baixa efetuada ainda.</p>
-                      ) : (
-                        <ul className="space-y-1.5">
-                          {saidasProduto.map((c) => {
-                            const viv = (viveiros ?? []).find((v) => v?.id === c.viveiro_id);
-                            return (
-                              <li key={c.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs">
-                                <div>
-                                  <p className="font-bold text-red-600">
-                                    - {formatNumber(c.quantidade)} {c.unidade}
-                                    <span className="text-foreground font-normal ml-2">
-                                      ({viv ? `Viveiro: ${viv.nome}` : "Consumo / Baixa Geral"})
-                                    </span>
+                  <div className="border-t bg-muted/20 p-4 space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {/* Entradas */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="size-6 rounded-md bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
+                            <ArrowDownToLine className="size-3.5" />
+                          </div>
+                          <p className="text-xs font-bold text-emerald-600">
+                            Entradas ({entradasProduto.length})
+                          </p>
+                        </div>
+                        {entradasProduto.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground italic pl-8">Nenhuma entrada.</p>
+                        ) : (
+                          <ul className="space-y-1.5 pl-8">
+                            {entradasProduto.map((e) => (
+                              <li key={e.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-2 text-xs">
+                                <div className="min-w-0">
+                                  <p className="font-bold text-emerald-600 truncate">
+                                    + {formatNumber(e.quantidade)} {e.unidade}
+                                    {e.custo_total != null && <span className="text-foreground/60 font-normal ml-1.5">({formatBRL(Number(e.custo_total))})</span>}
                                   </p>
-                                  <p className="text-muted-foreground text-[11px]">
-                                    Data: {formatDateSafe(c.data_lancamento)}
-                                    {" · Origem: Lançamento de Ração (Início)"}
+                                  <p className="text-muted-foreground text-[10px] truncate">
+                                    {formatDateSafe(e.data_entrada)}
+                                    {e.fornecedor && ` · ${e.fornecedor}`}
                                   </p>
                                 </div>
+                                <RowActions onEdit={() => onEditEntrada(e)} onDel={() => onDelEntrada(e)} />
                               </li>
-                            );
-                          })}
-                        </ul>
-                      )}
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {/* Saídas */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="size-6 rounded-md bg-rose-500/15 text-rose-600 flex items-center justify-center shrink-0">
+                            <ArrowDownToLine className="size-3.5 rotate-180" />
+                          </div>
+                          <p className="text-xs font-bold text-rose-600">
+                            Consumos ({saidasProduto.length})
+                          </p>
+                        </div>
+                        {saidasProduto.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground italic pl-8">Nenhum consumo.</p>
+                        ) : (
+                          <ul className="space-y-1.5 pl-8">
+                            {saidasProduto.map((c) => {
+                              const viv = (viveiros ?? []).find((v) => v?.id === c.viveiro_id);
+                              return (
+                                <li key={c.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-2 text-xs">
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-rose-600 truncate">
+                                      - {formatNumber(c.quantidade)} {c.unidade}
+                                      <span className="text-foreground/60 font-normal ml-1.5">
+                                        {viv ? viv.nome : "Geral"}
+                                      </span>
+                                    </p>
+                                    <p className="text-muted-foreground text-[10px]">
+                                      {formatDateSafe(c.data_lancamento)}
+                                    </p>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1167,71 +1187,70 @@ function EstoqueView({
         </ul>
       </div>
 
-      {/* Timeline Geral de Movimentações */}
-      <div className="space-y-3 pt-4 border-t">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+      {/* Timeline de Movimentações */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap px-1">
           <div>
-            <h3 className="font-bold text-base flex items-center gap-2">
-              <History className="size-5 text-primary" /> Histórico Unificado de Movimentação do Estoque
+            <h3 className="font-bold text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <History className="size-3.5 text-primary" /> Histórico de Movimentações
             </h3>
-            <p className="text-xs text-muted-foreground">Linha do tempo de todas as entradas e baixas do sistema</p>
           </div>
 
-          <div className="flex items-center gap-1 rounded-xl bg-muted p-1 text-xs font-semibold">
+          <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5 text-[11px] font-semibold">
             <button
               type="button"
               onClick={() => setFiltroTimeline("todas")}
-              className={`px-3 py-1.5 rounded-lg transition ${filtroTimeline === "todas" ? "bg-card shadow-xs text-foreground font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-2.5 py-1 rounded-md transition ${filtroTimeline === "todas" ? "bg-card shadow-xs text-foreground font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
               Todas ({movimentacoes.length})
             </button>
             <button
               type="button"
               onClick={() => setFiltroTimeline("entradas")}
-              className={`px-3 py-1.5 rounded-lg transition ${filtroTimeline === "entradas" ? "bg-card shadow-xs text-emerald-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-2.5 py-1 rounded-md transition ${filtroTimeline === "entradas" ? "bg-card shadow-xs text-emerald-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
-              Entradas (+{entradas.length})
+              + Entradas
             </button>
             <button
               type="button"
               onClick={() => setFiltroTimeline("saidas")}
-              className={`px-3 py-1.5 rounded-lg transition ${filtroTimeline === "saidas" ? "bg-card shadow-xs text-red-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-2.5 py-1 rounded-md transition ${filtroTimeline === "saidas" ? "bg-card shadow-xs text-rose-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
-              Baixas (-{consumo.length})
+              - Saídas
             </button>
           </div>
         </div>
 
         {movimentacoesFiltradas.length === 0 ? (
-          <div className="p-6 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">
-            Nenhuma movimentação encontrada.
+          <div className="p-8 rounded-2xl border-2 border-dashed text-center space-y-1">
+            <History className="size-8 mx-auto text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground font-medium">Nenhuma movimentação encontrada.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {movimentacoesFiltradas.slice(0, 50).map((m) => (
-              <div key={m.id} className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs shadow-xs">
+              <div key={m.id} className="p-3 rounded-xl bg-card border flex items-center justify-between gap-3 text-xs shadow-xs hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className={`size-9 rounded-xl flex items-center justify-center shrink-0 font-bold ${
-                      m.tipo === "entrada" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                    className={`size-8 rounded-lg flex items-center justify-center shrink-0 font-bold text-sm ${
+                      m.tipo === "entrada"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                        : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
                     }`}
                   >
                     {m.tipo === "entrada" ? "+" : "-"}
                   </div>
                   <div className="min-w-0">
                     <p className="font-bold text-foreground text-sm truncate">{m.produtoNome}</p>
-                    <p className="text-muted-foreground text-[11px] truncate">
+                    <p className="text-muted-foreground text-[10px] truncate">
                       {formatDateSafe(m.data)} · {m.detalhe}
                       {m.custo != null && ` · ${formatBRL(m.custo)}`}
                     </p>
                   </div>
                 </div>
-
-                <div className="text-right shrink-0">
-                  <span className={`text-base font-black tabular-nums ${m.tipo === "entrada" ? "text-emerald-600" : "text-red-600"}`}>
-                    {m.tipo === "entrada" ? "+" : "-"} {formatNumber(m.quantidade)} {m.unidade}
-                  </span>
-                </div>
+                <span className={`text-sm font-black tabular-nums shrink-0 ${m.tipo === "entrada" ? "text-emerald-600" : "text-rose-600"}`}>
+                  {m.tipo === "entrada" ? "+" : "-"} {formatNumber(m.quantidade)} {m.unidade}
+                </span>
               </div>
             ))}
           </div>
