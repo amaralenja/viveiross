@@ -526,6 +526,8 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["vales"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -541,6 +543,8 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["vales"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -634,6 +638,37 @@ function CaixaSimplesPage() {
         observacao: `${CS_TAG} ${observacao.trim()}`.trim(),
       });
       if (error) throw error;
+
+      // Auto-contabilizar no estoque se a descrição bater com algum produto cadastrado
+      if (modo !== "vale" && modo !== "conta_pagar") {
+        const { data: prods } = await supabase.from("produtos").select("id, nome, unidade, preco_unidade").order("nome");
+        if (prods && prods.length > 0) {
+          const descLower = descricao.toLowerCase().trim();
+          const match = prods.find((p) =>
+            descLower.includes(p.nome.toLowerCase().trim()) || p.nome.toLowerCase().trim().includes(descLower)
+          );
+          if (match) {
+            const matchQtd = descricao.match(/(\d+(?:[.,]\d+)?)\s*(?:kg|un|saco|sc|g|ml|l|litro)?/i);
+            let qtdNum = matchQtd ? Number(matchQtd[1].replace(",", ".")) : 0;
+            if (qtdNum <= 0 && match.preco_unidade && match.preco_unidade > 0) {
+              qtdNum = v / match.preco_unidade;
+            }
+            if (qtdNum <= 0) qtdNum = 1;
+
+            await supabase.from("estoque_entradas").insert({
+              user_id: u.user.id,
+              produto_id: match.id,
+              quantidade: qtdNum,
+              unidade: match.unidade ?? "kg",
+              preco_unidade: match.preco_unidade ?? null,
+              custo_total: v,
+              fornecedor: "Compra via Caixa Simples",
+              data_entrada: data,
+              observacao: `Automático via caixa simples: ${descricao}`,
+            });
+          }
+        }
+      }
     },
     onSuccess: () => {
       toast.success(
@@ -646,6 +681,9 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["vales"] });
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -660,6 +698,8 @@ function CaixaSimplesPage() {
       setSelectedIds((prev) => new Set(prev));
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -762,6 +802,8 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -796,6 +838,8 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -828,6 +872,8 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -865,6 +911,8 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -927,6 +975,8 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
