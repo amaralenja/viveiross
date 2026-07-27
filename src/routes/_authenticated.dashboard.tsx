@@ -247,6 +247,7 @@ function Dashboard() {
   const [produto, setProduto] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
+  const [tipoLancamento, setTipoLancamento] = useState("racao");
   const [editing, setEditing] = useState<Lanc | null>(null);
 
   const { data: viveiros = [] } = useQuery({
@@ -267,10 +268,10 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, unidade, preco_unidade")
+        .select("id, nome, unidade, preco_unidade, categoria")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
+      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null; categoria: string | null }[];
     },
   });
 
@@ -336,7 +337,7 @@ function Dashboard() {
         produto_nome: produto.trim(),
         quantidade: q,
         unidade: produtoSelecionado?.unidade ?? "kg",
-        tipo: "racao",
+        tipo: tipoLancamento,
         preco_unidade: unit,
         custo_total: total,
       });
@@ -376,7 +377,7 @@ function Dashboard() {
   const totalHoje = useMemo(() => {
     const hoje = todayLocal();
     return ultimos
-      .filter((l) => l.tipo === "racao" && l.data_lancamento === hoje)
+      .filter((l) => l.data_lancamento === hoje)
       .reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
   }, [ultimos]);
 
@@ -393,7 +394,6 @@ function Dashboard() {
       const { data: linhas } = await supabase
         .from("lancamentos")
         .select("id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, preco_unidade, custo_total, viveiros(nome)")
-        .eq("tipo", "racao")
         .in("data_lancamento", [hoje, ontem]);
 
       const list = (linhas ?? []) as Array<{
@@ -440,9 +440,9 @@ function Dashboard() {
       <div className="bg-gradient-to-br from-emerald-500/10 via-primary/5 to-transparent p-5 rounded-2xl border space-y-3">
         <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Lançar Ração 🌾</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Lançar Insumo 🌾</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Lançamento simples e rápido de ração nos viveiros
+              Lançamento simples e rápido de insumos nos viveiros
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -506,7 +506,7 @@ function Dashboard() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-foreground block">Ração / Produto</label>
+            <label className="text-sm font-semibold text-foreground block">Insumo / Produto</label>
             <select
               value={produtoId || (produto ? "__manual__" : "")}
               onChange={(e) => {
@@ -518,8 +518,12 @@ function Dashboard() {
                 }
                 setProdutoId(id);
                 const p = produtosList.find((x) => x.id === id);
-                if (p) setProduto(p.nome);
-                else setProduto("");
+                if (p) {
+                  setProduto(p.nome);
+                  if (p.categoria) setTipoLancamento(p.categoria === "outro" ? "outro" : p.categoria);
+                } else {
+                  setProduto("");
+                }
               }}
               className="app-input text-base h-12 font-medium"
               required
@@ -578,6 +582,21 @@ function Dashboard() {
             </div>
           </div>
 
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-foreground block">Tipo do Lançamento</label>
+            <select
+              value={tipoLancamento}
+              onChange={(e) => setTipoLancamento(e.target.value)}
+              className="app-input h-12 text-sm font-semibold"
+            >
+              <option value="racao">🌾 Ração</option>
+              <option value="probiotico">🧪 Probiótico</option>
+              <option value="medicamento">💊 Medicamento / Tratamento</option>
+              <option value="fertilizante">🌱 Fertilizante / Mineral</option>
+              <option value="outro">📦 Outro Insumo</option>
+            </select>
+          </div>
+
           {totalCalc > 0 && (
             <div className="bg-muted/50 p-3 rounded-xl flex items-center justify-between text-sm">
               <span className="text-muted-foreground font-medium">Custo estimado:</span>
@@ -612,7 +631,7 @@ function Dashboard() {
           <p className="text-muted-foreground text-sm">Carregando lançamentos...</p>
         ) : ultimos.length === 0 ? (
           <div className="p-6 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">
-            Nenhum lançamento de ração feito hoje ainda.
+            Nenhum lançamento feito hoje ainda.
           </div>
         ) : (
           <ul className="space-y-2">
@@ -623,7 +642,12 @@ function Dashboard() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-foreground text-sm truncate">{relName(l.viveiros) || "Viveiro"}</p>
-                  <p className="text-xs text-muted-foreground truncate">{l.produto_nome}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {l.produto_nome}
+                    <span className="ml-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+                      {l.tipo === "racao" ? "🌾" : l.tipo === "probiotico" ? "🧪" : l.tipo === "medicamento" ? "💊" : l.tipo === "fertilizante" ? "🌱" : "📦"}
+                    </span>
+                  </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-base font-black text-emerald-600 tabular-nums">
@@ -978,7 +1002,6 @@ function RacaoHojeOntem() {
       const { data, error } = await supabase
         .from("lancamentos")
         .select("viveiro_id, quantidade, data_lancamento, viveiros(nome)")
-        .eq("tipo", "racao")
         .in("data_lancamento", [hoje, comparacaoStr]);
       if (error) throw error;
       return (data ?? []) as Array<{
