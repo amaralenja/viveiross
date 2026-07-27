@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight, FileDown, Printer, Calendar as CalendarIcon } from "lucide-react";
+import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight, FileDown, Printer, Calendar as CalendarIcon, Megaphone, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { Calculadora } from "@/components/Calculadora";
@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useAuth } from "@/hooks/use-auth";
+import { usePwConfig } from "@/lib/password-config";
+import { PasswordLock } from "@/components/PasswordLock";
 
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -39,6 +42,200 @@ function relName(rel: { nome: string } | { nome: string }[] | null | undefined):
   if (!rel) return "";
   if (Array.isArray(rel)) return rel[0]?.nome ?? "";
   return rel.nome ?? "";
+}
+
+function AvisosDashboard() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const pwCfg = usePwConfig(user?.id);
+  const [novoTexto, setNovoTexto] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const { data: avisos = [] } = useQuery({
+    queryKey: ["avisos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("avisos")
+        .select("id, texto, ordem, created_at")
+        .order("ordem", { ascending: true })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as { id: string; texto: string; ordem: number; created_at: string }[];
+    },
+  });
+
+  const addMut = useMutation({
+    mutationFn: async (texto: string) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      const maxOrdem = avisos.length > 0 ? Math.max(...avisos.map((a) => a.ordem)) : -1;
+      const { error } = await supabase.from("avisos").insert({
+        user_id: u.user.id,
+        texto,
+        ordem: maxOrdem + 1,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Aviso adicionado!");
+      setNovoTexto("");
+      setAddOpen(false);
+      qc.invalidateQueries({ queryKey: ["avisos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reorderMut = useMutation({
+    mutationFn: async ({ id, dir }: { id: string; dir: "up" | "down" }) => {
+      const idx = avisos.findIndex((a) => a.id === id);
+      if (idx === -1) return;
+      if (dir === "up" && idx === 0) return;
+      if (dir === "down" && idx === avisos.length - 1) return;
+      const other = dir === "up" ? avisos[idx - 1] : avisos[idx + 1];
+      const { error: e1 } = await supabase.from("avisos").update({ ordem: other.ordem }).eq("id", id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from("avisos").update({ ordem: avisos[idx].ordem }).eq("id", other.id);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["avisos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const delMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("avisos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Aviso removido");
+      setDeleteTarget(null);
+      qc.invalidateQueries({ queryKey: ["avisos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleDelete(id: string) {
+    if (pwCfg.enabled && pwCfg.pin) {
+      setDeleteTarget(id);
+    } else {
+      if (confirm("Remover este aviso?")) delMut.mutate(id);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border bg-amber-500/5 border-amber-500/20 p-4 space-y-3 shadow-sm">
+      {deleteTarget && pwCfg.enabled && pwCfg.pin && (
+        <PasswordLock
+          pin={pwCfg.pin}
+          onUnlock={() => {
+            delMut.mutate(deleteTarget);
+          }}
+        />
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="size-8 rounded-lg bg-amber-500/15 text-amber-600 flex items-center justify-center">
+            <Megaphone className="size-4" />
+          </div>
+          <h2 className="text-sm font-bold text-foreground">
+            Avisos {avisos.length > 0 && <span className="text-amber-600 font-black ml-1">({avisos.length})</span>}
+          </h2>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setAddOpen((v) => !v)}
+          className="h-8 gap-1.5 rounded-xl border-amber-500/30 text-amber-700 text-xs font-bold hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+        >
+          <Plus className="size-3.5" /> {addOpen ? "Fechar" : "Novo Aviso"}
+        </Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Importante: ao marcar a setinha de baixo uma vez, o aviso desce uma ordem. Marque várias vezes para descer até onde quiser.
+        A exclusão de avisos exige senha se o bloqueio estiver ativo.
+      </p>
+
+      {addOpen && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (novoTexto.trim()) addMut.mutate(novoTexto.trim());
+          }}
+          className="flex gap-2"
+        >
+          <input
+            autoFocus
+            value={novoTexto}
+            onChange={(e) => setNovoTexto(e.target.value)}
+            className="app-input flex-1 h-10 text-sm"
+            placeholder="Escreva o aviso..."
+          />
+          <Button
+            type="submit"
+            disabled={!novoTexto.trim() || addMut.isPending}
+            className="h-10 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm"
+          >
+            {addMut.isPending ? "..." : "Salvar"}
+          </Button>
+        </form>
+      )}
+
+      {avisos.length > 0 ? (
+        <ul className="space-y-2">
+          {avisos.map((a, idx) => (
+            <li
+              key={a.id}
+              className="flex items-start justify-between gap-2 p-2.5 rounded-xl bg-amber-500/8 border border-amber-500/15 text-sm"
+            >
+              <div className="flex items-start gap-2 min-w-0">
+                <span className="text-amber-600 mt-0.5 shrink-0">⚠️</span>
+                <p className="text-foreground font-medium whitespace-pre-wrap break-words">{a.texto}</p>
+              </div>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => reorderMut.mutate({ id: a.id, dir: "up" })}
+                  disabled={idx === 0}
+                  className="size-7 rounded-lg text-muted-foreground hover:bg-muted flex items-center justify-center disabled:opacity-30"
+                  title="Subir"
+                >
+                  <ChevronUp className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => reorderMut.mutate({ id: a.id, dir: "down" })}
+                  disabled={idx === avisos.length - 1}
+                  className="size-7 rounded-lg text-muted-foreground hover:bg-muted flex items-center justify-center disabled:opacity-30"
+                  title="Descer"
+                >
+                  <ChevronDown className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(a.id)}
+                  className="size-7 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                  title={pwCfg.enabled ? "Excluir (requer senha)" : "Excluir"}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        !addOpen && (
+          <div className="p-3 rounded-xl bg-muted/30 border border-dashed text-center text-xs text-muted-foreground">
+            Nenhum aviso cadastrado. Clique em "Novo Aviso" para adicionar.
+          </div>
+        )
+      )}
+    </section>
+  );
 }
 
 function Dashboard() {
@@ -268,6 +465,8 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      <AvisosDashboard />
 
       {viveiros.length === 0 ? (
         <div className="p-8 rounded-2xl border-2 border-dashed text-center space-y-3">
