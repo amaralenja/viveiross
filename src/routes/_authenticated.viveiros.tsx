@@ -60,7 +60,7 @@ function ViveirosPage() {
     },
   });
 
-  const { data: totaisPorViveiro = { racao: {}, custo: {}, primeiraData: {} } } = useQuery({
+  const { data: totaisPorViveiro = { racao: {}, custo: {} } } = useQuery({
     queryKey: ["viveiros", "totais"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -70,7 +70,6 @@ function ViveirosPage() {
       if (error) throw error;
       const racao: Record<string, number> = {};
       const custo: Record<string, number> = {};
-      const primeiraData: Record<string, string> = {};
       for (const l of (data ?? []) as Array<{
         viveiro_id: string;
         quantidade: number | null;
@@ -92,19 +91,13 @@ function ViveirosPage() {
         if (valor != null) {
           custo[l.viveiro_id] = (custo[l.viveiro_id] ?? 0) + valor;
         }
-        if (l.data_lancamento) {
-          const atual = primeiraData[l.viveiro_id];
-          if (!atual || l.data_lancamento < atual) {
-            primeiraData[l.viveiro_id] = l.data_lancamento;
-          }
-        }
       }
-      return { racao, custo, primeiraData };
+      return { racao, custo };
     },
   });
+
   const racaoPorViveiro = totaisPorViveiro.racao ?? {};
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
-  const primeiraDataPorViveiro = totaisPorViveiro.primeiraData ?? {};
 
   type BioItem = {
     id: string;
@@ -248,19 +241,18 @@ function ViveirosPage() {
                   title="Ver dias de lançamento"
                 >
                   {(() => {
-                    const base = v.data_povoamento ?? primeiraDataPorViveiro[v.id] ?? null;
+                    const base = v.data_povoamento ?? null;
+                    const semPovoamento = !v.data_povoamento;
                     return (
                       <InfoBlock
                         label="Dias de cultivo"
                         value={base ? `${diasDeCultivo(base)}` : "—"}
                         hint={
-                          v.data_povoamento
-                            ? formatDateBR(v.data_povoamento)
-                            : base
-                            ? `desde ${formatDateBR(base)}`
-                            : "Toque pra definir"
+                          base
+                            ? formatDateBR(v.data_povoamento!)
+                            : "Registre o povoamento"
                         }
-                        highlight
+                        highlight={!semPovoamento}
                       />
                     );
                   })()}
@@ -298,6 +290,30 @@ function ViveirosPage() {
                   highlight
                 />
               </div>
+              {!v.data_povoamento && (
+                <div className="mt-3 p-3 rounded-xl border-2 border-amber-500/40 bg-amber-500/5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-amber-600 text-base shrink-0">⚠️</span>
+                      <div>
+                        <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                          Viveiro não povoado
+                        </p>
+                        <p className="text-[10px] text-amber-600/80">
+                          Registre o povoamento para começar a contar os dias de cultivo
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setEditarViveiro(v); }}
+                      className="h-8 px-3 rounded-lg bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 shrink-0 transition"
+                    >
+                      Povoar
+                    </button>
+                  </div>
+                </div>
+              )}
               {(() => {
                 const ultima = (biometriasPorViveiro[v.id] ?? [])[0];
                 if (!ultima || !v.qtd_povoada) return null;
@@ -443,11 +459,7 @@ function ViveirosPage() {
       {historicoViveiro && (
         <HistoricoModal
           viveiro={historicoViveiro}
-          baseDate={
-            historicoViveiro.data_povoamento ??
-            primeiraDataPorViveiro[historicoViveiro.id] ??
-            null
-          }
+          baseDate={historicoViveiro.data_povoamento ?? null}
           onClose={() => setHistoricoViveiro(null)}
         />
       )}

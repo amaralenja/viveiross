@@ -233,7 +233,7 @@ function RelatoriosPage() {
 
       const datasLanc = lancs.map((l) => l.data_lancamento).sort();
       const primeiraData = datasLanc[0];
-      const base = v.data_povoamento ?? primeiraData ?? null;
+      const base = v.data_povoamento ?? null;
       const dias = base ? diasDeCultivo(base) : null;
 
       // Ração dia a dia
