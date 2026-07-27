@@ -105,7 +105,7 @@ function formatBRL(v: number | null | undefined) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-const UNIDADES = ["kg", "g", "saco", "unidade", "pacote", "caixa", "litro", "ml"];
+const UNIDADES = ["kg", "g", "saco", "unidade", "pacote", "caixa", "litro", "ml", "mil", "pre_larvas"];
 
 function UnidadeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const isOutro = value !== "" && !UNIDADES.includes(value);
@@ -417,7 +417,7 @@ function ProdutosPage() {
                   case "saco": return "🌾";
                   case "caixa": return "📦";
                   case "pacote": return "✉️";
-                  case "galao": return "🛢️";
+                  case "pre_larvas": return "🦐";
                   case "frasco": return "🧪";
                   default: return "📦";
                 }
@@ -2037,7 +2037,7 @@ function ProdutoModal({
               </div>
               <div>
                 <p className="font-bold text-sm text-foreground">Embalagem Fechada</p>
-                <p className="text-[11px] leading-tight text-muted-foreground">Balde, Saco, Caixa, Pacote, Galão...</p>
+                <p className="text-[11px] leading-tight text-muted-foreground">Balde, Saco, Caixa, Pacote, Pré-Larvas...</p>
               </div>
             </button>
 
@@ -2076,8 +2076,8 @@ function ProdutoModal({
                   { id: "saco", label: "Saco", icon: "🌾" },
                   { id: "caixa", label: "Caixa", icon: "📦" },
                   { id: "pacote", label: "Pacote", icon: "✉️" },
-                  { id: "galao", label: "Galão", icon: "🛢️" },
                   { id: "frasco", label: "Frasco", icon: "🧪" },
+                  { id: "pre_larvas", label: "Pré-Larvas", icon: "🦐" },
                 ].map((item) => (
                   <button
                     key={item.id}

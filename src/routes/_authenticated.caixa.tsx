@@ -633,8 +633,7 @@ function CaixaPage() {
       unidade === "saco" ||
       unidade === "pacote" ||
       unidade === "caixa" ||
-      unidade === "fardo" ||
-      unidade === "galao"
+      unidade === "fardo"
     );
 
     if (isEmbalagemUnit && selectedEmb.pesoEmbalagem) {

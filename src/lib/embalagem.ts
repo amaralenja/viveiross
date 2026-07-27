@@ -1,7 +1,7 @@
 export type EmbalagemInfo = {
   temEmbalagem: boolean;
   unidadeBase: string; // "kg", "g", "litro", "unidade", etc.
-  tipoEmbalagem: string; // "saco", "pacote", "caixa", "fardo", "galao", "balde", etc.
+  tipoEmbalagem: string; // "saco", "pacote", "caixa", "fardo", "balde", "pre_larvas", etc.
   pesoEmbalagem: number | null; // e.g. 10 ou 335
   rotuloEmbalagem: string; // e.g. "Balde de 335 g"
 };
