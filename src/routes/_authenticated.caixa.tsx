@@ -1331,58 +1331,6 @@ function CaixaPage() {
 
 
 
-
-
-        <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Calcular por preço × quantidade (opcional)
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Preço (R$)">
-              <input
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9.,]*"
-                value={precoKg}
-                onChange={(e) => setPrecoKg(e.target.value.replace(/[^0-9.,]/g, ""))}
-                className="app-input"
-                placeholder="Ex: 1000"
-              />
-            </Field>
-            <Field label="Quantidade">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  pattern="[0-9.,]*"
-                  value={qtd}
-                  onChange={(e) => setQtd(e.target.value.replace(/[^0-9.,]/g, ""))}
-                  className="app-input flex-1"
-                  placeholder="Ex: 1"
-                />
-                <select
-                  value={unidade}
-                  onChange={(e) => setUnidade(e.target.value)}
-                  className="app-input w-24"
-                >
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                  <option value="saco">saco</option>
-                  <option value="sacola">sacola</option>
-                  <option value="litro">litro</option>
-                  <option value="un">unidade</option>
-                </select>
-              </div>
-            </Field>
-          </div>
-          {valorAuto > 0 && (
-            <p className="text-sm">
-              Valor calculado:{" "}
-              <span className="font-bold text-primary">{fmtBRL(valorAuto)}</span>
-            </p>
-          )}
-        </div>
-
         <Field label={valorAuto > 0 ? "Valor (auto)" : "Valor total (R$)"}>
           <input
             type="text"
