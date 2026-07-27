@@ -202,6 +202,129 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
   };
 }
 
+async function buildContaPdf(conta: Conta, info: ReturnType<typeof getContaFinancialInfo>, socioMap: Map<string, string>, viveiroMap: Map<string, string>) {
+  const [pdfModule, autoTableModule] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const jsPDF = pdfModule.default;
+  const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Conta: ${conta.descricao}`, 14, 20);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 27);
+
+  doc.setTextColor(0);
+  doc.setFontSize(10);
+  let y = 36;
+  const status = info.isPago ? "QUITADA" : info.isParcial ? `PARCIAL (${info.percentualPago}%)` : "PENDENTE";
+  doc.text(`Status: ${status}`, 14, y); y += 6;
+  doc.text(`Valor total: ${brl(info.total)}`, 14, y); y += 6;
+  doc.text(`Já pago: ${brl(info.valorPago)}`, 14, y); y += 6;
+  doc.text(`Saldo restante: ${brl(info.valorRestante)}`, 14, y); y += 6;
+  doc.text(`Vencimento: ${fmtDate(conta.data_vencimento)}`, 14, y); y += 6;
+  if (conta.viveiro_id && viveiroMap.get(conta.viveiro_id)) {
+    doc.text(`Viveiro: ${viveiroMap.get(conta.viveiro_id)}`, 14, y); y += 6;
+  }
+  if (conta.socio_id && socioMap.get(conta.socio_id)) {
+    doc.text(`Sócio: ${socioMap.get(conta.socio_id)}`, 14, y); y += 6;
+  }
+  y += 4;
+
+  if (info.pagamentos.length > 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Histórico de Pagamentos", 14, y);
+    y += 6;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Data", "Valor Pago", "Observação"]],
+      body: info.pagamentos.map((p) => [
+        fmtDate(p.data),
+        brl(Number(p.valor)),
+        p.observacao || "—",
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+  } else {
+    doc.text("Nenhum pagamento registrado.", 14, y);
+  }
+
+  const blob = doc.output("blob") as Blob;
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  toast.success("PDF da conta gerado!");
+}
+
+async function buildFuncionarioPdf(
+  f: { id: string; nome: string; salario: number | null },
+  meusVales: Array<{ id: string; valor: number; data_vale: string; motivo: string | null }>,
+  totalPago: number,
+  saldoRestante: number
+) {
+  const [pdfModule, autoTableModule] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const jsPDF = pdfModule.default;
+  const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Funcionário: ${f.nome}`, 14, 20);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 27);
+
+  doc.setTextColor(0);
+  doc.setFontSize(10);
+  let y = 36;
+  const salario = Number(f.salario ?? 0);
+  doc.text(`Salário base: ${brl(salario)}`, 14, y); y += 6;
+  doc.text(`Já pago este mês: ${brl(totalPago)}`, 14, y); y += 6;
+  doc.text(`Saldo a pagar: ${brl(saldoRestante)}`, 14, y); y += 6;
+  y += 4;
+
+  if (meusVales.length > 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Histórico de Vales e Pagamentos", 14, y);
+    y += 6;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Data", "Valor", "Motivo"]],
+      body: meusVales.map((v) => [
+        fmtDate(v.data_vale),
+        brl(Number(v.valor)),
+        v.motivo || "Vale",
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+  } else {
+    doc.text("Nenhum vale ou pagamento registrado.", 14, y);
+  }
+
+  const blob = doc.output("blob") as Blob;
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  toast.success("PDF do funcionário gerado!");
+}
+
 function CaixaSimplesPage() {
   const qc = useQueryClient();
   const [modo, setModo] = useState<"vale" | "conta_pagar">("vale");
@@ -1091,9 +1214,51 @@ function CaixaSimplesPage() {
             <div className="flex items-center gap-3 text-sm font-normal">
               <span className="text-muted-foreground">Saldo a pagar: <strong className="text-red-600">{brl(totais.contasPendentes)}</strong></span>
               {contas.length > 0 && (
-                <Button size="sm" variant="ghost" onClick={toggleAllContas}>
-                  {selectedContasIds.size === contas.length ? "Limpar" : "Selecionar todas"}
-                </Button>
+                <>
+                  <Button size="sm" variant="ghost" onClick={toggleAllContas}>
+                    {selectedContasIds.size === contas.length ? "Limpar" : "Selecionar todas"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={async () => {
+                    const sel = selectedContasIds.size > 0 ? contas.filter(c => selectedContasIds.has(c.id)) : contas;
+                    const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+                    const jsPDF = pdfModule.default;
+                    const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+                    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                    doc.setFontSize(14); doc.setFont("helvetica", "bold");
+                    doc.text("Contas a Pagar - Histórico Completo", 14, 20);
+                    doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(100);
+                    doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")} · ${sel.length} conta(s)`, 14, 27);
+                    let y = 36;
+                    for (const c of sel) {
+                      const fin = getContaFinancialInfo(c);
+                      if (y > 260) { doc.addPage(); y = 20; }
+                      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0);
+                      const status = fin.isPago ? "QUITADA" : fin.isParcial ? `PARCIAL (${fin.percentualPago}%)` : "PENDENTE";
+                      doc.text(`${c.descricao} — ${status}`, 14, y); y += 7;
+                      doc.setFontSize(9); doc.setFont("helvetica", "normal");
+                      doc.text(`Total: ${brl(fin.total)} · Pago: ${brl(fin.valorPago)} · Restante: ${brl(fin.valorRestante)} · Vence: ${fmtDate(c.data_vencimento)}`, 14, y); y += 6;
+                      if (fin.pagamentos.length > 0) {
+                        autoTable(doc, {
+                          startY: y,
+                          head: [["Data", "Valor", "Observação"]],
+                          body: fin.pagamentos.map(p => [fmtDate(p.data), brl(Number(p.valor)), p.observacao || "—"]),
+                          styles: { fontSize: 7, cellPadding: 1.5 },
+                          headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+                          alternateRowStyles: { fillColor: [248, 250, 252] },
+                          margin: { left: 14 },
+                        });
+                        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+                      } else {
+                        doc.text("Nenhum pagamento.", 14, y); y += 8;
+                      }
+                    }
+                    const blob = doc.output("blob") as Blob;
+                    window.open(URL.createObjectURL(blob), "_blank");
+                    toast.success("PDF das contas gerado!");
+                  }} className="text-emerald-700 border-emerald-500/40 hover:bg-emerald-50 font-bold text-xs">
+                    <FileDown className="size-3.5 mr-1" /> PDF Contas
+                  </Button>
+                </>
               )}
             </div>
           </CardTitle>
@@ -1208,6 +1373,9 @@ function CaixaSimplesPage() {
                                   <RotateCcw className="size-3.5 mr-1" /> Reverter
                                 </Button>
                               )}
+                              <Button size="icon" variant="ghost" onClick={() => buildContaPdf(c, info, socioMap, viveiroMap)} title="Gerar PDF da conta">
+                                <FileDown className="size-4" />
+                              </Button>
                               <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)} title="Editar conta">
                                 <Pencil className="size-4" />
                               </Button>
@@ -1321,6 +1489,9 @@ function CaixaSimplesPage() {
                             >
                               <RotateCcw className="size-3.5 mr-1" /> Reverter
                             </Button>
+                            <Button size="icon" variant="ghost" onClick={() => buildContaPdf(c, info, socioMap, viveiroMap)} title="Gerar PDF da conta">
+                              <FileDown className="size-4" />
+                            </Button>
                             <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)} title="Editar conta">
                               <Pencil className="size-4" />
                             </Button>
@@ -1400,6 +1571,45 @@ function CaixaSimplesPage() {
             <span className="text-sm font-normal text-muted-foreground">
               Total de vales/pagos: <strong className="text-red-600">{brl(totais.vales)}</strong>
             </span>
+            <Button size="sm" variant="outline" onClick={async () => {
+              const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+              const jsPDF = pdfModule.default;
+              const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+              const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+              doc.setFontSize(14); doc.setFont("helvetica", "bold");
+              doc.text("Pagamentos e Vales de Funcionários", 14, 20);
+              doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(100);
+              doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 27);
+              let y = 36;
+              for (const f of funcionarios) {
+                const mesAtual2 = new Date().toISOString().slice(0, 7);
+                const meusVales2 = vales.filter(v => v.funcionario_id === f.id);
+                const valesMes2 = meusVales2.filter(v => v.data_vale?.startsWith(mesAtual2));
+                const totalPago2 = valesMes2.reduce((s, v) => s + Number(v.valor ?? 0), 0);
+                const salario2 = Number(f.salario ?? 0);
+                const saldo2 = Math.max(0, salario2 - totalPago2);
+                if (y > 265) { doc.addPage(); y = 20; }
+                doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0);
+                doc.text(`${f.nome} — Salário: ${brl(salario2)} · Pago: ${brl(totalPago2)} · Restante: ${brl(saldo2)}`, 14, y); y += 8;
+                if (meusVales2.length > 0) {
+                  autoTable(doc, {
+                    startY: y,
+                    head: [["Data", "Valor", "Motivo"]],
+                    body: meusVales2.map(v => [fmtDate(v.data_vale), brl(Number(v.valor)), v.motivo || "Vale"]),
+                    styles: { fontSize: 7, cellPadding: 1.5 },
+                    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+                    alternateRowStyles: { fillColor: [248, 250, 252] },
+                    margin: { left: 14 },
+                  });
+                  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+                } else { doc.text("Sem pagamentos.", 14, y); y += 8; }
+              }
+              const blob = doc.output("blob") as Blob;
+              window.open(URL.createObjectURL(blob), "_blank");
+              toast.success("PDF dos funcionários gerado!");
+            }} className="text-emerald-700 border-emerald-500/40 hover:bg-emerald-50 font-bold text-xs">
+              <FileDown className="size-3.5 mr-1" /> PDF Funcionários
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1495,6 +1705,15 @@ function CaixaSimplesPage() {
                           className="text-primary border-primary/30 hover:bg-primary/5"
                         >
                           <Receipt className="size-4 mr-1" /> Pagar Parte / Vale
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => buildFuncionarioPdf(f, meusVales, totalPago, saldoRestante)}
+                          className="text-emerald-700 border-emerald-500/40 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700/50 font-bold text-xs"
+                          title="Gerar PDF do funcionário"
+                        >
+                          <FileDown className="size-4 mr-1" /> PDF
                         </Button>
                       </div>
                     </div>
