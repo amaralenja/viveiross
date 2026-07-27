@@ -3,10 +3,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight, FileDown, Printer } from "lucide-react";
+import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight, FileDown, Printer, Calendar as CalendarIcon } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { Calculadora } from "@/components/Calculadora";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -772,18 +778,21 @@ function ymd(d: Date) {
 
 function RacaoHojeOntem() {
   const hoje = todayLocal();
-  const ontemDate = new Date();
-  ontemDate.setDate(ontemDate.getDate() - 1);
-  const ontem = ymd(ontemDate);
+  const ontemPadrao = new Date();
+  ontemPadrao.setDate(ontemPadrao.getDate() - 1);
+  const [comparacaoDate, setComparacaoDate] = useState<Date>(ontemPadrao);
+  const comparacaoStr = ymd(comparacaoDate);
+  const [calOpen, setCalOpen] = useState(false);
+  const hojeDate = new Date();
 
   const { data: linhas = [] } = useQuery({
-    queryKey: ["dashboard", "racao-hoje-ontem", hoje, ontem],
+    queryKey: ["dashboard", "racao-hoje-ontem", hoje, comparacaoStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
         .select("viveiro_id, quantidade, data_lancamento, viveiros(nome)")
         .eq("tipo", "racao")
-        .in("data_lancamento", [hoje, ontem]);
+        .in("data_lancamento", [hoje, comparacaoStr]);
       if (error) throw error;
       return (data ?? []) as Array<{
         viveiro_id: string;
@@ -795,31 +804,32 @@ function RacaoHojeOntem() {
   });
 
   const stats = useMemo(() => {
-    const map = new Map<string, { nome: string; hoje: number; ontem: number }>();
+    const map = new Map<string, { nome: string; hoje: number; comparacao: number }>();
     let totalHoje = 0;
-    let totalOntem = 0;
+    let totalComparacao = 0;
     for (const l of linhas) {
       const nome = relName(l.viveiros) || "Sem viveiro";
-      const cur = map.get(l.viveiro_id) ?? { nome, hoje: 0, ontem: 0 };
+      const cur = map.get(l.viveiro_id) ?? { nome, hoje: 0, comparacao: 0 };
       const q = Number(l.quantidade ?? 0);
       if (l.data_lancamento === hoje) {
         cur.hoje += q;
         totalHoje += q;
-      } else if (l.data_lancamento === ontem) {
-        cur.ontem += q;
-        totalOntem += q;
+      } else if (l.data_lancamento === comparacaoStr) {
+        cur.comparacao += q;
+        totalComparacao += q;
       }
       map.set(l.viveiro_id, cur);
     }
     const porViveiro = sortByViveiroNome(Array.from(map.values()), (v) => v.nome);
-    return { totalHoje, totalOntem, porViveiro };
-  }, [linhas, hoje, ontem]);
+    return { totalHoje, totalComparacao, porViveiro };
+  }, [linhas, hoje, comparacaoStr]);
 
-  if (stats.totalHoje === 0 && stats.totalOntem === 0) return null;
+  if (stats.totalHoje === 0 && stats.totalComparacao === 0) return null;
 
-  const diff = stats.totalHoje - stats.totalOntem;
-  const pct = stats.totalOntem > 0 ? (diff / stats.totalOntem) * 100 : null;
+  const diff = stats.totalHoje - stats.totalComparacao;
+  const pct = stats.totalComparacao > 0 ? (diff / stats.totalComparacao) * 100 : null;
   const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  const labelComparacao = comparacaoStr === ymd(ontemPadrao) ? "Ontem" : format(comparacaoDate, "dd/MM");
 
   return (
     <section className="rounded-2xl border bg-card p-4 space-y-3.5 shadow-sm">
@@ -829,32 +839,66 @@ function RacaoHojeOntem() {
             <Scale className="size-4" />
           </div>
           <h2 className="text-sm font-bold text-foreground">
-            Comparativo de Ração: Ontem x Hoje
+            Comparativo: {comparacaoStr === ymd(ontemPadrao) ? "Ontem" : format(comparacaoDate, "dd/MM/yyyy")} x Hoje
           </h2>
         </div>
 
-        <span
-          className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
-            diff > 0
-              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-              : diff < 0
-                ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {diff > 0 ? <TrendingUp className="size-3.5" /> : diff < 0 ? <TrendingDown className="size-3.5" /> : null}
-          {diff > 0 ? "+" : ""}
-          {fmt(diff)} kg
-          {pct !== null && (
-            <> ({diff > 0 ? "+" : ""}{pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)</>
-          )}
-        </span>
+        <div className="flex items-center gap-2">
+          <Popover open={calOpen} onOpenChange={setCalOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 rounded-xl border bg-background px-3 text-xs font-semibold shadow-xs hover:bg-muted transition active:scale-95"
+              >
+                <CalendarIcon className="size-3.5 text-muted-foreground" />
+                {comparacaoStr === ymd(ontemPadrao)
+                  ? "Mudar data"
+                  : format(comparacaoDate, "dd/MM/yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={comparacaoDate}
+                onSelect={(d) => {
+                  if (d) {
+                    setComparacaoDate(d);
+                    setCalOpen(false);
+                  }
+                }}
+                disabled={(d) => d > hojeDate}
+                locale={ptBR}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+
+          <span
+            className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
+              diff > 0
+                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                : diff < 0
+                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                  : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {diff > 0 ? <TrendingUp className="size-3.5" /> : diff < 0 ? <TrendingDown className="size-3.5" /> : null}
+            {diff > 0 ? "+" : ""}
+            {fmt(diff)} kg
+            {pct !== null && (
+              <> ({diff > 0 ? "+" : ""}{pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)</>
+            )}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-muted/40 p-3 border">
-          <span className="text-[11px] font-semibold uppercase text-muted-foreground block">Ontem</span>
-          <span className="text-xl font-bold text-foreground tabular-nums">{fmt(stats.totalOntem)} kg</span>
+          <span className="text-[11px] font-semibold uppercase text-muted-foreground block">
+            {labelComparacao}
+          </span>
+          <span className="text-xl font-bold text-foreground tabular-nums">{fmt(stats.totalComparacao)} kg</span>
         </div>
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
           <span className="text-[11px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 block">Hoje</span>
@@ -867,7 +911,7 @@ function RacaoHojeOntem() {
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Por Viveiro</p>
           <div className="space-y-1.5">
             {stats.porViveiro.map((v) => {
-              const d = v.hoje - v.ontem;
+              const d = v.hoje - v.comparacao;
               return (
                 <div
                   key={v.nome}
@@ -876,7 +920,7 @@ function RacaoHojeOntem() {
                   <span className="font-semibold text-foreground truncate">{v.nome}</span>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-muted-foreground font-medium">
-                      Ontem: <span className="text-foreground font-semibold">{fmt(v.ontem)}</span> kg
+                      {labelComparacao}: <span className="text-foreground font-semibold">{fmt(v.comparacao)}</span> kg
                     </span>
                     <ArrowRight className="size-3 text-muted-foreground" />
                     <span className="font-bold text-foreground">
