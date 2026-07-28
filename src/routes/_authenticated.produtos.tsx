@@ -40,6 +40,7 @@ type Funcionario = {
   tipo_remuneracao?: "mensal" | "diaria" | null;
   viveiro_id: string | null;
   ativo: boolean;
+  data_inicio: string | null;
 };
 
 type ViveiroOpt = { id: string; nome: string };
@@ -184,7 +185,7 @@ function ProdutosPage() {
       try {
         const { data, error } = await supabase
           .from("funcionarios")
-          .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao")
+          .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao, data_inicio")
           .order("nome");
         if (error) {
           console.error("Erro ao buscar funcionarios:", error);
@@ -2257,6 +2258,7 @@ function FuncionarioModal({
     funcionario?.tipo_remuneracao === "diaria" ? "diaria" : "mensal"
   );
   const [viveiroId, setViveiroId] = useState<string>(funcionario?.viveiro_id ?? "");
+  const [dataInicio, setDataInicio] = useState(funcionario?.data_inicio ?? "");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -2275,6 +2277,7 @@ function FuncionarioModal({
         salario: salarioNum,
         tipo_remuneracao: tipoRemuneracao,
         viveiro_id: viveiroId === "__geral__" ? null : (viveiroId || null),
+        data_inicio: dataInicio || null,
       };
 
       if (funcionario) {
@@ -2339,6 +2342,18 @@ function FuncionarioModal({
             placeholder="0,00"
             className="app-input"
           />
+        </Field>
+
+        <Field label="Data de início (opcional)">
+          <input
+            type="date"
+            value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)}
+            className="app-input"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Se o funcionário já começou antes, defina a data. Usado no cálculo de dias trabalhados para diaristas.
+          </p>
         </Field>
 
         <Field label="Alocação ao Viveiro">
