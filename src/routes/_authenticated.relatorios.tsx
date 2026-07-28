@@ -42,7 +42,6 @@ type FuncionarioRel = {
   ativo: boolean;
   viveiro_id: string | null;
   tipo_remuneracao: "mensal" | "diaria" | null;
-  data_inicio: string | null;
 };
 type ValeRel = {
   id: string;
@@ -157,7 +156,7 @@ function RelatoriosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("funcionarios")
-        .select("id, nome, salario, ativo, viveiro_id, tipo_remuneracao, data_inicio")
+        .select("id, nome, salario, ativo, viveiro_id, tipo_remuneracao")
         .order("nome");
       if (error) throw error;
       return (data ?? []) as FuncionarioRel[];
@@ -290,7 +289,8 @@ function RelatoriosPage() {
 
       const calcCustoFunc = (f: typeof funcionarios[number], isDireto: boolean): number => {
         const baseSal = Number(f.salario ?? 0);
-        const dataBase = f.data_inicio ?? v.data_povoamento ?? null;
+        const dataInicio = (f as any).data_inicio as string | null;
+        const dataBase = dataInicio ?? v.data_povoamento ?? null;
         const diasFunc = dataBase ? Math.max(1, diasDeCultivo(dataBase)) : dCultivo;
         if (f.tipo_remuneracao === "diaria") {
           return baseSal * diasFunc;

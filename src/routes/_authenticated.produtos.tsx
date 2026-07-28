@@ -40,7 +40,6 @@ type Funcionario = {
   tipo_remuneracao?: "mensal" | "diaria" | null;
   viveiro_id: string | null;
   ativo: boolean;
-  data_inicio: string | null;
 };
 
 type ViveiroOpt = { id: string; nome: string };
@@ -185,7 +184,7 @@ function ProdutosPage() {
       try {
         const { data, error } = await supabase
           .from("funcionarios")
-          .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao, data_inicio")
+          .select("id, nome, salario, viveiro_id, ativo, tipo_remuneracao")
           .order("nome");
         if (error) {
           console.error("Erro ao buscar funcionarios:", error);
@@ -2258,7 +2257,7 @@ function FuncionarioModal({
     funcionario?.tipo_remuneracao === "diaria" ? "diaria" : "mensal"
   );
   const [viveiroId, setViveiroId] = useState<string>(funcionario?.viveiro_id ?? "");
-  const [dataInicio, setDataInicio] = useState(funcionario?.data_inicio ?? "");
+  const [dataInicio, setDataInicio] = useState((funcionario as any)?.data_inicio ?? "");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
