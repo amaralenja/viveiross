@@ -341,6 +341,11 @@ function CaixaSimplesPage() {
   const [busy, setBusy] = useState(false);
   const [showNovoSocio, setShowNovoSocio] = useState(false);
   const [novoSocioNome, setNovoSocioNome] = useState("");
+  const [showNovoFunc, setShowNovoFunc] = useState(false);
+  const [novoFuncNome, setNovoFuncNome] = useState("");
+  const [novoFuncSalario, setNovoFuncSalario] = useState("");
+  const [novoFuncTipo, setNovoFuncTipo] = useState<"mensal" | "diaria">("mensal");
+  const [novoFuncViveiroId, setNovoFuncViveiroId] = useState<string>(TODOS);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedContasIds, setSelectedContasIds] = useState<Set<string>>(new Set());
   const [editingConta, setEditingConta] = useState<Conta | null>(null);
@@ -578,6 +583,39 @@ function CaixaSimplesPage() {
       setNovoSocioNome("");
       setShowNovoSocio(false);
       toast.success(`Sócio "${s.nome}" adicionado`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addFuncMut = useMutation({
+    mutationFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão expirada.");
+      if (!novoFuncNome.trim()) throw new Error("Informe o nome.");
+      const salarioNum = Number(novoFuncSalario.replace(",", "."));
+      if (isNaN(salarioNum) || salarioNum <= 0) throw new Error("Informe o salário.");
+      const vid = novoFuncViveiroId === TODOS ? null : (novoFuncViveiroId === INTERNO ? null : novoFuncViveiroId);
+      const { data, error } = await supabase.from("funcionarios").insert({
+        user_id: u.user.id,
+        nome: novoFuncNome.trim(),
+        salario: salarioNum,
+        tipo_remuneracao: novoFuncTipo,
+        viveiro_id: vid || null,
+        ativo: true,
+      }).select("id, nome").single();
+      if (error) throw error;
+      return data as { id: string; nome: string };
+    },
+    onSuccess: (f) => {
+      qc.invalidateQueries({ queryKey: ["funcionarios"] });
+      qc.invalidateQueries({ queryKey: ["funcionarios", "ativos"] });
+      setFuncionarioId(f.id);
+      setShowNovoFunc(false);
+      setNovoFuncNome("");
+      setNovoFuncSalario("");
+      setNovoFuncTipo("mensal");
+      setNovoFuncViveiroId(TODOS);
+      toast.success(`Funcionário "${f.nome}" criado!`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1126,13 +1164,66 @@ function CaixaSimplesPage() {
           {modo === "vale" && (
             <div>
               <Label>Funcionário</Label>
-              <Select value={funcionarioId || "__none__"} onValueChange={(v) => setFuncionarioId(v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— selecione —</SelectItem>
-                  {funcionarios.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {!showNovoFunc ? (
+                <div className="flex gap-2">
+                  <Select value={funcionarioId || "__none__"} onValueChange={(v) => setFuncionarioId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— selecione —</SelectItem>
+                      {funcionarios.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" onClick={() => setShowNovoFunc(true)}>
+                    + Novo
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-xl border bg-muted/20 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold">Novo Funcionário</span>
+                    <Button type="button" size="sm" variant="ghost" className="h-7 text-xs"
+                      onClick={() => { setShowNovoFunc(false); setNovoFuncNome(""); setNovoFuncSalario(""); }}>
+                      Cancelar
+                    </Button>
+                  </div>
+                  <Input autoFocus value={novoFuncNome} onChange={(e) => setNovoFuncNome(e.target.value)}
+                    placeholder="Nome do funcionário" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px]">Salário (R$)</Label>
+                      <Input inputMode="decimal" value={novoFuncSalario}
+                        onChange={(e) => setNovoFuncSalario(e.target.value.replace(/[^0-9.,]/g, ""))}
+                        placeholder="0,00" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">Tipo</Label>
+                      <Select value={novoFuncTipo} onValueChange={(v) => setNovoFuncTipo(v as "mensal" | "diaria")}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mensal">Mensal</SelectItem>
+                          <SelectItem value="diaria">Diária</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Alocação</Label>
+                    <Select value={novoFuncViveiroId} onValueChange={setNovoFuncViveiroId}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={TODOS}>🔄 Rateado entre todos</SelectItem>
+                        <SelectItem value={INTERNO}>🏢 Nenhum viveiro (Geral)</SelectItem>
+                        {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="button" size="sm" className="w-full"
+                    disabled={!novoFuncNome.trim() || !novoFuncSalario || addFuncMut.isPending}
+                    onClick={() => addFuncMut.mutate()}>
+                    {addFuncMut.isPending ? "Criando..." : "Criar Funcionário"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
