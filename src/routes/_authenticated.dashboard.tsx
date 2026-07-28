@@ -555,6 +555,33 @@ function Dashboard() {
             </div>
           )}
 
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground block">Tipo do Insumo</label>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+              {([
+                { value: "racao", label: "Ração", icon: "🌾" },
+                { value: "probiotico", label: "Probiótico", icon: "🧪" },
+                { value: "medicamento", label: "Medicamento", icon: "💊" },
+                { value: "fertilizante", label: "Fertilizante", icon: "🌱" },
+                { value: "outro", label: "Outro", icon: "📦" },
+              ] as const).map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setTipoLancamento(item.value)}
+                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-0.5 transition active:scale-95 ${
+                    tipoLancamento === item.value
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-card hover:bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  <span className="leading-tight">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-foreground block">Quantidade (kg)</label>
@@ -1356,34 +1383,7 @@ function CadastroGeral() {
                   required
                 />
               </Field>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground block">Tipo do Insumo</label>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-              {([
-                { value: "racao", label: "Ração", icon: "🌾" },
-                { value: "probiotico", label: "Probiótico", icon: "🧪" },
-                { value: "medicamento", label: "Medicamento", icon: "💊" },
-                { value: "fertilizante", label: "Fertilizante", icon: "🌱" },
-                { value: "outro", label: "Outro", icon: "📦" },
-              ] as const).map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => setTipoLancamento(item.value)}
-                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-0.5 transition active:scale-95 ${
-                    tipoLancamento === item.value
-                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                      : "border-border bg-card hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  <span className="text-base">{item.icon}</span>
-                  <span className="leading-tight">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <Field label="Unidade">
                   <select
                     className="app-input"
