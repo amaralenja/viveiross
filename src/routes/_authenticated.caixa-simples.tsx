@@ -447,9 +447,9 @@ function CaixaSimplesPage() {
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["funcionarios", "ativos"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("funcionarios").select("id, nome, salario, tipo_remuneracao, viveiro_id").eq("ativo", true);
+      const { data, error } = await supabase.from("funcionarios").select("id, nome, salario, tipo_remuneracao, viveiro_id, data_inicio").eq("ativo", true);
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null }[];
+      return (data ?? []) as { id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null; data_inicio: string | null }[];
     },
   });
 
@@ -1774,8 +1774,7 @@ function CaixaSimplesPage() {
                 const baseSalario = Number(f.salario ?? 0);
                 const isDiaria = f.tipo_remuneracao === "diaria";
                 const viv = f.viveiro_id ? viveiros.find((v) => v.id === f.viveiro_id) : null;
-                const dataInicio = (f as any).data_inicio as string | null;
-                const dataBase = dataInicio ?? viv?.data_povoamento ?? null;
+                const dataBase = f.data_inicio ?? viv?.data_povoamento ?? null;
                 const diasCultivo = isDiaria && dataBase ? diasDeCultivo(dataBase) : 1;
                 const salario = isDiaria ? baseSalario * diasCultivo : baseSalario;
                 const saldoRestante = Math.max(0, salario - totalPago);
