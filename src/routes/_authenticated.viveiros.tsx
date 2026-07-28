@@ -1,7 +1,7 @@
 import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
@@ -101,10 +101,13 @@ function ViveirosPage() {
   const porTipoPorViveiro = totaisPorViveiro.porTipo ?? {};
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
 
-  const racTotalPorViveiro: Record<string, number> = {};
-  for (const [vid, tipos] of Object.entries(porTipoPorViveiro)) {
-    racTotalPorViveiro[vid] = Object.values(tipos).reduce((s, v) => s + v, 0);
-  }
+  const racTotalPorViveiro = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const [vid, tipos] of Object.entries(porTipoPorViveiro)) {
+      map[vid] = Object.values(tipos).reduce((s, v) => s + v, 0);
+    }
+    return map;
+  }, [porTipoPorViveiro]);
 
   const { data: caixaLancamentos = [] } = useQuery({
     queryKey: ["viveiros", "caixa-lancamentos"],
