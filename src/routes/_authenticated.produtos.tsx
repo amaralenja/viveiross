@@ -512,7 +512,7 @@ function ProdutosPage() {
                           {f.tipo_remuneracao === "diaria" ? "/dia de cultivo" : "/mês"}
                         </span>
                         {" · "}
-                        {viv ? viv.nome : "distribuído por dias de cultivo"}
+                        {viv ? viv.nome : "Geral / Distribuído"}
                       </p>
                     </div>
                   </div>
@@ -2274,7 +2274,7 @@ function FuncionarioModal({
         nome: nome.trim(),
         salario: salarioNum,
         tipo_remuneracao: tipoRemuneracao,
-        viveiro_id: viveiroId || null,
+        viveiro_id: viveiroId === "__geral__" ? null : (viveiroId || null),
       };
 
       if (funcionario) {
@@ -2348,6 +2348,7 @@ function FuncionarioModal({
             className="app-input"
           >
             <option value="">🔄 Distribuído entre os viveiros ativos por dias de cultivo</option>
+            <option value="__geral__">🏢 Não vinculado a nenhum viveiro (Gasto geral)</option>
             {viveiros.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.nome}
@@ -2355,9 +2356,11 @@ function FuncionarioModal({
             ))}
           </select>
           <p className="text-xs text-muted-foreground mt-1">
-            {viveiroId
-              ? "Trabalha exclusivamente neste viveiro."
-              : "Calculado e distribuído de acordo com os dias de cultivo de cada viveiro ativo."}
+            {viveiroId === "__geral__"
+              ? "Funcionário geral, não vinculado a nenhum viveiro específico."
+              : viveiroId
+                ? "Trabalha exclusivamente neste viveiro."
+                : "Calculado e distribuído de acordo com os dias de cultivo de cada viveiro ativo."}
           </p>
         </Field>
 
