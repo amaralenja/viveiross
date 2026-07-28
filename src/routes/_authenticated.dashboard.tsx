@@ -711,6 +711,7 @@ function EditLancModal({
   const [data, setData] = useState(lanc.data_lancamento);
   const [produto, setProduto] = useState(lanc.produto_nome);
   const [quantidade, setQuantidade] = useState(String(lanc.quantidade ?? ""));
+  const [editTipo, setEditTipo] = useState(lanc.tipo ?? "racao");
   const [valor, setValor] = useState(lanc.custo_total != null ? String(lanc.custo_total) : "");
 
   const mut = useMutation({
@@ -724,6 +725,7 @@ function EditLancModal({
           data_lancamento: data,
           produto_nome: produto.trim(),
           quantidade: q,
+          tipo: editTipo,
           custo_total: valor ? Number(valor.replace(",", ".")) : null,
         })
         .eq("id", lanc.id);
@@ -779,8 +781,17 @@ function EditLancModal({
           <Field label="Data">
             <input required type="date" value={data} onChange={(e) => setData(e.target.value)} className="app-input" />
           </Field>
-          <Field label="Ração">
+          <Field label="Insumo">
             <input required value={produto} onChange={(e) => setProduto(e.target.value)} className="app-input" />
+          </Field>
+          <Field label="Tipo">
+            <select value={editTipo} onChange={(e) => setEditTipo(e.target.value)} className="app-input font-semibold">
+              <option value="racao">🌾 Ração</option>
+              <option value="probiotico">🧪 Probiótico</option>
+              <option value="medicamento">💊 Medicamento</option>
+              <option value="fertilizante">🌱 Fertilizante</option>
+              <option value="outro">📦 Outro</option>
+            </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quantidade (kg)">
