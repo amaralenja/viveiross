@@ -2333,12 +2333,10 @@ function FuncionarioModal({
         <Field label={tipoRemuneracao === "diaria" ? "Valor da diária por dia de cultivo (R$)" : "Salário mensal (R$)"}>
           <input
             required
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
             inputMode="decimal"
             value={salario}
-            onChange={(e) => setSalario(e.target.value)}
+            onChange={(e) => setSalario(e.target.value.replace(/[^0-9.,]/g, ""))}
             placeholder="0,00"
             className="app-input"
           />
