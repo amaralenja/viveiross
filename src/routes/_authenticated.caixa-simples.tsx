@@ -26,7 +26,7 @@ const TODOS = "__todos__";
 const INTERNO = "__interno__";
 
 type Socio = { id: string; nome: string };
-type Viveiro = { id: string; nome: string };
+type Viveiro = { id: string; nome: string; data_povoamento: string | null };
 type Lanc = {
   id: string;
   viveiro_id: string | null;
@@ -157,6 +157,14 @@ function fmtDate(d: string) {
 }
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
+}
+function diasDeCultivo(data: string) {
+  const [y, m, d] = data.split("-").map(Number);
+  const inicio = new Date(Date.UTC(y, m - 1, d));
+  const hoje = new Date();
+  const local = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()));
+  const diff = Math.floor((local.getTime() - inicio.getTime()) / 86400000) + 1;
+  return Math.max(1, diff);
 }
 function proximaData(atual: string, rec: Conta["recorrencia"]): string | null {
   if (rec === "none") return null;
@@ -377,7 +385,7 @@ function CaixaSimplesPage() {
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "ativos", "simples"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("viveiros").select("id, nome").eq("status", "ativo").order("nome");
+      const { data, error } = await supabase.from("viveiros").select("id, nome, data_povoamento").eq("status", "ativo").order("nome");
       if (error) throw error;
       return (data ?? []) as Viveiro[];
     },
@@ -439,9 +447,9 @@ function CaixaSimplesPage() {
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["funcionarios", "ativos"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("funcionarios").select("id, nome, salario").eq("ativo", true);
+      const { data, error } = await supabase.from("funcionarios").select("id, nome, salario, tipo_remuneracao, viveiro_id").eq("ativo", true);
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; salario: number | null }[];
+      return (data ?? []) as { id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null }[];
     },
   });
 
@@ -1763,7 +1771,11 @@ function CaixaSimplesPage() {
                 const meusVales = vales.filter((v) => v.funcionario_id === f.id);
                 const valesMes = meusVales.filter((v) => v.data_vale?.startsWith(mesAtual));
                 const totalPago = valesMes.reduce((s, v) => s + Number(v.valor ?? 0), 0);
-                const salario = Number(f.salario ?? 0);
+                const baseSalario = Number(f.salario ?? 0);
+                const isDiaria = f.tipo_remuneracao === "diaria";
+                const viv = f.viveiro_id ? viveiros.find((v) => v.id === f.viveiro_id) : null;
+                const diasCultivo = isDiaria && viv?.data_povoamento ? diasDeCultivo(viv.data_povoamento) : 1;
+                const salario = isDiaria ? baseSalario * diasCultivo : baseSalario;
                 const saldoRestante = Math.max(0, salario - totalPago);
                 const percentualPago = salario > 0 ? Math.min(100, Math.round((totalPago / salario) * 100)) : (totalPago > 0 ? 100 : 0);
                 const isQuitado = salario > 0 && totalPago >= salario - 0.001;
@@ -1794,7 +1806,7 @@ function CaixaSimplesPage() {
                         <div className="flex items-center gap-4 text-sm mt-1.5 flex-wrap">
                           {salario > 0 && (
                             <div>
-                              <span className="text-xs text-muted-foreground block">Salário base</span>
+                              <span className="text-xs text-muted-foreground block">{isDiaria ? `Diária (${diasCultivo} dias)` : "Salário base"}</span>
                               <span className="font-medium text-sm">{brl(salario)}</span>
                             </div>
                           )}
