@@ -186,7 +186,6 @@ function ViveirosPage() {
       return (data ?? []) as Array<{ id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null; data_inicio: string | null; ativo: boolean }>;
     },
   });
-
   const { data: todosVales = [] } = useQuery({
     queryKey: ["vales", "viveiros-view"],
     queryFn: async () => {
@@ -440,15 +439,11 @@ function ViveirosPage() {
                 <button
                   onClick={() => setFuncViveiro(v)}
                   className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20 transition"
-                >
-                  <Users className="size-4" /> Funcionários
-                </button>
+                ><Users className="size-4" /> Funcionários</button>
                 <button
                   onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })}
                   className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
-                >
-                  <Power className="size-5" /> {ativo ? "Desativar" : "Ativar"}
-                </button>
+                ><Power className="size-5" /> {ativo ? "Desativar" : "Ativar"}</button>
               </div>
             </li>
             );
@@ -457,12 +452,8 @@ function ViveirosPage() {
       )}
 
       {funcViveiro && (
-        <FuncionariosViveiroModal
-          viveiro={funcViveiro}
-          todosFuncionarios={todosFuncionarios}
-          todosVales={todosVales}
-          onClose={() => { setFuncViveiro(null); qc.invalidateQueries({ queryKey: ["funcionarios"] }); }}
-        />
+        <FuncionariosViveiroModal viveiro={funcViveiro} todosFuncionarios={todosFuncionarios} todosVales={todosVales}
+          onClose={() => { setFuncViveiro(null); qc.invalidateQueries({ queryKey: ["funcionarios"] }); }} />
       )}
 
       {open && (
@@ -877,12 +868,7 @@ function LancarRacaoModal({
   );
 }
 
-function FuncionariosViveiroModal({
-  viveiro,
-  todosFuncionarios,
-  todosVales,
-  onClose,
-}: {
+function FuncionariosViveiroModal({ viveiro, todosFuncionarios, todosVales, onClose }: {
   viveiro: Viveiro;
   todosFuncionarios: Array<{ id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null; data_inicio: string | null; ativo: boolean }>;
   todosVales: Array<{ id: string; funcionario_id: string; valor: number; data_vale: string }>;
@@ -895,135 +881,81 @@ function FuncionariosViveiroModal({
   const [novoTipo, setNovoTipo] = useState<"mensal" | "diaria">("mensal");
   const [novoDataInicio, setNovoDataInicio] = useState("");
   const [loading, setLoading] = useState(false);
-
   const baseDate = viveiro.data_povoamento ?? null;
   const totalDias = baseDate ? diasDeCultivo(baseDate) : 0;
-
   const funcsDoViveiro = todosFuncionarios.filter((f) => f.viveiro_id === viveiro.id);
 
   async function addFunc(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault(); setLoading(true);
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Sem sessão");
       const s = Number(novoSalario.replace(",", "."));
       if (!novoNome.trim() || isNaN(s) || s <= 0) throw new Error("Preencha nome e salário");
       await supabase.from("funcionarios").insert({
-        user_id: u.user.id,
-        nome: novoNome.trim(),
-        salario: s,
-        tipo_remuneracao: novoTipo,
-        viveiro_id: viveiro.id,
-        data_inicio: novoDataInicio || null,
-        ativo: true,
+        user_id: u.user.id, nome: novoNome.trim(), salario: s,
+        tipo_remuneracao: novoTipo, viveiro_id: viveiro.id,
+        data_inicio: novoDataInicio || null, ativo: true,
       });
       toast.success("Funcionário adicionado!");
       setNovoNome(""); setNovoSalario(""); setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["funcionarios"] });
       qc.invalidateQueries({ queryKey: ["funcionarios", "viveiros-view"] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Erro"); }
+    finally { setLoading(false); }
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-card w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
-          <div>
-            <h2 className="font-bold text-lg">Funcionários · {viveiro.nome}</h2>
-            <p className="text-xs text-muted-foreground">
-              {totalDias > 0 ? `${totalDias} dias de cultivo` : "Sem povoamento"} · {funcsDoViveiro.length} funcionário(s)
-            </p>
+          <div><h2 className="font-bold text-lg">Funcionários · {viveiro.nome}</h2>
+            <p className="text-xs text-muted-foreground">{totalDias > 0 ? `${totalDias} dias` : "Sem povoamento"} · {funcsDoViveiro.length} func.</p>
           </div>
-          <button onClick={onClose} className="size-10 rounded-lg hover:bg-muted flex items-center justify-center">
-            <X className="size-5" />
-          </button>
+          <button onClick={onClose} className="size-10 rounded-lg hover:bg-muted flex items-center justify-center"><X className="size-5" /></button>
         </div>
-
         <div className="overflow-y-auto p-4 space-y-3">
           {funcsDoViveiro.length === 0 && !showAdd && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="size-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">Nenhum funcionário neste viveiro</p>
-            </div>
+            <div className="text-center py-8 text-muted-foreground"><Users className="size-10 mx-auto mb-2 opacity-30" /><p className="text-sm">Nenhum funcionário</p></div>
           )}
-
           {funcsDoViveiro.map((f) => {
-            const dataBase = f.data_inicio ?? baseDate;
-            const diasTrab = dataBase ? Math.max(1, diasDeCultivo(dataBase)) : 0;
+            const db = f.data_inicio ?? baseDate;
+            const diasTrab = db ? Math.max(1, diasDeCultivo(db)) : 0;
             const isDiaria = f.tipo_remuneracao === "diaria";
-            const salarioBase = Number(f.salario ?? 0);
-            const totalDevido = isDiaria ? salarioBase * diasTrab : salarioBase;
+            const sb = Number(f.salario ?? 0);
+            const totalDevido = isDiaria ? sb * diasTrab : sb;
             const valesDoFunc = todosVales.filter((v) => v.funcionario_id === f.id);
             const totalPago = valesDoFunc.reduce((s, v) => s + Number(v.valor ?? 0), 0);
             const saldo = Math.max(0, totalDevido - totalPago);
-
             return (
               <div key={f.id} className="p-3 rounded-xl border bg-card/60 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-bold text-sm">{f.nome}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {isDiaria ? `Diária: ${salarioBase.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/dia` : `Mensal: ${salarioBase.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`}
-                      {" · "}{diasTrab} dias
-                      {f.data_inicio && ` · desde ${formatDateBR(f.data_inicio)}`}
-                    </p>
-                  </div>
-                </div>
+                <p className="font-bold text-sm">{f.nome}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {isDiaria ? `Diária ${sb.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/dia` : `Mensal ${sb.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} · {diasTrab}d {f.data_inicio && `desde ${formatDateBR(f.data_inicio)}`}
+                </p>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="p-2 rounded-lg bg-muted/40">
-                    <span className="text-muted-foreground block">A receber</span>
-                    <span className="font-bold text-foreground">{totalDevido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
-                  </div>
-                  <div className="p-2 rounded-lg bg-emerald-500/10">
-                    <span className="text-muted-foreground block">Já pago</span>
-                    <span className="font-bold text-emerald-600">{totalPago.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
-                  </div>
-                  <div className="p-2 rounded-lg bg-amber-500/10">
-                    <span className="text-muted-foreground block">Saldo</span>
-                    <span className="font-bold text-amber-600">{saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
-                  </div>
+                  <div className="p-2 rounded-lg bg-muted/40"><span className="text-muted-foreground block">A receber</span><span className="font-bold">{totalDevido.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span></div>
+                  <div className="p-2 rounded-lg bg-emerald-500/10"><span className="text-muted-foreground block">Já pago</span><span className="font-bold text-emerald-600">{totalPago.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span></div>
+                  <div className="p-2 rounded-lg bg-amber-500/10"><span className="text-muted-foreground block">Saldo</span><span className="font-bold text-amber-600">{saldo.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span></div>
                 </div>
               </div>
             );
           })}
-
           {!showAdd ? (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="w-full h-10 rounded-xl bg-primary/10 text-primary font-semibold text-sm hover:bg-primary/20 flex items-center justify-center gap-1.5"
-            >
-              <Plus className="size-4" /> Adicionar funcionário
-            </button>
+            <button onClick={() => setShowAdd(true)} className="w-full h-10 rounded-xl bg-primary/10 text-primary font-semibold text-sm hover:bg-primary/20 flex items-center justify-center gap-1.5"><Plus className="size-4" /> Adicionar funcionário</button>
           ) : (
             <form onSubmit={addFunc} className="p-3 rounded-xl border bg-muted/20 space-y-2">
               <p className="text-xs font-bold">Novo funcionário para {viveiro.nome}</p>
-              <input required value={novoNome} onChange={(e) => setNovoNome(e.target.value)}
-                placeholder="Nome" className="app-input h-10 text-sm" autoFocus />
+              <input required value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Nome" className="app-input h-10 text-sm" autoFocus />
               <div className="grid grid-cols-2 gap-2">
-                <input required value={novoSalario} onChange={(e) => setNovoSalario(e.target.value.replace(/[^0-9.,]/g, ""))}
-                  placeholder="Salário R$" className="app-input h-10 text-sm" inputMode="decimal" />
-                <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value as "mensal" | "diaria")}
-                  className="app-input h-10 text-sm">
-                  <option value="mensal">Mensal</option>
-                  <option value="diaria">Diária</option>
-                </select>
+                <input required value={novoSalario} onChange={e => setNovoSalario(e.target.value.replace(/[^0-9.,]/g,""))} placeholder="Salário R$" className="app-input h-10 text-sm" inputMode="decimal" />
+                <select value={novoTipo} onChange={e => setNovoTipo(e.target.value as "mensal"|"diaria")} className="app-input h-10 text-sm"><option value="mensal">Mensal</option><option value="diaria">Diária</option></select>
               </div>
-              <input type="date" value={novoDataInicio} onChange={(e) => setNovoDataInicio(e.target.value)}
-                className="app-input h-10 text-sm"
-                title="Data de início (vazio = data do povoamento)" />
-              <p className="text-[10px] text-muted-foreground">Data de início: se vazio, usa a data de povoamento ({baseDate ? formatDateBR(baseDate) : "não definida"})</p>
+              <input type="date" value={novoDataInicio} onChange={e => setNovoDataInicio(e.target.value)} className="app-input h-10 text-sm" />
+              <p className="text-[10px] text-muted-foreground">Início: vazio = povoamento ({baseDate ? formatDateBR(baseDate) : "não definido"})</p>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setShowAdd(false)}
-                  className="flex-1 h-10 rounded-xl border font-semibold text-sm">Cancelar</button>
-                <button type="submit" disabled={loading}
-                  className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50">
-                  {loading ? "Salvando..." : "Salvar"}
-                </button>
+                <button type="button" onClick={() => setShowAdd(false)} className="flex-1 h-10 rounded-xl border font-semibold text-sm">Cancelar</button>
+                <button type="submit" disabled={loading} className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50">{loading ? "Salvando..." : "Salvar"}</button>
               </div>
             </form>
           )}
