@@ -449,6 +449,7 @@ function CaixaPage() {
 
   const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
+  const [selectedViveiros, setSelectedViveiros] = useState<Set<string>>(new Set());
   const [data, setData] = useState(todayLocal());
   const [produtoId, setProdutoId] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -663,19 +664,27 @@ function CaixaPage() {
       if (!valorFinal || valorFinal <= 0) throw new Error("Informe o valor.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
       const isNR = viveiroId === NAO_RATEADO;
-      const { error } = await supabase.from("caixa_lancamentos").insert({
-        user_id: userId,
-        viveiro_id: (viveiroId === TODOS || isNR) ? null : viveiroId,
-        data_lancamento: data,
-        descricao: descricao.trim(),
-        categoria: isNR ? NR_CAT : (categoria.trim() || (tipo === "receita" ? "venda" : "geral")),
-        valor: valorFinal,
-        tipo,
-        quantidade: qNum > 0 ? qNum : null,
-        unidade: qNum > 0 ? unidade : null,
-        socio_id: socioId || null,
-      });
-      if (error) throw error;
+      const isMulti = selectedViveiros.size > 0;
+      const targets = isMulti
+        ? Array.from(selectedViveiros)
+        : [(viveiroId === TODOS || isNR) ? null : viveiroId];
+      const valorPorViveiro = isMulti ? valorFinal / targets.length : valorFinal;
+
+      for (const targetId of targets) {
+        const { error } = await supabase.from("caixa_lancamentos").insert({
+          user_id: userId,
+          viveiro_id: (viveiroId === TODOS || isNR) ? null : targetId,
+          data_lancamento: data,
+          descricao: descricao.trim() + (isMulti ? ` (1/${targets.length})` : ""),
+          categoria: isNR ? NR_CAT : (categoria.trim() || (tipo === "receita" ? "venda" : "geral")),
+          valor: valorPorViveiro,
+          tipo,
+          quantidade: qNum > 0 ? (isMulti ? qNum / targets.length : qNum) : null,
+          unidade: qNum > 0 ? unidade : null,
+          socio_id: socioId || null,
+        });
+        if (error) throw error;
+      }
 
       // Se for despesa e tiver um produto selecionado (ou correspondência por nome), contabilizar automaticamente no estoque
       if (tipo === "despesa") {
@@ -731,6 +740,7 @@ function CaixaPage() {
       setQtd("");
       setValorManual("");
       setSocioId("");
+      setSelectedViveiros(new Set());
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
       qc.invalidateQueries({ queryKey: ["produtos"] });
@@ -1169,19 +1179,66 @@ function CaixaPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Viveiro">
-            <select
-              value={viveiroId}
-              onChange={(e) => setViveiroId(e.target.value)}
-              className="app-input"
-            >
-              <option value={TODOS}>🔄 Todos (rateado)</option>
-              <option value={NAO_RATEADO}>🚫 Não rateado</option>
-              {viveiros.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nome}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-2">
+              <select
+                value={selectedViveiros.size > 0 ? "__multi__" : viveiroId}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__multi__") return;
+                  setViveiroId(v);
+                  setSelectedViveiros(new Set());
+                }}
+                className="app-input"
+              >
+                <option value={TODOS}>🔄 Todos os viveiros (rateado)</option>
+                <option value={NAO_RATEADO}>🚫 Não rateado (gasto interno)</option>
+                <option value="__multi__" disabled>──────────</option>
+                <option value="__multi__">📋 Selecionar viveiros específicos</option>
+              </select>
+              <div className={`grid grid-cols-2 sm:grid-cols-3 gap-1.5 ${selectedViveiros.size > 0 || viveiroId === "__multi__" || (viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") ? "" : "hidden"}`}>
+                {viveiros.map((v) => {
+                  const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => {
+                        setViveiroId("__multi__");
+                        const next = new Set(selectedViveiros);
+                        if (next.has(v.id)) {
+                          next.delete(v.id);
+                        } else {
+                          // Se estava em seleção única, adiciona o atual também
+                          if (selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "" && viveiroId !== v.id) {
+                            next.add(viveiroId);
+                          }
+                          next.add(v.id);
+                        }
+                        if (next.size === 0) setViveiroId(TODOS);
+                        setSelectedViveiros(next);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg border text-xs font-semibold transition text-left truncate ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-card hover:bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {isSelected ? "✓ " : ""}{v.nome}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedViveiros.size > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  {selectedViveiros.size} viveiro(s) — valor de <strong>{fmtBRL(valorFinal)}</strong> dividido em <strong>{fmtBRL(valorFinal / selectedViveiros.size)}</strong> cada
+                </p>
+              )}
+              {selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "__multi__" && viveiroId !== "" && (
+                <p className="text-[11px] text-muted-foreground">
+                  Toque nos viveiros abaixo para adicionar mais.
+                </p>
+              )}
+            </div>
           </Field>
           <Field label="Data">
             <input
