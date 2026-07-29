@@ -416,7 +416,7 @@ function ViveirosPage() {
                 );
               })()}
               <div className="mt-3 flex gap-2">
-                <button onClick={() => setFuncViveiro(v)} className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20"><Users className="size-4" />Funcionários</button>
+                <button onClick={() => window.alert(`Funcionários de: ${v.nome}`)} className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20"><Users className="size-4" />Funcionários</button>
                 <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })} className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}><Power className="size-5" />{ativo ? "Desativar" : "Ativar"}</button>
               </div>
             </li>
@@ -454,10 +454,6 @@ function ViveirosPage() {
 
       {historicoViveiro && (
         <HistoricoModal viveiro={historicoViveiro} baseDate={historicoViveiro.data_povoamento ?? null} onClose={() => setHistoricoViveiro(null)} />
-      )}
-
-      {funcViveiro && (
-        <FuncionariosViveiroModal viveiro={funcViveiro} onClose={() => setFuncViveiro(null)} />
       )}
 
       {editarViveiro && (
