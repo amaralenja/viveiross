@@ -1654,9 +1654,14 @@ function EntradaEstoqueModal({
   const [loading, setLoading] = useState(false);
 
 
+  const selectedProd = produtos.find((x) => x.id === produtoId);
+  const selectedEmb = parseProdutoEmbalagem(selectedProd?.unidade);
+
   const qtdNum = Number(String(quantidade).replace(",", ".")) || 0;
   const precoNum = preco.trim() === "" ? null : Number(String(preco).replace(",", "."));
-  const custoTotal = precoNum != null && qtdNum > 0 ? precoNum * qtdNum : null;
+  const isEmbUnit = selectedEmb.temEmbalagem && selectedEmb.pesoEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco" || unidade === "pacote" || unidade === "caixa");
+  const qtdFinal = isEmbUnit ? qtdNum * selectedEmb.pesoEmbalagem! : qtdNum;
+  const custoTotal = precoNum != null && qtdNum > 0 ? precoNum * qtdFinal : null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1694,7 +1699,7 @@ function EntradaEstoqueModal({
         quantidade: finalQtyEstoque,
         unidade: finalUnidadeEstoque,
         preco_unidade: precoNum,
-        custo_total: custoTotal,
+        custo_total: precoNum != null ? precoNum * finalQtyEstoque : null,
         fornecedor: fornecedor.trim() || null,
         data_entrada: data,
         observacao: observacao.trim() || (emb.temEmbalagem && (unidade.toLowerCase().includes(emb.tipoEmbalagem) || unidade === "saco") ? `${qNumInput} ${emb.tipoEmbalagem}(s) de ${emb.pesoEmbalagem} ${emb.unidadeBase}` : null),
@@ -1722,9 +1727,6 @@ function EntradaEstoqueModal({
       setLoading(false);
     }
   }
-
-  const selectedProd = produtos.find((x) => x.id === produtoId);
-  const selectedEmb = parseProdutoEmbalagem(selectedProd?.unidade);
 
   return (
     <ModalShell title={entrada ? "Editar entrada" : "Entrada de mercadoria"} onClose={onClose}>
