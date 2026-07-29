@@ -249,6 +249,7 @@ function Dashboard() {
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
   const [unidadeLancamento, setUnidadeLancamento] = useState("kg");
+  const [embInfo, setEmbInfo] = useState<ReturnType<typeof parseProdutoEmbalagem> | null>(null);
   const [tipoLancamento, setTipoLancamento] = useState("racao");
   const [editing, setEditing] = useState<Lanc | null>(null);
 
@@ -303,7 +304,9 @@ function Dashboard() {
     : valor
       ? Number(valor.replace(",", "."))
       : 0;
-  const totalCalc = unitNum > 0 && qNum > 0 ? unitNum * qNum : 0;
+  const totalCalc = unitNum > 0 && qNum > 0
+    ? unitNum * qNum * (embInfo?.temEmbalagem && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem ? embInfo.pesoEmbalagem : 1)
+    : 0;
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -320,7 +323,9 @@ function Dashboard() {
           ? Number(valor.replace(",", "."))
           : null;
       if (unit != null && Number.isNaN(unit)) throw new Error("Valor inválido.");
-      const total = unit != null ? unit * q : null;
+      const total = unit != null
+        ? unit * q * (embInfo?.temEmbalagem && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem ? embInfo.pesoEmbalagem : 1)
+        : null;
       let linkedProdutoId: string | null = null;
       if (produtoSelecionado && !produtoSelecionado.id.startsWith("hist:")) {
         linkedProdutoId = produtoSelecionado.id;
@@ -525,6 +530,7 @@ function Dashboard() {
                   setProduto(p.nome);
                   if (p.categoria) setTipoLancamento(p.categoria === "outro" ? "outro" : p.categoria);
                   const emb = parseProdutoEmbalagem(p.unidade);
+                  setEmbInfo(emb);
                   if (emb.temEmbalagem && emb.tipoEmbalagem) {
                     setUnidadeLancamento(emb.tipoEmbalagem);
                   } else {
@@ -593,18 +599,43 @@ function Dashboard() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-foreground block">Quantidade ({unidadeLancamento})</label>
-              <input
-                required
-                min="0.01"
-                step="0.01"
-                type="number"
-                inputMode="decimal"
-                value={quantidade}
-                onChange={(e) => setQuantidade(e.target.value)}
-                className="app-input h-12 text-lg font-bold"
-                placeholder="Ex: 50"
-              />
+              <label className="text-sm font-semibold text-foreground block">Quantidade</label>
+              <div className="flex gap-2">
+                <input
+                  required
+                  min="0.01"
+                  step="0.01"
+                  type="number"
+                  inputMode="decimal"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(e.target.value)}
+                  className="app-input flex-1 h-12 text-lg font-bold"
+                  placeholder="Ex: 50"
+                />
+                {embInfo?.temEmbalagem ? (
+                  <select
+                    value={unidadeLancamento}
+                    onChange={(e) => setUnidadeLancamento(e.target.value)}
+                    className="app-input w-28 h-12 font-semibold text-sm"
+                  >
+                    <option value={embInfo.tipoEmbalagem}>
+                      {embInfo.tipoEmbalagem}
+                    </option>
+                    <option value={embInfo.unidadeBase}>
+                      {embInfo.unidadeBase}
+                    </option>
+                  </select>
+                ) : (
+                  <span className="h-12 flex items-center text-sm font-bold text-muted-foreground bg-muted/50 px-3 rounded-xl">
+                    {unidadeLancamento}
+                  </span>
+                )}
+              </div>
+              {embInfo?.temEmbalagem && Number(quantidade) > 0 && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem && (
+                <p className="text-[11px] text-primary font-medium">
+                  💡 {quantidade} {embInfo.tipoEmbalagem}(s) = {Number(quantidade) * embInfo.pesoEmbalagem} {embInfo.unidadeBase} no total
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-foreground block">Data</label>
