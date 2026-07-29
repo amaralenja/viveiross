@@ -641,8 +641,12 @@ function CaixaPage() {
       return pKg * totalKg;
     }
 
-    if (unidade === "g" && selectedEmb.unidadeBase === "kg") {
+    if ((unidade === "g" || unidade === "ml") && (selectedEmb.unidadeBase === "kg" || selectedEmb.unidadeBase === "litro")) {
       return pKg * (qInput / 1000);
+    }
+
+    if (selectedEmb.unidadeBase === "g" && (unidade === "kg" || unidade === selectedEmb.unidadeBase)) {
+      return pKg * qInput * 1000;
     }
 
     return pKg * qInput;
@@ -1293,7 +1297,9 @@ function CaixaPage() {
                     className="app-input w-36 font-semibold text-primary"
                   >
                     <option value={selectedEmb.tipoEmbalagem}>{selectedEmb.tipoEmbalagem} ({selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase})</option>
+                    {selectedEmb.unidadeBase === "kg" && <option value="g">g (gramas)</option>}
                     <option value={selectedEmb.unidadeBase}>{selectedEmb.unidadeBase}</option>
+                    {selectedEmb.unidadeBase === "litro" && <option value="ml">ml (mililitro)</option>}
                   </select>
                 ) : (
                   <select
@@ -1317,6 +1323,11 @@ function CaixaPage() {
             <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
               💡 {qtd} {selectedEmb.tipoEmbalagem}(s) de {selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase} = <strong className="text-foreground">{Number(qtd) * selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase}</strong> no estoque
               {precoKg && ` (R$ ${(Number(precoKg.replace(",", ".")) * selectedEmb.pesoEmbalagem).toFixed(2)} por ${selectedEmb.tipoEmbalagem})`}
+            </div>
+          )}
+          {(unidade === "g" || unidade === "ml") && (selectedEmb.unidadeBase === "kg" || selectedEmb.unidadeBase === "litro") && Number(qtd) > 0 && (
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+              💡 {qtd} {unidade} = <strong className="text-foreground">{(Number(qtd) / 1000).toFixed(3)} {selectedEmb.unidadeBase}</strong>
             </div>
           )}
 
