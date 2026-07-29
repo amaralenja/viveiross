@@ -179,9 +179,7 @@ function ViveirosPage() {
   const { data: todosFuncionarios = [] } = useQuery({
     queryKey: ["funcionarios", "viveiros-view"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("funcionarios")
-        .select("id, nome, salario, tipo_remuneracao, viveiro_id, data_inicio, ativo")
-        .eq("ativo", true).order("nome");
+      const { data, error } = await supabase.from("funcionarios").select("id, nome, salario, tipo_remuneracao, viveiro_id, data_inicio, ativo").eq("ativo", true).order("nome");
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null; data_inicio: string | null; ativo: boolean }>;
     },
@@ -189,8 +187,7 @@ function ViveirosPage() {
   const { data: todosVales = [] } = useQuery({
     queryKey: ["vales", "viveiros-view"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("vales")
-        .select("id, funcionario_id, valor, data_vale").order("data_vale", { ascending: false });
+      const { data, error } = await supabase.from("vales").select("id, funcionario_id, valor, data_vale").order("data_vale", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; funcionario_id: string; valor: number; data_vale: string }>;
     },
@@ -436,24 +433,13 @@ function ViveirosPage() {
                 );
               })()}
               <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => setFuncViveiro(v)}
-                  className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20 transition"
-                ><Users className="size-4" /> Funcionários</button>
-                <button
-                  onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })}
-                  className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
-                ><Power className="size-5" /> {ativo ? "Desativar" : "Ativar"}</button>
+                <button onClick={() => setFuncViveiro(v)} className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20"><Users className="size-4" />Funcionários</button>
+                <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })} className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}><Power className="size-5" />{ativo ? "Desativar" : "Ativar"}</button>
               </div>
             </li>
             );
           })}
         </ul>
-      )}
-
-      {funcViveiro && (
-        <FuncionariosViveiroModal viveiro={funcViveiro} todosFuncionarios={todosFuncionarios} todosVales={todosVales}
-          onClose={() => { setFuncViveiro(null); qc.invalidateQueries({ queryKey: ["funcionarios"] }); }} />
       )}
 
       {open && (
@@ -484,11 +470,11 @@ function ViveirosPage() {
       )}
 
       {historicoViveiro && (
-        <HistoricoModal
-          viveiro={historicoViveiro}
-          baseDate={historicoViveiro.data_povoamento ?? null}
-          onClose={() => setHistoricoViveiro(null)}
-        />
+        <HistoricoModal viveiro={historicoViveiro} baseDate={historicoViveiro.data_povoamento ?? null} onClose={() => setHistoricoViveiro(null)} />
+      )}
+
+      {funcViveiro && (
+        <FuncionariosViveiroModal viveiro={funcViveiro} todosFuncionarios={todosFuncionarios} todosVales={todosVales} onClose={() => { setFuncViveiro(null); qc.invalidateQueries({ queryKey: ["funcionarios"] }); }} />
       )}
 
       {editarViveiro && (
@@ -930,9 +916,7 @@ function FuncionariosViveiroModal({ viveiro, todosFuncionarios, todosVales, onCl
             return (
               <div key={f.id} className="p-3 rounded-xl border bg-card/60 space-y-2">
                 <p className="font-bold text-sm">{f.nome}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {isDiaria ? `Diária ${sb.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/dia` : `Mensal ${sb.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} · {diasTrab}d {f.data_inicio && `desde ${formatDateBR(f.data_inicio)}`}
-                </p>
+                <p className="text-[11px] text-muted-foreground">{isDiaria ? `Diária ${sb.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/dia` : `Mensal ${sb.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} · {diasTrab}d {f.data_inicio ? `desde ${formatDateBR(f.data_inicio)}` : ""}</p>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="p-2 rounded-lg bg-muted/40"><span className="text-muted-foreground block">A receber</span><span className="font-bold">{totalDevido.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span></div>
                   <div className="p-2 rounded-lg bg-emerald-500/10"><span className="text-muted-foreground block">Já pago</span><span className="font-bold text-emerald-600">{totalPago.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span></div>
@@ -1425,7 +1409,7 @@ function HistoricoModal({
           ) : (
             <>
               <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
-                {datas.length} {datas.length === 1 ? "dia com registro" : "dias com registros"} · {lancamentos.length + caixaLancs.length} itens
+                {datas.length} {datas.length === 1 ? "dia com lançamento" : "dias com lançamento"}
               </p>
 
               <ul className="space-y-2">
