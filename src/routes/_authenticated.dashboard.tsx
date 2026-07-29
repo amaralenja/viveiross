@@ -16,6 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/hooks/use-auth";
 import { usePwConfig } from "@/lib/password-config";
 import { PasswordLock } from "@/components/PasswordLock";
+import { parseProdutoEmbalagem } from "@/lib/embalagem";
 
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -247,6 +248,7 @@ function Dashboard() {
   const [produto, setProduto] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
+  const [unidadeLancamento, setUnidadeLancamento] = useState("kg");
   const [tipoLancamento, setTipoLancamento] = useState("racao");
   const [editing, setEditing] = useState<Lanc | null>(null);
 
@@ -336,7 +338,7 @@ function Dashboard() {
         data_lancamento: data,
         produto_nome: produto.trim(),
         quantidade: q,
-        unidade: produtoSelecionado?.unidade ?? "kg",
+        unidade: unidadeLancamento,
         tipo: tipoLancamento,
         preco_unidade: unit,
         custo_total: total,
@@ -514,6 +516,7 @@ function Dashboard() {
                 if (id === "__manual__") {
                   setProdutoId("");
                   setProduto("");
+                  setUnidadeLancamento("kg");
                   return;
                 }
                 setProdutoId(id);
@@ -521,6 +524,12 @@ function Dashboard() {
                 if (p) {
                   setProduto(p.nome);
                   if (p.categoria) setTipoLancamento(p.categoria === "outro" ? "outro" : p.categoria);
+                  const emb = parseProdutoEmbalagem(p.unidade);
+                  if (emb.temEmbalagem && emb.tipoEmbalagem) {
+                    setUnidadeLancamento(emb.tipoEmbalagem);
+                  } else {
+                    setUnidadeLancamento(emb.unidadeBase || "kg");
+                  }
                 } else {
                   setProduto("");
                 }
@@ -584,7 +593,7 @@ function Dashboard() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-foreground block">Quantidade (kg)</label>
+              <label className="text-sm font-semibold text-foreground block">Quantidade ({unidadeLancamento})</label>
               <input
                 required
                 min="0.01"
