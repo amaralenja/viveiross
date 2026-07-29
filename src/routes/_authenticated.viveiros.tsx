@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays, Share2, Users } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
@@ -35,7 +35,6 @@ function ViveirosPage() {
   const [racaoViveiro, setRacaoViveiro] = useState<Viveiro | null>(null);
   const [historicoViveiro, setHistoricoViveiro] = useState<Viveiro | null>(null);
   const [editarViveiro, setEditarViveiro] = useState<Viveiro | null>(null);
-  const [funcViveiro, setFuncViveiro] = useState<Viveiro | null>(null);
 
   const { data: fazendas = [] } = useQuery({
     queryKey: ["fazendas"],
@@ -415,9 +414,13 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
-              <div className="mt-3 flex gap-2">
-                <button onClick={() => window.alert(`Funcionários de: ${v.nome}`)} className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20"><Users className="size-4" />Funcionários</button>
-                <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })} className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}><Power className="size-5" />{ativo ? "Desativar" : "Ativar"}</button>
+              <div className="mt-3">
+                <button
+                  onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })}
+                  className={`w-full h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
+                >
+                  <Power className="size-5" /> {ativo ? "Desativar" : "Ativar"}
+                </button>
               </div>
             </li>
             );
@@ -453,7 +456,11 @@ function ViveirosPage() {
       )}
 
       {historicoViveiro && (
-        <HistoricoModal viveiro={historicoViveiro} baseDate={historicoViveiro.data_povoamento ?? null} onClose={() => setHistoricoViveiro(null)} />
+        <HistoricoModal
+          viveiro={historicoViveiro}
+          baseDate={historicoViveiro.data_povoamento ?? null}
+          onClose={() => setHistoricoViveiro(null)}
+        />
       )}
 
       {editarViveiro && (
@@ -830,20 +837,8 @@ function LancarRacaoModal({
                   {qtd} × {precoSel.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </p>
               </div>
-  );
-}
-
-function FuncionariosViveiroModal({ viveiro, onClose }: { viveiro: Viveiro; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-card rounded-2xl p-6 max-w-sm w-full">
-        <h2 className="font-bold text-lg mb-2">Funcionários · {viveiro.nome}</h2>
-        <p className="text-sm text-muted-foreground mb-4">Funcionalidade em desenvolvimento.</p>
-        <button onClick={onClose} className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-semibold">Fechar</button>
-      </div>
-    </div>
-  );
-}
+            );
+          }
           return null;
         })()}
 
@@ -1305,7 +1300,7 @@ function HistoricoModal({
           ) : (
             <>
               <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
-                {datas.length} {datas.length === 1 ? "dia com lançamento" : "dias com lançamento"}
+                {datas.length} {datas.length === 1 ? "dia com registro" : "dias com registros"} · {lancamentos.length + caixaLancs.length} itens
               </p>
 
               <ul className="space-y-2">
