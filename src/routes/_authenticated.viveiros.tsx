@@ -914,7 +914,7 @@ function FuncionariosViveiroModal({
         nome: novoNome.trim(),
         salario: s,
         tipo_remuneracao: novoTipo,
-        viveiro_id: vivoiro.id,
+        viveiro_id: viveiro.id,
         data_inicio: novoDataInicio || null,
         ativo: true,
       });
