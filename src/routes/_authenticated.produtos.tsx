@@ -342,6 +342,19 @@ function ProdutosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const delConsumoMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+      qc.invalidateQueries({ queryKey: ["viveiros", "totais"] });
+      toast.success("Consumo removido");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const delDespMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("despesas_gerais").delete().eq("id", id);
@@ -547,6 +560,7 @@ function ProdutosPage() {
           onDelProduto={(p) => {
             if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
           }}
+          onDelConsumo={(id) => delConsumoMut.mutate(id)}
         />
 
 
@@ -842,6 +856,7 @@ function EstoqueView({
   onCadastrarProduto,
   onEditEntrada,
   onDelEntrada,
+  onDelConsumo,
   onEditProduto,
   onDelProduto,
 }: {
@@ -855,6 +870,7 @@ function EstoqueView({
   onCadastrarProduto: () => void;
   onEditEntrada: (e: EstoqueEntrada) => void;
   onDelEntrada: (e: EstoqueEntrada) => void;
+  onDelConsumo: (id: string) => void;
   onEditProduto: (p: Produto) => void;
   onDelProduto: (p: Produto) => void;
 }) {
@@ -1158,24 +1174,32 @@ function EstoqueView({
                           <p className="text-[11px] text-muted-foreground italic pl-8">Nenhum consumo.</p>
                         ) : (
                           <ul className="space-y-1.5 pl-8">
-                            {saidasProduto.map((c) => {
-                              const viv = (viveiros ?? []).find((v) => v?.id === c.viveiro_id);
-                              return (
-                                <li key={c.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-2 text-xs">
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-rose-600 truncate">
-                                      - {formatNumber(c.quantidade)} {c.unidade}
-                                      <span className="text-foreground/60 font-normal ml-1.5">
-                                        {viv ? viv.nome : "Geral"}
-                                      </span>
-                                    </p>
-                                    <p className="text-muted-foreground text-[10px]">
-                                      {formatDateSafe(c.data_lancamento)}
-                                    </p>
-                                  </div>
-                                </li>
-                              );
-                            })}
+                             {saidasProduto.map((c) => {
+                               const viv = (viveiros ?? []).find((v) => v?.id === c.viveiro_id);
+                               return (
+                                 <li key={c.id} className="p-2.5 rounded-xl bg-card border flex items-center justify-between gap-2 text-xs">
+                                   <div className="min-w-0">
+                                     <p className="font-bold text-rose-600 truncate">
+                                       - {formatNumber(c.quantidade)} {c.unidade}
+                                       <span className="text-foreground/60 font-normal ml-1.5">
+                                         {viv ? viv.nome : "Geral"}
+                                       </span>
+                                     </p>
+                                     <p className="text-muted-foreground text-[10px]">
+                                       {formatDateSafe(c.data_lancamento)}
+                                     </p>
+                                   </div>
+                                   <button
+                                     type="button"
+                                     onClick={() => { if (confirm("Remover este consumo?")) onDelConsumo(c.id); }}
+                                     className="size-7 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"
+                                     title="Remover consumo"
+                                   >
+                                     <Trash2 className="size-3.5" />
+                                   </button>
+                                 </li>
+                               );
+                             })}
                           </ul>
                         )}
                       </div>

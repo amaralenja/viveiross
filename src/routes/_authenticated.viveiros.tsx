@@ -60,28 +60,26 @@ function ViveirosPage() {
     },
   });
 
-  const { data: totaisPorViveiro = { porTipo: {}, custo: {} } } = useQuery({
+  const { data: totaisPorViveiro = { racao: {}, custo: {} } } = useQuery({
     queryKey: ["viveiros", "totais"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("viveiro_id, quantidade, tipo, custo_total, preco_unidade, produto_id, data_lancamento, produtos(preco_unidade)");
+        .select("viveiro_id, quantidade, custo_total, preco_unidade, data_lancamento, produtos(preco_unidade)")
+        .eq("tipo", "racao");
       if (error) throw error;
-      const porTipo: Record<string, Record<string, number>> = {};
+      const racao: Record<string, number> = {};
       const custo: Record<string, number> = {};
       for (const l of (data ?? []) as Array<{
         viveiro_id: string;
         quantidade: number | null;
-        tipo: string | null;
         custo_total: number | null;
         preco_unidade: number | null;
         data_lancamento: string | null;
         produtos: { preco_unidade: number | null } | { preco_unidade: number | null }[] | null;
       }>) {
         const qtd = Number(l.quantidade ?? 0);
-        const tipo = l.tipo || "racao";
-        if (!porTipo[l.viveiro_id]) porTipo[l.viveiro_id] = {};
-        porTipo[l.viveiro_id][tipo] = (porTipo[l.viveiro_id][tipo] ?? 0) + qtd;
+        racao[l.viveiro_id] = (racao[l.viveiro_id] ?? 0) + qtd;
         let valor: number | null = null;
         if (l.custo_total != null) {
           valor = Number(l.custo_total);
@@ -94,55 +92,12 @@ function ViveirosPage() {
           custo[l.viveiro_id] = (custo[l.viveiro_id] ?? 0) + valor;
         }
       }
-      return { porTipo, custo };
+      return { racao, custo };
     },
   });
 
-  const porTipoPorViveiro = totaisPorViveiro.porTipo ?? {};
+  const racaoPorViveiro = totaisPorViveiro.racao ?? {};
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
-
-  const racTotalPorViveiro = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const [vid, tipos] of Object.entries(porTipoPorViveiro)) {
-      map[vid] = Object.values(tipos).reduce((s, v) => s + v, 0);
-    }
-    return map;
-  }, [porTipoPorViveiro]);
-
-  const { data: caixaLancamentos = [] } = useQuery({
-    queryKey: ["viveiros", "caixa-lancamentos"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, tipo, observacao")
-        .order("data_lancamento", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Array<{
-        id: string;
-        viveiro_id: string | null;
-        data_lancamento: string;
-        descricao: string;
-        categoria: string | null;
-        valor: number;
-        tipo: string;
-        observacao: string | null;
-      }>;
-    },
-  });
-
-  const caixaPorViveiro = useMemo(() => {
-    const map: Record<string, number> = {};
-    const rateados = caixaLancamentos.filter((c) => !c.viveiro_id && c.categoria !== "nao_rateado" && c.tipo !== "receita");
-    const nAtivos = viveiros.length || 1;
-    const rateio = rateados.reduce((s, c) => s + Number(c.valor ?? 0), 0) / nAtivos;
-    for (const v of viveiros) {
-      const diretos = caixaLancamentos
-        .filter((c) => c.viveiro_id === v.id && c.tipo !== "receita")
-        .reduce((s, c) => s + Number(c.valor ?? 0), 0);
-      map[v.id] = diretos + rateio;
-    }
-    return map;
-  }, [caixaLancamentos, viveiros]);
 
   type BioItem = {
     id: string;
@@ -320,52 +275,19 @@ function ViveirosPage() {
                     <Pencil className="size-3.5" />
                   </span>
                 </button>
-                {(() => {
-                  const tipos = porTipoPorViveiro[v.id] ?? {};
-                  const total = racTotalPorViveiro[v.id] ?? 0;
-                  const labels: Record<string, string> = { racao: "🌾 Ração", probiotico: "🧪 Probiótico", medicamento: "💊 Medic.", fertilizante: "🌱 Fertiliz.", outro: "📦 Outro" };
-                  const entries = Object.entries(tipos).filter(([, qtd]) => qtd > 0);
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setHistoricoViveiro(v)}
-                      className="text-left relative group"
-                    >
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground block">Insumos</span>
-                        <span className="text-base font-bold block text-foreground">
-                          {total.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg
-                        </span>
-                        {entries.length > 0 && (
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                            {entries.slice(0, 3).map(([tipo, qtd]) => (
-                              <span key={tipo} className="font-medium">
-                                {labels[tipo] || tipo}: {qtd.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
-                              </span>
-                            ))}
-                            {entries.length > 3 && <span className="text-muted-foreground">+{entries.length - 3} mais</span>}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })()}
-                {(() => {
-                  const custoInsumos = custoPorViveiro[v.id] ?? 0;
-                  const custoCaixa = caixaPorViveiro[v.id] ?? 0;
-                  const totalGasto = custoInsumos + custoCaixa;
-                  return (
-                    <InfoBlock
-                      label="Gasto total"
-                      value={totalGasto.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                      hint={custoCaixa > 0 ? `insumos ${custoInsumos.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} + caixa ${custoCaixa.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}` : "insumos"}
-                      highlight
-                    />
-                  );
-                })()}
+                <InfoBlock
+                  label="Ração total"
+                  value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
+                  hint="kg"
+                />
+                <InfoBlock
+                  label="Gasto ração"
+                  value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                  highlight
+                />
               </div>
               {!v.data_povoamento && (
                 <div className="mt-3 p-3 rounded-xl border-2 border-amber-500/40 bg-amber-500/5">
@@ -400,7 +322,7 @@ function ViveirosPage() {
                 const vivos = Number(v.qtd_povoada) * sobrev;
                 const biomassaKg = (Number(ultima.peso_medio_g) * vivos) / 1000;
                 if (biomassaKg <= 0) return null;
-                const racaoKg = racTotalPorViveiro[v.id] ?? 0;
+                const racaoKg = racaoPorViveiro[v.id] ?? 0;
                 const fca = racaoKg > 0 ? racaoKg / biomassaKg : 0;
                 const fmt = (n: number, d = 2) =>
                   n.toLocaleString("pt-BR", { maximumFractionDigits: d });
@@ -1237,93 +1159,52 @@ function HistoricoModal({
     },
   });
 
-  const { data: caixaLancs = [] } = useQuery({
-    queryKey: ["caixa_lancamentos", "viveiro", viveiro.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("caixa_lancamentos")
-        .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, tipo, observacao")
-        .or(`viveiro_id.eq.${viveiro.id},viveiro_id.is.null`)
-        .order("data_lancamento", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Array<{
-        id: string;
-        viveiro_id: string | null;
-        data_lancamento: string;
-        descricao: string;
-        categoria: string | null;
-        valor: number;
-        tipo: string;
-        observacao: string | null;
-      }>;
-    },
-  });
-
   const totalDias = baseDate ? diasDeCultivo(baseDate) : 0;
 
   type Lanc = (typeof lancamentos)[number];
-  type CaixaLanc = (typeof caixaLancs)[number];
-  type ItemUnificado = { t: "lancamento"; d: Lanc } | { t: "caixa"; d: CaixaLanc; rateado: boolean };
-
-  const porData = new Map<string, ItemUnificado[]>();
+  const porData = new Map<string, Lanc[]>();
   for (const l of lancamentos) {
     if (!l.data_lancamento) continue;
     const arr = porData.get(l.data_lancamento) ?? [];
-    arr.push({ t: "lancamento", d: l });
+    arr.push(l);
     porData.set(l.data_lancamento, arr);
-  }
-  for (const c of caixaLancs) {
-    const d = c.data_lancamento;
-    if (!d) continue;
-    const arr = porData.get(d) ?? [];
-    arr.push({ t: "caixa", d: c, rateado: c.viveiro_id !== viveiro.id });
-    porData.set(d, arr);
   }
   const datas = Array.from(porData.keys()).sort((a, b) => (a < b ? 1 : -1));
 
-  function insumoKgDoDia(date: string): number {
+  function racaoKgDoDia(date: string): number {
     return (porData.get(date) ?? [])
-      .filter((i): i is { t: "lancamento"; d: Lanc } => i.t === "lancamento")
-      .reduce((s, i) => s + Number(i.d.quantidade ?? 0), 0);
+      .filter((i) => i.tipo === "racao")
+      .reduce((s, i) => s + Number(i.quantidade ?? 0), 0);
   }
-  function custoDiaTotal(date: string): number {
-    return (porData.get(date) ?? []).reduce((s, i) => {
-      if (i.t === "lancamento") return s + Number(i.d.custo_total ?? 0);
-      if (i.t === "caixa" && i.d.tipo !== "receita") return s + Number(i.d.valor ?? 0);
-      return s;
-    }, 0);
+  function custoDia(date: string): number {
+    return (porData.get(date) ?? []).reduce((s, i) => s + Number(i.custo_total ?? 0), 0);
   }
   const hojeStr = todayLocal();
   const ontemDate = new Date();
   ontemDate.setDate(ontemDate.getDate() - 1);
   const ontemStr = `${ontemDate.getFullYear()}-${String(ontemDate.getMonth() + 1).padStart(2, "0")}-${String(ontemDate.getDate()).padStart(2, "0")}`;
-  const kgHoje = insumoKgDoDia(hojeStr);
-  const kgOntem = insumoKgDoDia(ontemStr);
+  const kgHoje = racaoKgDoDia(hojeStr);
+  const kgOntem = racaoKgDoDia(ontemStr);
   const diffKg = kgHoje - kgOntem;
   const diffPct = kgOntem > 0 ? (diffKg / kgOntem) * 100 : null;
   const fmtKg = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
   function buildShareText(): string {
     const linhas: string[] = [];
-    linhas.push(`*${viveiro.nome}* — Histórico completo`);
+    linhas.push(`*${viveiro.nome}* — Lançamentos de ração`);
     if (baseDate) linhas.push(`DOC atual: ${totalDias} dias (desde ${formatDateBR(baseDate)})`);
     linhas.push("");
     for (const d of datas) {
       const itens = porData.get(d)!;
-      const totalKg = insumoKgDoDia(d);
-      const totalCusto = custoDiaTotal(d);
+      const totalKg = racaoKgDoDia(d);
+      const totalCusto = custoDia(d);
       const doc = baseDate ? ` (DOC ${diasDeCultivo(d)})` : "";
       linhas.push(`📅 *${formatDateBR(d)}*${doc}`);
       for (const i of itens) {
-        if (i.t === "lancamento") {
-          linhas.push(`  • 🌾 ${i.d.produto_nome}: ${fmtKg(Number(i.d.quantidade ?? 0))} ${i.d.unidade}`);
-        } else {
-          const prefix = i.d.tipo === "receita" ? "+" : "-";
-          linhas.push(`  • 💰 ${prefix} ${i.d.descricao}: ${Number(i.d.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${i.rateado ? " (rateado)" : ""}`);
-        }
+        linhas.push(`  • ${i.produto_nome}: ${fmtKg(Number(i.quantidade ?? 0))} ${i.unidade}`);
       }
-      if (totalKg > 0) linhas.push(`  → Insumos: ${fmtKg(totalKg)} kg`);
-      if (totalCusto > 0) linhas.push(`  → Custo total: ${totalCusto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
+      if (totalKg > 0) linhas.push(`  → Ração: ${fmtKg(totalKg)} kg`);
+      if (totalCusto > 0) linhas.push(`  → Custo: ${totalCusto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
       linhas.push("");
     }
     return linhas.join("\n").trim();
@@ -1377,7 +1258,7 @@ function HistoricoModal({
           {!isLoading && (kgHoje > 0 || kgOntem > 0) && (
             <div className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4">
               <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
-                Insumos — hoje x ontem
+                Ração — hoje x ontem
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-background/60 p-3">
@@ -1413,7 +1294,7 @@ function HistoricoModal({
               <CalendarDays className="size-12 mx-auto text-muted-foreground" />
               <p className="mt-3 font-semibold">Nenhum lançamento ainda</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Todos os lançamentos e despesas do viveiro aparecem aqui.
+                Lançamentos de ração deste viveiro.
               </p>
             </div>
           ) : (
@@ -1425,8 +1306,8 @@ function HistoricoModal({
               <ul className="space-y-2">
                 {datas.map((d) => {
                   const itens = porData.get(d)!;
-                  const totalKg = insumoKgDoDia(d);
-                  const totalCusto = custoDiaTotal(d);
+                  const totalKg = racaoKgDoDia(d);
+                  const totalCusto = custoDia(d);
                   const diaCultivo = baseDate ? diasDeCultivo(d) : null;
                   return (
                     <li key={d} className="p-3 rounded-xl border bg-muted/30">
@@ -1454,32 +1335,14 @@ function HistoricoModal({
                         </div>
                       </div>
                       <ul className="mt-2 space-y-1">
-                        {itens.map((item) => {
-                          if (item.t === "lancamento") {
-                            const i = item.d;
-                            const tipoEmoji = i.tipo === "racao" ? "🌾" : i.tipo === "probiotico" ? "🧪" : i.tipo === "medicamento" ? "💊" : i.tipo === "fertilizante" ? "🌱" : "📦";
-                            return (
-                              <li key={i.id} className="text-xs text-muted-foreground flex justify-between gap-2">
-                                <span className="truncate">{tipoEmoji} {i.produto_nome}</span>
-                                <span className="shrink-0">
-                                  {Number(i.quantidade ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {i.unidade}
-                                </span>
-                              </li>
-                            );
-                          } else {
-                            const i = item.d;
-                            const prefixo = item.rateado ? "🔄" : "💰";
-                            const sinal = i.tipo === "receita" ? "+" : "-";
-                            return (
-                              <li key={i.id} className="text-xs text-muted-foreground flex justify-between gap-2">
-                                <span className="truncate">{prefixo} {i.descricao}{item.rateado ? " (rateado)" : ""}</span>
-                                <span className={`shrink-0 font-semibold ${i.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}>
-                                  {sinal} {Number(i.valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                </span>
-                              </li>
-                            );
-                          }
-                        })}
+                        {itens.map((i) => (
+                          <li key={i.id} className="text-xs text-muted-foreground flex justify-between gap-2">
+                            <span className="truncate">{i.produto_nome}</span>
+                            <span className="shrink-0">
+                              {Number(i.quantidade ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {i.unidade}
+                            </span>
+                          </li>
+                        ))}
                       </ul>
                     </li>
                   );
