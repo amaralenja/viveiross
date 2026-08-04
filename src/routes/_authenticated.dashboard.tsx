@@ -1064,171 +1064,110 @@ function ymd(d: Date) {
 }
 
 function RacaoHojeOntem() {
+  const qc = useQueryClient();
   const hoje = todayLocal();
-  const ontemPadrao = new Date();
-  ontemPadrao.setDate(ontemPadrao.getDate() - 1);
-  const [comparacaoDate, setComparacaoDate] = useState<Date>(ontemPadrao);
+  const d1 = new Date(); d1.setDate(d1.getDate() - 1); const ontem = ymd(d1);
+  const d2 = new Date(); d2.setDate(d2.getDate() - 2); const anteontem = ymd(d2);
+  const [comparacaoDate, setComparacaoDate] = useState<Date>(d1);
   const comparacaoStr = ymd(comparacaoDate);
   const [calOpen, setCalOpen] = useState(false);
   const hojeDate = new Date();
 
+  const datas = [hoje, ontem, anteontem];
+  const labels = ["Hoje", "Ontem", "Anteontem"];
+
   const { data: linhas = [] } = useQuery({
-    queryKey: ["dashboard", "racao-hoje-ontem", hoje, comparacaoStr],
+    queryKey: ["dashboard", "racao-hoje-ontem", hoje, anteontem],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("viveiro_id, quantidade, data_lancamento, viveiros(nome)")
-        .in("data_lancamento", [hoje, comparacaoStr]);
+        .select("id, viveiro_id, quantidade, data_lancamento, produto_nome, unidade, custo_total, viveiros(nome)")
+        .in("data_lancamento", [hoje, ontem, anteontem]);
       if (error) throw error;
-      return (data ?? []) as Array<{
-        viveiro_id: string;
-        quantidade: number | null;
-        data_lancamento: string;
-        viveiros: { nome: string } | { nome: string }[] | null;
-      }>;
+      return (data ?? []) as Array<{ id: string; viveiro_id: string; quantidade: number | null; data_lancamento: string; produto_nome: string; unidade: string; custo_total: number | null; viveiros: { nome: string } | { nome: string }[] | null }>;
     },
   });
 
+  const delMut = useMutation({
+    mutationFn: async (id: string) => { await supabase.from("lancamentos").delete().eq("id", id); },
+    onSuccess: () => { toast.success("Removido"); qc.invalidateQueries({ queryKey: ["dashboard"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const stats = useMemo(() => {
-    const map = new Map<string, { nome: string; hoje: number; comparacao: number }>();
-    let totalHoje = 0;
-    let totalComparacao = 0;
+    const map = new Map<string, { nome: string; d0: number; d1: number; d2: number }>();
+    const totals = [0, 0, 0];
     for (const l of linhas) {
       const nome = relName(l.viveiros) || "Sem viveiro";
-      const cur = map.get(l.viveiro_id) ?? { nome, hoje: 0, comparacao: 0 };
+      const cur = map.get(l.viveiro_id) ?? { nome, d0: 0, d1: 0, d2: 0 };
       const q = Number(l.quantidade ?? 0);
-      if (l.data_lancamento === hoje) {
-        cur.hoje += q;
-        totalHoje += q;
-      } else if (l.data_lancamento === comparacaoStr) {
-        cur.comparacao += q;
-        totalComparacao += q;
-      }
+      const idx = datas.indexOf(l.data_lancamento);
+      if (idx >= 0) { if (idx === 0) cur.d0 += q; else if (idx === 1) cur.d1 += q; else cur.d2 += q; totals[idx] += q; }
       map.set(l.viveiro_id, cur);
     }
-    const porViveiro = sortByViveiroNome(Array.from(map.values()), (v) => v.nome);
-    return { totalHoje, totalComparacao, porViveiro };
-  }, [linhas, hoje, comparacaoStr]);
+    return { totals, porViveiro: sortByViveiroNome(Array.from(map.values()), v => v.nome) };
+  }, [linhas]);
 
-  if (stats.totalHoje === 0 && stats.totalComparacao === 0) return null;
+  if (stats.totals[0] === 0 && stats.totals[1] === 0 && stats.totals[2] === 0) return null;
 
-  const diff = stats.totalHoje - stats.totalComparacao;
-  const pct = stats.totalComparacao > 0 ? (diff / stats.totalComparacao) * 100 : null;
   const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
-  const labelComparacao = comparacaoStr === ymd(ontemPadrao) ? "Ontem" : format(comparacaoDate, "dd/MM");
 
   return (
-    <section className="rounded-2xl border bg-card p-4 space-y-3.5 shadow-sm">
+    <section className="rounded-2xl border bg-card p-4 space-y-3 shadow-sm">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-            <Scale className="size-4" />
-          </div>
-          <h2 className="text-sm font-bold text-foreground">
-            Comparativo: {comparacaoStr === ymd(ontemPadrao) ? "Ontem" : format(comparacaoDate, "dd/MM/yyyy")} x Hoje
-          </h2>
+          <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Scale className="size-4" /></div>
+          <h2 className="text-sm font-bold text-foreground">Comparativo — Últimos 3 Dias</h2>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Popover open={calOpen} onOpenChange={setCalOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 rounded-xl border bg-background px-3 text-xs font-semibold shadow-xs hover:bg-muted transition active:scale-95"
-              >
-                <CalendarIcon className="size-3.5 text-muted-foreground" />
-                {comparacaoStr === ymd(ontemPadrao)
-                  ? "Mudar data"
-                  : format(comparacaoDate, "dd/MM/yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={comparacaoDate}
-                onSelect={(d) => {
-                  if (d) {
-                    setComparacaoDate(d);
-                    setCalOpen(false);
-                  }
-                }}
-                disabled={(d) => d > hojeDate}
-                locale={ptBR}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-
-          <span
-            className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
-              diff > 0
-                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                : diff < 0
-                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                  : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {diff > 0 ? <TrendingUp className="size-3.5" /> : diff < 0 ? <TrendingDown className="size-3.5" /> : null}
-            {diff > 0 ? "+" : ""}
-            {fmt(diff)} kg
-            {pct !== null && (
-              <> ({diff > 0 ? "+" : ""}{pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)</>
-            )}
-          </span>
-        </div>
+        <Popover open={calOpen} onOpenChange={setCalOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-xl border bg-background px-3 text-xs font-semibold"><CalendarIcon className="size-3.5 text-muted-foreground" />{format(comparacaoDate, "dd/MM/yyyy")}</Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar mode="single" selected={comparacaoDate} onSelect={(d) => { if (d) { setComparacaoDate(d); setCalOpen(false); } }} disabled={(d) => d > hojeDate} locale={ptBR} initialFocus />
+          </PopoverContent>
+        </Popover>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-muted/40 p-3 border">
-          <span className="text-[11px] font-semibold uppercase text-muted-foreground block">
-            {labelComparacao}
-          </span>
-          <span className="text-xl font-bold text-foreground tabular-nums">{fmt(stats.totalComparacao)} kg</span>
-        </div>
-        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
-          <span className="text-[11px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 block">Hoje</span>
-          <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{fmt(stats.totalHoje)} kg</span>
-        </div>
+      <div className="grid grid-cols-3 gap-2">
+        {labels.map((label, i) => {
+          const color = i === 0 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : i === 1 ? "bg-muted/40 border" : "bg-muted/30 border";
+          return (
+            <div key={label} className={`rounded-xl p-2.5 ${color}`}>
+              <span className="text-[10px] font-bold uppercase block">{label}</span>
+              <span className="text-lg font-black tabular-nums">{fmt(stats.totals[i])} kg</span>
+            </div>
+          );
+        })}
       </div>
 
       {stats.porViveiro.length > 0 && (
         <div className="space-y-1.5 pt-1 border-t">
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Por Viveiro</p>
-          <div className="space-y-1.5">
-            {stats.porViveiro.map((v) => {
-              const d = v.hoje - v.comparacao;
-              return (
-                <div
-                  key={v.nome}
-                  className="flex items-center justify-between text-xs rounded-xl bg-muted/30 p-2.5 border gap-2"
-                >
-                  <span className="font-semibold text-foreground truncate">{v.nome}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-muted-foreground font-medium">
-                      {labelComparacao}: <span className="text-foreground font-semibold">{fmt(v.comparacao)}</span> kg
-                    </span>
-                    <ArrowRight className="size-3 text-muted-foreground" />
-                    <span className="font-bold text-foreground">
-                      Hoje: <span className="text-emerald-600">{fmt(v.hoje)}</span> kg
-                    </span>
-                    <span
-                      className={`font-bold tabular-nums ml-1 px-1.5 py-0.5 rounded text-[10px] ${
-                        d > 0
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : d < 0
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                            : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {d > 0 ? "+" : ""}
-                      {fmt(d)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {stats.porViveiro.map((v) => (
+            <div key={v.nome} className="flex items-center justify-between text-xs rounded-xl bg-muted/30 p-2.5 border gap-1">
+              <span className="font-semibold text-foreground truncate min-w-0 flex-1">{v.nome}</span>
+              <span className="text-muted-foreground shrink-0">{fmt(v.d2)}</span>
+              <ArrowRight className="size-3 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground shrink-0">{fmt(v.d1)}</span>
+              <ArrowRight className="size-3 text-muted-foreground shrink-0" />
+              <span className="font-bold text-emerald-600 shrink-0">{fmt(v.d0)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {linhas.length > 0 && (
+        <div className="space-y-1 pt-1 border-t">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Últimos Lançamentos</p>
+          {linhas.slice(0, 10).map((l) => (
+            <div key={l.id} className="flex items-center justify-between text-xs rounded bg-muted/20 p-1.5 gap-1">
+              <span className="text-muted-foreground shrink-0 w-16">{format(new Date(l.data_lancamento + "T00:00:00"), "dd/MM")}</span>
+              <span className="font-medium truncate min-w-0 flex-1">{relName(l.viveiros)} · {l.produto_nome}</span>
+              <span className="font-semibold shrink-0">{fmt(Number(l.quantidade ?? 0))} {l.unidade}</span>
+              <Button size="icon" variant="ghost" className="size-6 shrink-0" onClick={() => { if (confirm("Apagar este lançamento?")) delMut.mutate(l.id); }} title="Apagar"><Trash2 className="size-3" /></Button>
+            </div>
+          ))}
         </div>
       )}
     </section>
