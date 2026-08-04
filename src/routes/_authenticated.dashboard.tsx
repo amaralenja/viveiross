@@ -351,7 +351,7 @@ function Dashboard() {
           unidade: unidadeLancamento,
           tipo: tipoLancamento,
           preco_unidade: unit,
-          custo_total: total,
+          custo_total: total ?? 0,
         });
         if (error) throw error;
       }
