@@ -1785,18 +1785,21 @@ function EntradaEstoqueModal({
             />
           </Field>
           <Field label="Unidade">
-            {selectedEmb.temEmbalagem ? (
-              <select
-                value={unidade}
-                onChange={(e) => setUnidade(e.target.value)}
-                className="app-input font-bold text-primary"
-              >
+            <select
+              value={unidade}
+              onChange={(e) => setUnidade(e.target.value)}
+              className="app-input font-bold text-primary"
+            >
+              {selectedEmb.temEmbalagem && (
                 <option value={selectedEmb.tipoEmbalagem}>{selectedEmb.tipoEmbalagem} ({selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase})</option>
-                <option value={selectedEmb.unidadeBase}>{selectedEmb.unidadeBase} (unidade base)</option>
-              </select>
-            ) : (
-              <UnidadeSelect value={unidade} onChange={setUnidade} />
-            )}
+              )}
+              {selectedEmb.temEmbalagem && selectedEmb.unidadeBase === "kg" && <option value="g">g (gramas)</option>}
+              {selectedEmb.temEmbalagem && selectedEmb.unidadeBase === "litro" && <option value="ml">ml (mililitros)</option>}
+              <option value={selectedEmb.temEmbalagem ? selectedEmb.unidadeBase : (unidade || "kg")}>{selectedEmb.temEmbalagem ? `${selectedEmb.unidadeBase} (unidade base)` : (unidade || "kg")}</option>
+              <option value="saco">saco</option>
+              <option value="litro">litro</option>
+              <option value="un">unidade</option>
+            </select>
           </Field>
         </div>
 
