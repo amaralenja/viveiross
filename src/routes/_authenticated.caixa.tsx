@@ -1181,7 +1181,7 @@ function CaixaPage() {
           <Field label="Viveiro">
             <div className="space-y-2">
               <select
-                value={selectedViveiros.size > 0 ? "__multi__" : viveiroId}
+                value={selectedViveiros.size > 0 ? "" : viveiroId}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === "__multi__") return;

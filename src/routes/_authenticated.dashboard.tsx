@@ -506,7 +506,7 @@ function Dashboard() {
             <label className="text-sm font-semibold text-foreground block">Viveiro(s)</label>
             <select
               required
-              value={selectedViveiros.size > 0 ? "__multi__" : viveiroId}
+              value={selectedViveiros.size > 0 ? "" : viveiroId}
               onChange={(e) => {
                 const v = e.target.value;
                 if (v === "__multi__") { setViveiroId("__multi__"); return; }
@@ -570,15 +570,9 @@ function Dashboard() {
           <div className="space-y-1.5">
             <label className="text-sm font-semibold text-foreground block">Insumo / Produto</label>
             <select
-              value={produtoId || (produto ? "__manual__" : "")}
+              value={produtoId}
               onChange={(e) => {
                 const id = e.target.value;
-                if (id === "__manual__") {
-                  setProdutoId("");
-                  setProduto("");
-                  setUnidadeLancamento("kg");
-                  return;
-                }
                 setProdutoId(id);
                 const p = produtosList.find((x) => x.id === id);
                 if (p) {
@@ -604,25 +598,8 @@ function Dashboard() {
                   {p.preco_unidade != null ? ` — R$ ${Number(p.preco_unidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/kg` : ""}
                 </option>
               ))}
-              <option value="__manual__">✏️ Outro (digitar nome)</option>
             </select>
           </div>
-
-          {!produtoId && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-foreground block">Nome da Ração</label>
-              <input
-                required
-                value={produto}
-                onChange={(e) => {
-                  setProduto(e.target.value);
-                  setProdutoId("");
-                }}
-                className="app-input h-12"
-                placeholder="Ex: Ração 40%"
-              />
-            </div>
-          )}
 
           <div className="space-y-2">
             <label className="text-sm font-semibold text-foreground block">Tipo do Insumo</label>
