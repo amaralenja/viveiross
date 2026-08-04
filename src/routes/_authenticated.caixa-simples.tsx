@@ -1778,6 +1778,29 @@ function CaixaSimplesPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">💰 Contas a Receber</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {contasReceber.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma conta a receber. Crie acima em "Contas a receber".</p>
+          ) : (
+            <div className="space-y-3">
+              {contasReceber.filter(c => !c.pago).length > 0 && (<div><h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Pendentes</h3><ul className="space-y-3">
+                {contasReceber.filter(c => !c.pago).map((c) => {
+                  const info = getContaFinancialInfo(c);
+                  return (<li key={c.id} className="border rounded-xl p-3.5 space-y-2 bg-card/60"><div className="flex items-start gap-2"><div className="min-w-0 flex-1"><span className="font-semibold text-base truncate">{c.descricao}</span><div className="flex items-center gap-4 text-sm mt-1.5"><div><span className="text-xs text-muted-foreground block">A receber</span><span className="font-bold text-emerald-600 text-base">{brl(info.valorRestante)}</span></div></div><div className="text-xs text-muted-foreground mt-1">Vence {fmtDate(c.data_vencimento)}{c.viveiro_id && viveiroMap.get(c.viveiro_id) ? ` · ${viveiroMap.get(c.viveiro_id)}` : ""}</div></div><div className="flex items-center gap-1.5"><Button size="sm" variant="default" onClick={() => pagarContaMut.mutate(c)}><Check className="size-4 mr-1" /> Receber</Button><Button size="sm" variant="outline" onClick={() => openPagarParcial(c)} className="text-primary border-primary/30"><Receipt className="size-4 mr-1" /> Parcial</Button><Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}><Pencil className="size-4" /></Button><Button size="icon" variant="ghost" onClick={() => { if (confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-4" /></Button></div></div></li>);
+                })}
+              </ul></div>)}
+              {contasReceber.filter(c => c.pago).length > 0 && (<div><h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Recebidas</h3><ul className="space-y-2">
+                {contasReceber.filter(c => c.pago).map((c) => (<li key={c.id} className="border rounded-xl p-2.5 bg-card/40"><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-emerald-600">✓ {brl(Number(c.valor))}</span><span className="text-sm truncate line-through">{c.descricao}</span><Button size="icon" variant="ghost" className="size-7" onClick={() => { if (confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-3.5" /></Button></div></li>))}
+              </ul></div>)}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
             <span className="flex items-center gap-2">
               <Users className="size-5 text-primary" /> Pagamentos e Vales de Funcionários
