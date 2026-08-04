@@ -243,6 +243,7 @@ function Dashboard() {
   const qc = useQueryClient();
 
   const [viveiroId, setViveiroId] = useState("");
+  const [selectedViveiros, setSelectedViveiros] = useState<Set<string>>(new Set());
   const [data, setData] = useState(todayLocal());
   const [produtoId, setProdutoId] = useState("");
   const [produto, setProduto] = useState("");
@@ -274,7 +275,6 @@ function Dashboard() {
         .select("id, nome, unidade, preco_unidade")
         .order("nome");
       if (error) throw error;
-      console.log("[Dashboard] produtos carregados:", (data ?? []).length);
       return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
     },
   });
@@ -314,7 +314,7 @@ function Dashboard() {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Sessão expirada.");
-      if (!viveiroId) throw new Error("Escolha um viveiro.");
+      if (!viveiroId && selectedViveiros.size === 0) throw new Error("Escolha um viveiro.");
       if (!produto.trim()) throw new Error("Informe o nome da ração.");
       const q = Number(quantidade.replace(",", "."));
       if (!q || q <= 0) throw new Error("Informe a quantidade.");
@@ -337,19 +337,22 @@ function Dashboard() {
         if (found) linkedProdutoId = found.id;
       }
 
-      const { error } = await supabase.from("lancamentos").insert({
-        user_id: userId,
-        viveiro_id: viveiroId,
-        produto_id: linkedProdutoId,
-        data_lancamento: data,
-        produto_nome: produto.trim(),
-        quantidade: q,
-        unidade: unidadeLancamento,
-        tipo: tipoLancamento,
-        preco_unidade: unit,
-        custo_total: total,
-      });
-      if (error) throw error;
+      const targets = selectedViveiros.size > 0 ? Array.from(selectedViveiros) : [viveiroId];
+      for (const targetId of targets) {
+        const { error } = await supabase.from("lancamentos").insert({
+          user_id: userId,
+          viveiro_id: targetId,
+          produto_id: linkedProdutoId,
+          data_lancamento: data,
+          produto_nome: produto.trim(),
+          quantidade: q,
+          unidade: unidadeLancamento,
+          tipo: tipoLancamento,
+          preco_unidade: unit,
+          custo_total: total,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Lançamento salvo");
@@ -357,6 +360,7 @@ function Dashboard() {
       setProduto("");
       setQuantidade("");
       setValor("");
+      setSelectedViveiros(new Set());
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
       qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
@@ -497,20 +501,68 @@ function Dashboard() {
           className="space-y-4 rounded-2xl bg-card border p-5 shadow-sm"
         >
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-foreground block">Viveiro</label>
+            <label className="text-sm font-semibold text-foreground block">Viveiro(s)</label>
             <select
               required
-              value={viveiroId}
-              onChange={(e) => setViveiroId(e.target.value)}
+              value={selectedViveiros.size > 0 ? "__multi__" : viveiroId}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "__multi__") return;
+                setViveiroId(v);
+                setSelectedViveiros(new Set());
+              }}
               className="app-input text-base h-12 font-medium"
             >
               <option value="">Selecione o viveiro...</option>
-              {viveiros.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nome}
-                </option>
-              ))}
+              {viveiros.map((v) => {
+                const sel = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
+                return (
+                  <option key={v.id} value={v.id}>
+                    {sel ? "✓ " : "  "}{v.nome}
+                  </option>
+                );
+              })}
+              <option value="__multi__" disabled>──────────</option>
+              <option value="__multi__">📋 Selecionar vários</option>
             </select>
+            {selectedViveiros.size > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {Array.from(selectedViveiros).map((id) => {
+                  const v = viveiros.find((x) => x.id === id);
+                  return (
+                    <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold">
+                      {v?.nome ?? id}
+                      <button type="button" onClick={() => {
+                        const n = new Set(selectedViveiros); n.delete(id);
+                        setSelectedViveiros(n); if (n.size === 0) setViveiroId("");
+                      }} className="text-primary/60 hover:text-primary">×</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <div className={`grid grid-cols-2 gap-1.5 ${viveiroId === "__multi__" && selectedViveiros.size === 0 ? "" : selectedViveiros.size > 0 ? "" : "hidden"}`}>
+              {viveiros.map((v) => {
+                const isSelected = selectedViveiros.has(v.id);
+                return (
+                  <button key={v.id} type="button" onClick={() => {
+                    setViveiroId("__multi__");
+                    const n = new Set(selectedViveiros);
+                    if (n.has(v.id)) { n.delete(v.id); } else {
+                      if (n.size === 0 && viveiroId !== "" && viveiroId !== v.id) n.add(viveiroId);
+                      n.add(v.id);
+                    }
+                    if (n.size === 0) setViveiroId("");
+                    setSelectedViveiros(n);
+                  }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold transition text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                    {isSelected ? "✓ " : ""}{v.nome}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedViveiros.size > 0 && (
+              <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiro(s) — será criado 1 lançamento por viveiro</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
