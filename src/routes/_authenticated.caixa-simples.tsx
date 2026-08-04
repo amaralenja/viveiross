@@ -562,6 +562,46 @@ function CaixaSimplesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const removeFuncMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("funcionarios").update({ ativo: false }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Funcionário removido");
+      qc.invalidateQueries({ queryKey: ["funcionarios"] });
+      qc.invalidateQueries({ queryKey: ["funcionarios", "ativos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [editingFunc, setEditingFunc] = useState<{ id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null } | null>(null);
+  const [editFuncNome, setEditFuncNome] = useState("");
+  const [editFuncSalario, setEditFuncSalario] = useState("");
+  const [editFuncTipo, setEditFuncTipo] = useState<"mensal" | "diaria">("mensal");
+  const [editFuncViveiroId, setEditFuncViveiroId] = useState<string>(TODOS);
+
+  const updateFuncMut = useMutation({
+    mutationFn: async () => {
+      if (!editingFunc) return;
+      const s = Number(editFuncSalario.replace(",", "."));
+      if (!editFuncNome.trim() || isNaN(s) || s <= 0) throw new Error("Preencha nome e salário");
+      const vid = editFuncViveiroId === TODOS ? null : (editFuncViveiroId === INTERNO ? null : editFuncViveiroId);
+      const { error } = await supabase.from("funcionarios").update({
+        nome: editFuncNome.trim(), salario: s,
+        tipo_remuneracao: editFuncTipo, viveiro_id: vid || null,
+      }).eq("id", editingFunc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Funcionário atualizado!");
+      setEditingFunc(null);
+      qc.invalidateQueries({ queryKey: ["funcionarios"] });
+      qc.invalidateQueries({ queryKey: ["funcionarios", "ativos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const valesPorFuncionario = useMemo(() => {
     const groups = new Map<string, { nome: string; total: number; itens: typeof vales }>();
     for (const v of vales) {
@@ -1869,6 +1909,8 @@ function CaixaSimplesPage() {
                         >
                           <FileDown className="size-4 mr-1" /> PDF
                         </Button>
+                        <Button size="icon" variant="ghost" className="size-8" onClick={() => { setEditingFunc(f); setEditFuncNome(f.nome); setEditFuncSalario(f.salario != null ? String(f.salario) : ""); setEditFuncTipo(f.tipo_remuneracao === "diaria" ? "diaria" : "mensal"); setEditFuncViveiroId(f.viveiro_id || TODOS); }} title="Editar"><Pencil className="size-4" /></Button>
+                        <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Tem certeza que deseja apagar "${f.nome}"?`)) removeFuncMut.mutate(f.id); }} title="Remover"><Trash2 className="size-4" /></Button>
                       </div>
                     </div>
 
@@ -2008,6 +2050,21 @@ function CaixaSimplesPage() {
         onReverter={(c) => reverterDividaMut.mutate(c)}
         saving={updateContaMut.isPending}
       />
+
+      <Dialog open={!!editingFunc} onOpenChange={(open) => { if (!open) setEditingFunc(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Funcionário</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Nome</Label><Input value={editFuncNome} onChange={e => setEditFuncNome(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label>Salário (R$)</Label><Input inputMode="decimal" value={editFuncSalario} onChange={e => setEditFuncSalario(e.target.value.replace(/[^0-9.,]/g,""))} /></div>
+              <div><Label>Tipo</Label><Select value={editFuncTipo} onValueChange={v => setEditFuncTipo(v as "mensal"|"diaria")}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="mensal">Mensal</SelectItem><SelectItem value="diaria">Diária</SelectItem></SelectContent></Select></div>
+            </div>
+            <div><Label>Alocação</Label><Select value={editFuncViveiroId} onValueChange={setEditFuncViveiroId}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value={TODOS}>🔄 Rateado entre todos</SelectItem><SelectItem value={INTERNO}>🏢 Nenhum viveiro</SelectItem>{viveiros.map(v => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}</SelectContent></Select></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setEditingFunc(null)}>Cancelar</Button><Button disabled={updateFuncMut.isPending} onClick={() => updateFuncMut.mutate()}>{updateFuncMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!payingParcialConta} onOpenChange={(open) => { if (!open) setPayingParcialConta(null); }}>
         <DialogContent className="max-w-md">
