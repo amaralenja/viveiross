@@ -675,7 +675,7 @@ function CaixaPage() {
           user_id: userId,
           viveiro_id: (viveiroId === TODOS || isNR) ? null : targetId,
           data_lancamento: data,
-          descricao: descricao.trim() + (isMulti ? ` (1/${targets.length})` : ""),
+          descricao: descricao.trim(),
           categoria: isNR ? NR_CAT : (categoria.trim() || (tipo === "receita" ? "venda" : "geral")),
           valor: valorPorViveiro,
           tipo,
