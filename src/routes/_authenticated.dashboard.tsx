@@ -502,56 +502,32 @@ function Dashboard() {
           }}
           className="space-y-4 rounded-2xl bg-card border p-5 shadow-sm"
         >
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label className="text-sm font-semibold text-foreground block">Viveiro(s)</label>
-            <select
-              required
-              value={selectedViveiros.size > 0 ? "" : viveiroId}
-              onChange={(e) => {
-                const v = e.target.value;
-                setViveiroId(v);
-                setSelectedViveiros(new Set());
-              }}
-              className="app-input text-base h-12 font-medium"
-            >
-              <option value="">Selecione o viveiro...</option>
-              {viveiros.map((v) => (
-                <option key={v.id} value={v.id}>{v.nome}</option>
-              ))}
-            </select>
-            {selectedViveiros.size > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {Array.from(selectedViveiros).map((id) => {
-                  const v = viveiros.find((x) => x.id === id);
-                  return (
-                    <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold">
-                      {v?.nome ?? id}
-                      <button type="button" onClick={() => { const n = new Set(selectedViveiros); n.delete(id); setSelectedViveiros(n); if (n.size === 0) setViveiroId(""); }} className="text-primary/60 hover:text-primary">×</button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-1.5 mt-2">
+            <div className="grid grid-cols-2 gap-1.5">
               {viveiros.map((v) => {
                 const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
                 return (
                   <button key={v.id} type="button" onClick={() => {
                     const n = new Set(selectedViveiros);
-                    if (n.has(v.id)) { n.delete(v.id); } else {
-                      if (n.size === 0 && viveiroId !== "" && viveiroId !== v.id) n.add(viveiroId);
+                    if (n.has(v.id)) {
+                      n.delete(v.id);
+                      if (n.size === 0) setViveiroId("");
+                    } else {
+                      if (n.size === 0 && viveiroId && viveiroId !== v.id) n.add(viveiroId);
                       n.add(v.id);
                     }
-                    if (n.size === 0) setViveiroId("");
                     setSelectedViveiros(n);
-                  }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                    if (n.size === 1) setViveiroId(Array.from(n)[0]);
+                    if (n.size === 0) setViveiroId("");
+                  }} className={`py-2 px-3 rounded-xl border text-sm font-semibold text-left truncate transition active:scale-95 ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
                     {isSelected ? "✓ " : ""}{v.nome}
                   </button>
                 );
               })}
             </div>
-            {selectedViveiros.size > 0 && (
-              <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiro(s) — será criado 1 lançamento por viveiro</p>
+            {selectedViveiros.size > 1 && (
+              <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiros selecionados</p>
             )}
           </div>
 
