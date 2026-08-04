@@ -2007,7 +2007,6 @@ function ProdutoModal({
       if (pKgNum == null || isNaN(pKgNum) || pKgNum <= 0) {
         throw new Error("Informe o preço do produto.");
       }
-      }
 
       const isEmb = formatType === "embalagem";
       const pesoNum = Number(pesoEmbalagem.replace(",", "."));
