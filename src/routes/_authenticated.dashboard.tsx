@@ -710,8 +710,13 @@ function Dashboard() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-base font-black text-emerald-600 tabular-nums">
-                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {l.unidade}
                   </p>
+                  {l.custo_total != null && (
+                    <p className="text-[11px] font-semibold text-muted-foreground tabular-nums">
+                      {Number(l.custo_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
