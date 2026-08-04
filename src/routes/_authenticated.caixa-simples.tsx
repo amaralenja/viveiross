@@ -344,6 +344,7 @@ function CaixaSimplesPage() {
   const [data, setData] = useState(todayISO);
   const [socioId, setSocioId] = useState("");
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
+  const [selectedViveiros, setSelectedViveiros] = useState<Set<string>>(new Set());
   const [observacao, setObservacao] = useState("");
   const [recorrencia, setRecorrencia] = useState<Conta["recorrencia"]>("none");
   const [busy, setBusy] = useState(false);
@@ -692,38 +693,35 @@ function CaixaSimplesPage() {
       if (!descricao.trim()) throw new Error("Informe a descrição.");
 
       if (modo === "conta_pagar") {
-        const isInterno = viveiroId === INTERNO;
-        const { error } = await supabase.from("contas_pagar").insert({
-          user_id: u.user.id,
-          descricao: descricao.trim(),
-          valor: v,
-          data_vencimento: data,
-          categoria: isInterno ? "interno" : "geral",
-          observacao: observacao.trim() || null,
-          socio_id: socioId || null,
-          viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
-          recorrencia,
-        });
-        if (error) throw error;
+        const isMulti = selectedViveiros.size > 0;
+        const targets = isMulti ? Array.from(selectedViveiros) : [viveiroId === TODOS || viveiroId === INTERNO ? null : viveiroId];
+        for (const targetId of targets) {
+          const { error } = await supabase.from("contas_pagar").insert({
+            user_id: u.user.id, descricao: descricao.trim(), valor: isMulti ? v / targets.length : v,
+            data_vencimento: data, categoria: viveiroId === INTERNO ? "interno" : "geral",
+            observacao: observacao.trim() || null, socio_id: socioId || null,
+            viveiro_id: targetId, recorrencia,
+          });
+          if (error) throw error;
+        }
         return;
       }
 
       const qNum = Number(qtd.replace(",", ".")) || 0;
-      const isInterno = viveiroId === INTERNO;
-      const { error } = await supabase.from("caixa_lancamentos").insert({
-        user_id: u.user.id,
-        viveiro_id: (viveiroId === TODOS || isInterno) ? null : viveiroId,
-        data_lancamento: data,
-        descricao: descricao.trim(),
-        categoria: isInterno ? "interno" : "geral",
-        valor: v,
-        tipo: "despesa",
-        quantidade: qNum > 0 ? qNum : null,
-        unidade: qNum > 0 ? unidade : null,
-        socio_id: socioId || null,
-        observacao: `${CS_TAG} ${observacao.trim()}`.trim(),
-      });
-      if (error) throw error;
+      const isMulti = selectedViveiros.size > 0;
+      const targets = isMulti ? Array.from(selectedViveiros) : [(viveiroId === TODOS || viveiroId === INTERNO) ? null : viveiroId];
+      for (const targetId of targets) {
+        const { error } = await supabase.from("caixa_lancamentos").insert({
+          user_id: u.user.id,
+          viveiro_id: targetId, data_lancamento: data, descricao: descricao.trim(),
+          categoria: viveiroId === INTERNO ? "interno" : "geral",
+          valor: isMulti ? v / targets.length : v, tipo: "despesa",
+          quantidade: qNum > 0 ? (isMulti ? qNum / targets.length : qNum) : null,
+          unidade: qNum > 0 ? unidade : null, socio_id: socioId || null,
+          observacao: `${CS_TAG} ${observacao.trim()}`.trim(),
+        });
+        if (error) throw error;
+      }
 
       // Auto-contabilizar no estoque se a descrição bater com algum produto cadastrado
       if (modo !== "vale" && modo !== "conta_pagar") {
@@ -1373,14 +1371,29 @@ function CaixaSimplesPage() {
 
               <div>
                 <Label>Viveiro (ou rateado entre todos)</Label>
-                <Select value={viveiroId} onValueChange={setViveiroId}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={TODOS}>Rateado entre todos os viveiros</SelectItem>
-                    <SelectItem value={INTERNO}>Gasto interno (não vai pra nenhum viveiro)</SelectItem>
-                    {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="grid grid-cols-2 gap-1.5 mt-2">
+                  <button type="button" onClick={() => { setViveiroId(TODOS); setSelectedViveiros(new Set()); }}
+                    className={`py-1.5 px-2 rounded-lg border text-xs font-bold ${selectedViveiros.size === 0 && viveiroId === TODOS ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>🔄 Rateado</button>
+                  <button type="button" onClick={() => { setViveiroId(INTERNO); setSelectedViveiros(new Set()); }}
+                    className={`py-1.5 px-2 rounded-lg border text-xs font-bold ${selectedViveiros.size === 0 && viveiroId === INTERNO ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>🚫 Interno</button>
+                  {viveiros.map((v) => {
+                    const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
+                    return (
+                      <button key={v.id} type="button" onClick={() => {
+                        const n = new Set(selectedViveiros);
+                        if (n.has(v.id)) { n.delete(v.id); } else {
+                          if (n.size === 0 && viveiroId !== TODOS && viveiroId !== INTERNO && viveiroId && viveiroId !== v.id) n.add(viveiroId);
+                          n.add(v.id);
+                        }
+                        if (n.size === 0) setViveiroId(TODOS);
+                        setSelectedViveiros(n);
+                      }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                        {isSelected ? "✓ " : ""}{v.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedViveiros.size > 0 && <p className="text-[11px] text-muted-foreground mt-1">{selectedViveiros.size} viveiro(s) selecionado(s)</p>}
               </div>
 
               <div>
