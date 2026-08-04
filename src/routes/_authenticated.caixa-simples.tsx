@@ -52,6 +52,7 @@ type Conta = {
   socio_id: string | null;
   viveiro_id: string | null;
   recorrencia: "none" | "diaria" | "semanal" | "mensal" | "anual";
+  tipo_operacao: "pagar" | "receber";
 };
 
 export type PartialPayment = {
@@ -335,7 +336,7 @@ async function buildFuncionarioPdf(
 
 function CaixaSimplesPage() {
   const qc = useQueryClient();
-  const [modo, setModo] = useState<"vale" | "conta_pagar">("vale");
+  const [modo, setModo] = useState<"vale" | "conta_pagar" | "conta_receber">("vale");
   const [funcionarioId, setFuncionarioId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
@@ -424,7 +425,8 @@ function CaixaSimplesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contas_pagar")
-        .select("id, descricao, valor, data_vencimento, data_pagamento, pago, categoria, observacao, socio_id, viveiro_id, recorrencia")
+        .select("id, descricao, valor, data_vencimento, data_pagamento, pago, categoria, observacao, socio_id, viveiro_id, recorrencia, tipo_operacao")
+        .or("tipo_operacao.eq.pagar,tipo_operacao.is.null")
         .order("pago", { ascending: true })
         .order("data_vencimento", { ascending: true });
       if (error) throw error;
@@ -692,7 +694,8 @@ function CaixaSimplesPage() {
 
       if (!descricao.trim()) throw new Error("Informe a descrição.");
 
-      if (modo === "conta_pagar") {
+      if (modo === "conta_pagar" || modo === "conta_receber") {
+        const isReceber = modo === "conta_receber";
         const isMulti = selectedViveiros.size > 0;
         const targets = isMulti ? Array.from(selectedViveiros) : [viveiroId === TODOS || viveiroId === INTERNO ? null : viveiroId];
         for (const targetId of targets) {
@@ -701,6 +704,7 @@ function CaixaSimplesPage() {
             data_vencimento: data, categoria: viveiroId === INTERNO ? "interno" : "geral",
             observacao: observacao.trim() || null, socio_id: socioId || null,
             viveiro_id: targetId, recorrencia,
+            tipo_operacao: isReceber ? "receber" : "pagar",
           });
           if (error) throw error;
         }
@@ -758,6 +762,7 @@ function CaixaSimplesPage() {
       toast.success(
         modo === "vale" ? "Vale registrado" :
         modo === "conta_pagar" ? "Conta a pagar registrada" :
+        modo === "conta_receber" ? "Conta a receber registrada" :
         "Despesa registrada"
       );
       setDescricao(""); setValor(""); setQtd(""); setObservacao(""); setRecorrencia("none");
@@ -765,6 +770,7 @@ function CaixaSimplesPage() {
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["vales"] });
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["contas-receber"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
       qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
       qc.invalidateQueries({ queryKey: ["produtos"] });
@@ -884,6 +890,7 @@ function CaixaSimplesPage() {
       setValorParcial("");
       setObsParcial("");
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["contas-receber"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
@@ -920,6 +927,7 @@ function CaixaSimplesPage() {
     onSuccess: () => {
       toast.success("Pagamento parcial removido");
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["contas-receber"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
@@ -954,6 +962,7 @@ function CaixaSimplesPage() {
     onSuccess: () => {
       toast.success("Dívida revertida para Em Aberto! Lançamentos removidos do caixa e viveiros.");
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["contas-receber"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
@@ -993,6 +1002,7 @@ function CaixaSimplesPage() {
     onSuccess: () => {
       toast.success("Conta e seus lançamentos removidos");
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["contas-receber"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
@@ -1057,6 +1067,7 @@ function CaixaSimplesPage() {
       toast.success("Conta atualizada e rateio dos viveiros recalculado!");
       setEditingConta(null);
       qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["contas-receber"] });
       qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
       qc.invalidateQueries({ queryKey: ["caixa"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
@@ -1202,9 +1213,10 @@ function CaixaSimplesPage() {
           <CardTitle className="flex items-center gap-2 text-base"><Plus className="size-4" /> Novo lançamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Button type="button" size="sm" variant={modo === "vale" ? "default" : "outline"} onClick={() => setModo("vale")}>Vale</Button>
             <Button type="button" size="sm" variant={modo === "conta_pagar" ? "default" : "outline"} onClick={() => setModo("conta_pagar")}>Contas a pagar</Button>
+            <Button type="button" size="sm" variant={modo === "conta_receber" ? "default" : "outline"} onClick={() => setModo("conta_receber")}>Contas a receber</Button>
           </div>
 
           {modo === "vale" && (
@@ -1899,7 +1911,21 @@ function CaixaSimplesPage() {
                                 valor: saldoRestante,
                                 data: todayISO(),
                                 motivo: "Quitação de salário do mês",
-                              });
+  });
+
+  const { data: contasReceber = [] } = useQuery({
+    queryKey: ["contas-receber"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contas_pagar")
+        .select("id, descricao, valor, data_vencimento, data_pagamento, pago, categoria, observacao, socio_id, viveiro_id, recorrencia, tipo_operacao")
+        .eq("tipo_operacao", "receber")
+        .order("pago", { ascending: true })
+        .order("data_vencimento", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Conta[];
+    },
+  });
                             }}
                           >
                             <Check className="size-4 mr-1" /> Quitar Mês
