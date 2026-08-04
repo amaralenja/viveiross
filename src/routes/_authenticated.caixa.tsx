@@ -672,7 +672,7 @@ function CaixaPage() {
       for (const targetId of targets) {
         const { error } = await supabase.from("caixa_lancamentos").insert({
           user_id: userId,
-          viveiro_id: (viveiroId === TODOS || isNR) ? null : targetId,
+          viveiro_id: isMulti ? targetId : ((viveiroId === TODOS || isNR) ? null : targetId),
           data_lancamento: data,
           descricao: descricao.trim(),
           categoria: isNR ? NR_CAT : (categoria.trim() || (tipo === "receita" ? "venda" : "geral")),
