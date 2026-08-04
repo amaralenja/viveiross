@@ -2004,8 +2004,9 @@ function ProdutoModal({
       if (!user_id) throw new Error("Sem sessão");
 
       const pKgNum = precoKg.trim() === "" ? null : Number(precoKg.replace(",", "."));
-      if (pKgNum != null && (isNaN(pKgNum) || pKgNum < 0)) {
-        throw new Error("Preço inválido");
+      if (pKgNum == null || isNaN(pKgNum) || pKgNum <= 0) {
+        throw new Error("Informe o preço do produto.");
+      }
       }
 
       const isEmb = formatType === "embalagem";
