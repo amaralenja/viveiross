@@ -1661,7 +1661,7 @@ function EntradaEstoqueModal({
   const precoNum = preco.trim() === "" ? null : Number(String(preco).replace(",", "."));
   const isEmbUnit = selectedEmb.temEmbalagem && selectedEmb.pesoEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco" || unidade === "pacote" || unidade === "caixa");
   const qtdFinal = isEmbUnit ? qtdNum * selectedEmb.pesoEmbalagem! : qtdNum;
-  const custoTotal = precoNum != null && qtdNum > 0 ? precoNum * qtdFinal : null;
+  const custoTotal = precoNum != null && qtdNum > 0 ? precoNum * qtdNum : null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1698,8 +1698,8 @@ function EntradaEstoqueModal({
         produto_id: targetProdId,
         quantidade: finalQtyEstoque,
         unidade: finalUnidadeEstoque,
-        preco_unidade: precoNum,
-        custo_total: precoNum != null ? precoNum * finalQtyEstoque : null,
+        preco_unidade: isEmb ? (precoNum != null ? precoNum / emb.pesoEmbalagem! : null) : precoNum,
+        custo_total: precoNum != null ? precoNum * qNumInput : null,
         fornecedor: fornecedor.trim() || null,
         data_entrada: data,
         observacao: observacao.trim() || (emb.temEmbalagem && (unidade.toLowerCase().includes(emb.tipoEmbalagem) || unidade === "saco") ? `${qNumInput} ${emb.tipoEmbalagem}(s) de ${emb.pesoEmbalagem} ${emb.unidadeBase}` : null),
@@ -1806,27 +1806,47 @@ function EntradaEstoqueModal({
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label={`Preço por ${selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") ? selectedEmb.unidadeBase : (unidade || "un")} (R$)`}>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={preco}
-              onChange={(e) => setPreco(e.target.value)}
-              placeholder="0,00"
-              className="app-input"
-            />
-          </Field>
-          <Field label="Custo total (R$)">
-            <input
-              readOnly
-              value={custoTotal != null ? formatBRL(custoTotal) ?? "" : ""}
-              placeholder="auto"
-              className="app-input bg-muted font-bold text-emerald-600"
-            />
-          </Field>
+          {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") ? (
+            <>
+              <Field label={`Preço do ${selectedEmb.tipoEmbalagem} (R$)`}>
+                <input type="text" inputMode="decimal" value={preco}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9.,]/g, "");
+                    setPreco(v);
+                  }}
+                  placeholder="0,00" className="app-input font-bold text-primary" />
+              </Field>
+              <Field label="Custo total (R$)">
+                <input readOnly
+                  value={custoTotal != null ? formatBRL(custoTotal) ?? "" : ""}
+                  placeholder="auto" className="app-input bg-muted font-bold text-emerald-600" />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label={`Preço por ${unidade || "un"} (R$)`}>
+                <input type="text" inputMode="decimal" value={preco}
+                  onChange={(e) => setPreco(e.target.value.replace(/[^0-9.,]/g, ""))}
+                  placeholder="0,00" className="app-input" />
+              </Field>
+              <Field label="Custo total (R$)">
+                <input readOnly
+                  value={custoTotal != null ? formatBRL(custoTotal) ?? "" : ""}
+                  placeholder="auto" className="app-input bg-muted font-bold text-emerald-600" />
+              </Field>
+            </>
+          )}
         </div>
+        {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") && selectedEmb.pesoEmbalagem && precoNum && precoNum > 0 && (
+          <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1 text-xs">
+            <p className="font-bold text-emerald-700">💰 Preços calculados automaticamente:</p>
+            <div className="grid grid-cols-2 gap-2">
+              <span className="text-muted-foreground">Por {selectedEmb.unidadeBase}:</span>
+              <span className="font-bold text-emerald-600">R$ {(precoNum / selectedEmb.pesoEmbalagem).toFixed(4)}</span>
+              {selectedEmb.unidadeBase === "kg" && (<><span className="text-muted-foreground">Por grama:</span><span className="font-bold text-foreground">R$ {(precoNum / (selectedEmb.pesoEmbalagem * 1000)).toFixed(6)}</span></>)}
+            </div>
+          </div>
+        )}
 
         <Field label="Fornecedor (opcional)">
           <input
