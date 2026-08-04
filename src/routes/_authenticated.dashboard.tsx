@@ -362,7 +362,9 @@ function Dashboard() {
       setProduto("");
       setQuantidade("");
       setValor("");
+      setViveiroId("");
       setSelectedViveiros(new Set());
+      setData(todayLocal());
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["lancamentos"] });
       qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
