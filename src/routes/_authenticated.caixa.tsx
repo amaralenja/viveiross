@@ -460,7 +460,6 @@ function CaixaPage() {
   const [unidade, setUnidade] = useState<string>("kg");
   const [socioId, setSocioId] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [subTab, setSubTab] = useState<"geral" | "compras">("geral");
   const [buscaDiscriminacao, setBuscaDiscriminacao] = useState("");
   const [filtroDestinoDisc, setFiltroDestinoDisc] = useState("__todos__");
 
@@ -845,47 +844,7 @@ function CaixaPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setSubTab("geral")}
-          className={`flex-1 min-w-[140px] h-10 rounded-lg font-semibold text-sm transition ${
-            subTab === "geral"
-              ? "bg-card shadow-sm text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          📊 Visão Geral & Viveiros
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubTab("compras")}
-          className={`flex-1 min-w-[140px] h-10 rounded-lg font-semibold text-sm transition ${
-            subTab === "compras"
-              ? "bg-card shadow-sm text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          🛍️ Compras por Sócio
-        </button>
-      </div>
-
-      {subTab === "compras" ? (
-        <CaixaComprasPorSocioView
-          lancamentos={lancamentos}
-          viveiros={viveiros}
-          socios={socios}
-          onEdit={(l) => setEditing(l)}
-          onDel={(id) => delMut.mutate(id)}
-          onAddSocio={(nome) => addSocioMut.mutate(nome)}
-          onSaveCompra={async (data) => {
-            await compraMut.mutateAsync(data);
-          }}
-          isPending={compraMut.isPending}
-        />
-      ) : (
-        <>
-          {/* Resumo geral */}
+      {/* Resumo geral */}
       <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -1642,8 +1601,6 @@ function CaixaPage() {
             })}
           </ul>
         </section>
-      )}
-        </>
       )}
 
 
