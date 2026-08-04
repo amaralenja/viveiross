@@ -449,32 +449,25 @@ function Dashboard() {
   }
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      {/* Top Banner / Summary */}
-      <div className="bg-gradient-to-br from-emerald-500/10 via-primary/5 to-transparent p-5 rounded-2xl border space-y-3">
-        <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+    <div className="max-w-xl mx-auto space-y-5">
+      {/* Top Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-primary to-emerald-700 p-5 text-white shadow-lg shadow-emerald-500/20">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="relative z-10 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Lançar Insumo 🌾</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Lançamento simples e rápido de insumos nos viveiros
-            </p>
+            <h1 className="text-xl font-black tracking-tight">Lançamento Rápido</h1>
+            <p className="text-sm text-white/80 mt-0.5">Registre insumos nos viveiros</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-right shrink-0 bg-background/80 px-3 py-1.5 rounded-xl border shadow-xs">
-              <span className="text-[10px] font-semibold text-muted-foreground block uppercase">Hoje</span>
-              <span className="text-lg font-black text-emerald-600 tabular-nums">
+            <div className="text-right shrink-0 bg-white/20 backdrop-blur px-4 py-2 rounded-xl">
+              <span className="text-[10px] font-bold text-white/70 block uppercase">Total Hoje</span>
+              <span className="text-xl font-black text-white tabular-nums">
                 {totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleExportPdf}
-              disabled={isGeneratingPdf}
-              className="h-10 px-3 rounded-xl border bg-background hover:bg-muted font-bold text-xs flex items-center gap-1.5 shadow-xs transition shrink-0 active:scale-95"
-              title="Gerar PDF do relatório de hoje e comparativo"
-            >
-              <FileDown className="size-4 text-emerald-600" />
-              {isGeneratingPdf ? "Gerando..." : "Gerar PDF"}
+            <button type="button" onClick={handleExportPdf} disabled={isGeneratingPdf}
+              className="h-10 px-3 rounded-xl bg-white/20 backdrop-blur hover:bg-white/30 font-bold text-xs flex items-center gap-1.5 transition shrink-0 active:scale-95 text-white">
+              <FileDown className="size-4" /> {isGeneratingPdf ? "Gerando..." : "PDF"}
             </button>
           </div>
         </div>
@@ -485,16 +478,13 @@ function Dashboard() {
       {viveiros.length === 0 ? (
         <div className="p-8 rounded-2xl border-2 border-dashed text-center space-y-3">
           <p className="font-semibold text-base">Nenhum viveiro cadastrado</p>
-          <p className="text-sm text-muted-foreground">Cadastre os viveiros primeiro para iniciar o lançamento de ração.</p>
-          <Link
-            to="/viveiros"
-            className="inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow"
-          >
+          <p className="text-sm text-muted-foreground">Cadastre os viveiros primeiro para iniciar o lançamento.</p>
+          <Link to="/viveiros" className="inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow">
             Cadastrar Viveiros
           </Link>
         </div>
       ) : (
-        /* Form Principal Simples */
+        /* Form Principal */
         <form
           onSubmit={(e) => {
             e.preventDefault();
