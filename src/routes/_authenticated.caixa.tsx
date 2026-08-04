@@ -1179,31 +1179,18 @@ function CaixaPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Viveiro">
-            <div className="space-y-2">
-              <select
-                value={selectedViveiros.size > 0 ? "" : viveiroId}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setViveiroId(v);
-                  setSelectedViveiros(new Set());
-                }}
-                className="app-input"
-              >
-                <option value={TODOS}>🔄 Todos os viveiros (rateado)</option>
-                <option value={NAO_RATEADO}>🚫 Não rateado (gasto interno)</option>
-                {viveiros.map((v) => (
-                  <option key={v.id} value={v.id}>{v.nome}</option>
-                ))}
-              </select>
-              {selectedViveiros.size > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {Array.from(selectedViveiros).map((id) => {
-                    const v = viveiros.find((x) => x.id === id);
-                    return (<span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold">{v?.nome ?? id}<button type="button" onClick={() => { const n = new Set(selectedViveiros); n.delete(id); setSelectedViveiros(n); if (n.size === 0) setViveiroId(TODOS); }} className="text-primary/60 hover:text-primary">×</button></span>);
-                  })}
-                </div>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-2">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { setViveiroId(TODOS); setSelectedViveiros(new Set()); }}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === TODOS ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                  🔄 Rateado (todos)
+                </button>
+                <button type="button" onClick={() => { setViveiroId(NAO_RATEADO); setSelectedViveiros(new Set()); }}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === NAO_RATEADO ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                  🚫 Não rateado
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 {viveiros.map((v) => {
                   const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
                   return (
@@ -1223,6 +1210,9 @@ function CaixaPage() {
               </div>
               {selectedViveiros.size > 0 && (
                 <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiro(s) — valor de <strong>{fmtBRL(valorFinal)}</strong> dividido em <strong>{fmtBRL(valorFinal / selectedViveiros.size)}</strong> cada</p>
+              )}
+              {(selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") && (
+                <p className="text-[11px] text-muted-foreground">1 viveiro selecionado. Toque em outros para adicionar mais.</p>
               )}
             </div>
           </Field>
