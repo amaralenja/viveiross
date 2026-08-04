@@ -274,6 +274,7 @@ function Dashboard() {
         .select("id, nome, unidade, preco_unidade")
         .order("nome");
       if (error) throw error;
+      console.log("[Dashboard] produtos carregados:", (data ?? []).length);
       return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
     },
   });
@@ -542,7 +543,7 @@ function Dashboard() {
               className="app-input text-base h-12 font-medium"
               required
             >
-              <option value="">Selecione a ração...</option>
+              <option value="">{produtosList.length === 0 ? "Carregando produtos..." : "Selecione o insumo..."}</option>
               {produtosList.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nome}
