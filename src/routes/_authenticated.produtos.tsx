@@ -1693,6 +1693,7 @@ function EntradaEstoqueModal({
       if (emb.temEmbalagem && emb.pesoEmbalagem && (unidade.toLowerCase().includes(emb.tipoEmbalagem) || unidade === "saco" || unidade === "pacote" || unidade === "caixa")) {
         finalQtyEstoque = qNumInput * emb.pesoEmbalagem;
       }
+      const isEmb = emb.temEmbalagem && emb.pesoEmbalagem && (unidade.toLowerCase().includes(emb.tipoEmbalagem) || unidade === "saco" || unidade === "pacote" || unidade === "caixa");
 
       const payload = {
         produto_id: targetProdId,
