@@ -1184,7 +1184,6 @@ function CaixaPage() {
                 value={selectedViveiros.size > 0 ? "" : viveiroId}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (v === "__multi__") return;
                   setViveiroId(v);
                   setSelectedViveiros(new Set());
                 }}
@@ -1192,51 +1191,38 @@ function CaixaPage() {
               >
                 <option value={TODOS}>🔄 Todos os viveiros (rateado)</option>
                 <option value={NAO_RATEADO}>🚫 Não rateado (gasto interno)</option>
-                <option value="__multi__" disabled>──────────</option>
-                <option value="__multi__">📋 Selecionar viveiros específicos</option>
+                {viveiros.map((v) => (
+                  <option key={v.id} value={v.id}>{v.nome}</option>
+                ))}
               </select>
-              <div className={`grid grid-cols-2 sm:grid-cols-3 gap-1.5 ${selectedViveiros.size > 0 || viveiroId === "__multi__" || (viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") ? "" : "hidden"}`}>
+              {selectedViveiros.size > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {Array.from(selectedViveiros).map((id) => {
+                    const v = viveiros.find((x) => x.id === id);
+                    return (<span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold">{v?.nome ?? id}<button type="button" onClick={() => { const n = new Set(selectedViveiros); n.delete(id); setSelectedViveiros(n); if (n.size === 0) setViveiroId(TODOS); }} className="text-primary/60 hover:text-primary">×</button></span>);
+                  })}
+                </div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-2">
                 {viveiros.map((v) => {
                   const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
                   return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => {
-                        setViveiroId("__multi__");
-                        const next = new Set(selectedViveiros);
-                        if (next.has(v.id)) {
-                          next.delete(v.id);
-                        } else {
-                          // Se estava em seleção única, adiciona o atual também
-                          if (selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "" && viveiroId !== v.id) {
-                            next.add(viveiroId);
-                          }
-                          next.add(v.id);
-                        }
-                        if (next.size === 0) setViveiroId(TODOS);
-                        setSelectedViveiros(next);
-                      }}
-                      className={`py-1.5 px-2 rounded-lg border text-xs font-semibold transition text-left truncate ${
-                        isSelected
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-card hover:bg-muted text-muted-foreground"
-                      }`}
-                    >
+                    <button key={v.id} type="button" onClick={() => {
+                      const n = new Set(selectedViveiros);
+                      if (n.has(v.id)) { n.delete(v.id); } else {
+                        if (n.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "" && viveiroId !== v.id) n.add(viveiroId);
+                        n.add(v.id);
+                      }
+                      if (n.size === 0) setViveiroId(TODOS);
+                      setSelectedViveiros(n);
+                    }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
                       {isSelected ? "✓ " : ""}{v.nome}
                     </button>
                   );
                 })}
               </div>
               {selectedViveiros.size > 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  {selectedViveiros.size} viveiro(s) — valor de <strong>{fmtBRL(valorFinal)}</strong> dividido em <strong>{fmtBRL(valorFinal / selectedViveiros.size)}</strong> cada
-                </p>
-              )}
-              {selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "__multi__" && viveiroId !== "" && (
-                <p className="text-[11px] text-muted-foreground">
-                  Toque nos viveiros abaixo para adicionar mais.
-                </p>
+                <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiro(s) — valor de <strong>{fmtBRL(valorFinal)}</strong> dividido em <strong>{fmtBRL(valorFinal / selectedViveiros.size)}</strong> cada</p>
               )}
             </div>
           </Field>
