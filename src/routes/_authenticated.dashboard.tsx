@@ -507,7 +507,7 @@ function Dashboard() {
               value={selectedViveiros.size > 0 ? "__multi__" : viveiroId}
               onChange={(e) => {
                 const v = e.target.value;
-                if (v === "__multi__") return;
+                if (v === "__multi__") { setViveiroId("__multi__"); return; }
                 setViveiroId(v);
                 setSelectedViveiros(new Set());
               }}
@@ -541,7 +541,7 @@ function Dashboard() {
                 })}
               </div>
             )}
-            <div className={`grid grid-cols-2 gap-1.5 ${viveiroId === "__multi__" && selectedViveiros.size === 0 ? "" : selectedViveiros.size > 0 ? "" : "hidden"}`}>
+            <div className={`grid grid-cols-2 gap-1.5 ${viveiroId === "__multi__" || selectedViveiros.size > 0 ? "" : "hidden"}`}>
               {viveiros.map((v) => {
                 const isSelected = selectedViveiros.has(v.id);
                 return (
