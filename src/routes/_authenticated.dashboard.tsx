@@ -546,11 +546,7 @@ function Dashboard() {
                   setProduto(p.nome);
                   const emb = parseProdutoEmbalagem(p.unidade);
                   setEmbInfo(emb);
-                  if (emb.temEmbalagem && emb.tipoEmbalagem) {
-                    setUnidadeLancamento(emb.tipoEmbalagem);
-                  } else {
-                    setUnidadeLancamento(emb.unidadeBase || "kg");
-                  }
+                  setUnidadeLancamento(emb.unidadeBase || "kg");
                 } else {
                   setProduto("");
                 }
