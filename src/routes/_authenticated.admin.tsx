@@ -11,6 +11,7 @@ import {
   setAccessFn,
   toggleAdminFn,
   deleteUserFn,
+  setViveiroLimitFn,
   type AdminUser,
 } from "@/lib/admin.functions";
 
@@ -37,6 +38,7 @@ function AdminPage() {
   const setAccess = useServerFn(setAccessFn);
   const toggleAdmin = useServerFn(toggleAdminFn);
   const deleteUser = useServerFn(deleteUserFn);
+  const setViveiroLimit = useServerFn(setViveiroLimitFn);
 
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ["admin", "users"],
@@ -166,6 +168,11 @@ function AdminPage() {
                     .then(() => { toast.success("Usuário removido"); invalidate(); })
                     .catch((e) => toast.error((e as Error).message))
                 }
+                onViveiroLimit={(limite) =>
+                  setViveiroLimit({ data: { user_id: u.user_id, limite } })
+                    .then(() => { toast.success(limite ? `Limite de ${limite} viveiro(s)` : "Limite removido"); invalidate(); })
+                    .catch((e) => toast.error((e as Error).message))
+                }
               />
             ))}
           </div>
@@ -176,7 +183,7 @@ function AdminPage() {
 }
 
 function UserCard({
-  u, onPassword, onAddDays, onSetDays, onToggleAdmin, onDelete,
+  u, onPassword, onAddDays, onSetDays, onToggleAdmin, onDelete, onViveiroLimit,
 }: {
   u: AdminUser;
   onPassword: () => void;
@@ -184,6 +191,7 @@ function UserCard({
   onSetDays: (n: number) => void;
   onToggleAdmin: () => void;
   onDelete: () => void;
+  onViveiroLimit: (limite: number | null) => void;
 }) {
   const [customDays, setCustomDays] = useState("");
   const [showCustom, setShowCustom] = useState(false);
@@ -330,6 +338,24 @@ function UserCard({
           )}
         </div>
       )}
+
+      <div className="flex items-center justify-between gap-2 pt-1 border-t">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">🐟 Viveiros:</span>
+          <span className="font-bold">{u.viveiros_ativos ?? 0} ativo(s)</span>
+          {u.viveiro_limit != null && (
+            <span className="text-muted-foreground">/ {u.viveiro_limit} limite</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onViveiroLimit(null)}
+            className="text-[10px] font-bold px-2 py-1 rounded border hover:bg-muted">Sem limite</button>
+          {[3, 5, 10, 20].map(n => (
+            <button key={n} onClick={() => onViveiroLimit(n)}
+              className={`text-[10px] font-bold px-2 py-1 rounded border ${u.viveiro_limit === n ? 'bg-primary/10 text-primary border-primary/30' : 'hover:bg-muted'}`}>{n}</button>
+          ))}
+        </div>
+      </div>
 
       <button
         onClick={onPassword}

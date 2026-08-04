@@ -9,6 +9,8 @@ export type AdminUser = {
   is_admin: boolean;
   created_at: string;
   has_access: boolean;
+  viveiros_ativos: number;
+  viveiro_limit: number | null;
 };
 
 export const listUsersFn = createServerFn({ method: "GET" })
@@ -100,6 +102,19 @@ export const deleteUserFn = createServerFn({ method: "POST" })
     const ctx = context as any;
     const { error } = await ctx.supabase.rpc("admin_revoke_access", {
       _user_id: data.user_id,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setViveiroLimitFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string; limite: number | null }) => d)
+  .handler(async ({ data, context }) => {
+    const ctx = context as any;
+    const { error } = await ctx.supabase.rpc("admin_set_viveiro_limit", {
+      _user_id: data.user_id,
+      _limite: data.limite,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
