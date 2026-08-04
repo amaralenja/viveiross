@@ -307,6 +307,7 @@ function Dashboard() {
       : 0;
   const totalCalc = unitNum > 0 && qNum > 0
     ? unitNum * qNum * (embInfo?.temEmbalagem && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem ? embInfo.pesoEmbalagem : 1)
+      / (unidadeLancamento === "g" ? 1000 : 1)
     : 0;
 
   const saveMut = useMutation({
@@ -326,6 +327,7 @@ function Dashboard() {
       if (unit != null && Number.isNaN(unit)) throw new Error("Valor inválido.");
       const total = unit != null
         ? unit * q * (embInfo?.temEmbalagem && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem ? embInfo.pesoEmbalagem : 1)
+          / (unidadeLancamento === "g" ? 1000 : 1)
         : null;
       let linkedProdutoId: string | null = null;
       if (produtoSelecionado && !produtoSelecionado.id.startsWith("hist:")) {
@@ -670,22 +672,34 @@ function Dashboard() {
                     onChange={(e) => setUnidadeLancamento(e.target.value)}
                     className="app-input w-28 h-12 font-semibold text-sm"
                   >
-                    <option value={embInfo.tipoEmbalagem}>
-                      {embInfo.tipoEmbalagem}
-                    </option>
-                    <option value={embInfo.unidadeBase}>
-                      {embInfo.unidadeBase}
-                    </option>
+                    <option value={embInfo.tipoEmbalagem}>{embInfo.tipoEmbalagem}</option>
+                    <option value={embInfo.unidadeBase}>{embInfo.unidadeBase}</option>
+                    {embInfo.unidadeBase === "kg" && <option value="g">g</option>}
+                    {embInfo.unidadeBase === "litro" && <option value="ml">ml</option>}
                   </select>
                 ) : (
-                  <span className="h-12 flex items-center text-sm font-bold text-muted-foreground bg-muted/50 px-3 rounded-xl">
-                    {unidadeLancamento}
-                  </span>
+                  <select
+                    value={unidadeLancamento}
+                    onChange={(e) => setUnidadeLancamento(e.target.value)}
+                    className="app-input w-28 h-12 font-semibold text-sm"
+                  >
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="saco">saco</option>
+                    <option value="litro">litro</option>
+                    <option value="un">un</option>
+                    <option value="ml">ml</option>
+                  </select>
                 )}
               </div>
               {embInfo?.temEmbalagem && Number(quantidade) > 0 && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem && (
                 <p className="text-[11px] text-primary font-medium">
                   💡 {quantidade} {embInfo.tipoEmbalagem}(s) = {Number(quantidade) * embInfo.pesoEmbalagem} {embInfo.unidadeBase} no total
+                </p>
+              )}
+              {unidadeLancamento === "g" && Number(quantidade) > 0 && (
+                <p className="text-[11px] text-primary font-medium">
+                  💡 {quantidade}g = {(Number(quantidade) / 1000).toFixed(3)} kg
                 </p>
               )}
             </div>
