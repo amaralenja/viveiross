@@ -503,7 +503,20 @@ function Dashboard() {
           className="space-y-4 rounded-2xl bg-card border p-5 shadow-sm"
         >
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground block">Viveiro(s)</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold text-foreground">Viveiro(s)</label>
+              <button type="button" onClick={() => {
+                if (selectedViveiros.size === viveiros.length) {
+                  setSelectedViveiros(new Set());
+                  setViveiroId("");
+                } else {
+                  setSelectedViveiros(new Set(viveiros.map(v => v.id)));
+                  setViveiroId("");
+                }
+              }} className="text-[11px] font-bold text-primary hover:underline">
+                {selectedViveiros.size === viveiros.length ? "Limpar todos" : "Selecionar todos"}
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-1.5">
               {viveiros.map((v) => {
                 const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
