@@ -271,10 +271,10 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, unidade, preco_unidade, categoria")
+        .select("id, nome, unidade, preco_unidade")
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null; categoria: string | null }[];
+      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
     },
   });
 
@@ -528,7 +528,6 @@ function Dashboard() {
                 const p = produtosList.find((x) => x.id === id);
                 if (p) {
                   setProduto(p.nome);
-                  if (p.categoria) setTipoLancamento(p.categoria === "outro" ? "outro" : p.categoria);
                   const emb = parseProdutoEmbalagem(p.unidade);
                   setEmbInfo(emb);
                   if (emb.temEmbalagem && emb.tipoEmbalagem) {
