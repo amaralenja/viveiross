@@ -1811,6 +1811,7 @@ function EditModal({
   const [viveiroId, setViveiroId] = useState<string>(
     lanc.categoria === NR_CAT ? NAO_RATEADO : (lanc.viveiro_id ?? TODOS)
   );
+  const [editSelectedViveiros, setEditSelectedViveiros] = useState<Set<string>>(new Set());
   const [data, setData] = useState(lanc.data_lancamento);
   const [descricao, setDescricao] = useState(lanc.descricao);
   const [categoria, setCategoria] = useState(lanc.categoria);
@@ -1820,18 +1821,33 @@ function EditModal({
     mutationFn: async () => {
       const v = Number(valor.replace(",", "."));
       if (!descricao.trim() || !v || v <= 0) throw new Error("Preencha descrição e valor.");
-      const { error } = await supabase
-        .from("caixa_lancamentos")
-        .update({
+
+      const isMulti = editSelectedViveiros.size > 0;
+      if (isMulti) {
+        // Deleta o original e cria N novos
+        const { data: u } = await supabase.auth.getUser();
+        const userId = u.user?.id;
+        await supabase.from("caixa_lancamentos").delete().eq("id", lanc.id);
+        const targets = Array.from(editSelectedViveiros);
+        for (const targetId of targets) {
+          const { error } = await supabase.from("caixa_lancamentos").insert({
+            user_id: userId,
+            viveiro_id: targetId, data_lancamento: data, descricao: descricao.trim(),
+            categoria: categoria.trim() || "geral", valor: v / targets.length, tipo,
+            socio_id: lanc.socio_id, quantidade: lanc.quantidade, unidade: lanc.unidade,
+            observacao: lanc.observacao,
+          });
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase.from("caixa_lancamentos").update({
           viveiro_id: (viveiroId === TODOS || viveiroId === NAO_RATEADO) ? null : viveiroId,
-          data_lancamento: data,
-          descricao: descricao.trim(),
+          data_lancamento: data, descricao: descricao.trim(),
           categoria: viveiroId === NAO_RATEADO ? NR_CAT : (categoria.trim() || "geral"),
-          valor: v,
-          tipo,
-        })
-        .eq("id", lanc.id);
-      if (error) throw error;
+          valor: v, tipo,
+        }).eq("id", lanc.id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Atualizado");
@@ -1877,19 +1893,29 @@ function EditModal({
             </select>
           </Field>
           <Field label="Viveiro">
-            <select
-              value={viveiroId}
-              onChange={(e) => setViveiroId(e.target.value)}
-              className="app-input"
-            >
-              <option value={TODOS}>🔄 Todos (rateado)</option>
-              <option value={NAO_RATEADO}>🚫 Não rateado</option>
-              {viveiros.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nome}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button type="button" onClick={() => { setViveiroId(TODOS); setEditSelectedViveiros(new Set()); }}
+                className={`py-1.5 px-2 rounded-lg border text-xs font-bold ${editSelectedViveiros.size === 0 && viveiroId === TODOS ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>🔄 Rateado</button>
+              <button type="button" onClick={() => { setViveiroId(NAO_RATEADO); setEditSelectedViveiros(new Set()); }}
+                className={`py-1.5 px-2 rounded-lg border text-xs font-bold ${editSelectedViveiros.size === 0 && viveiroId === NAO_RATEADO ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>🚫 Não rateado</button>
+              {viveiros.map((v) => {
+                const isSelected = editSelectedViveiros.has(v.id) || (editSelectedViveiros.size === 0 && v.id === viveiroId);
+                return (
+                  <button key={v.id} type="button" onClick={() => {
+                    const n = new Set(editSelectedViveiros);
+                    if (n.has(v.id)) { n.delete(v.id); } else {
+                      if (n.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId && viveiroId !== v.id) n.add(viveiroId);
+                      n.add(v.id);
+                    }
+                    if (n.size === 0) setViveiroId(TODOS);
+                    setEditSelectedViveiros(n);
+                  }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                    {isSelected ? "✓ " : ""}{v.nome}
+                  </button>
+                );
+              })}
+            </div>
+            {editSelectedViveiros.size > 0 && <p className="text-[11px] text-muted-foreground mt-1">{editSelectedViveiros.size} viveiro(s) — valor será dividido</p>}
           </Field>
           <Field label="Data">
             <input
