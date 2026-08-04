@@ -1841,13 +1841,23 @@ function EntradaEstoqueModal({
             </>
           )}
         </div>
-        {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") && selectedEmb.pesoEmbalagem && precoNum && precoNum > 0 && (
+        {precoNum && precoNum > 0 && (
           <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1 text-xs">
-            <p className="font-bold text-emerald-700">💰 Preços calculados automaticamente:</p>
+            <p className="font-bold text-emerald-700">💰 Preços por unidade:</p>
             <div className="grid grid-cols-2 gap-2">
-              <span className="text-muted-foreground">Por {selectedEmb.unidadeBase}:</span>
-              <span className="font-bold text-emerald-600">R$ {(precoNum / selectedEmb.pesoEmbalagem).toFixed(4)}</span>
-              {selectedEmb.unidadeBase === "kg" && (<><span className="text-muted-foreground">Por grama:</span><span className="font-bold text-foreground">R$ {(precoNum / (selectedEmb.pesoEmbalagem * 1000)).toFixed(6)}</span></>)}
+              <span className="text-muted-foreground">Por {unidade}:</span>
+              <span className="font-bold text-emerald-600">R$ {precoNum.toFixed(2)}</span>
+              {isEmbUnit && selectedEmb.pesoEmbalagem && (
+                <>
+                  <span className="text-muted-foreground">Por {selectedEmb.unidadeBase}:</span>
+                  <span className="font-bold text-emerald-600">R$ {(precoNum / selectedEmb.pesoEmbalagem).toFixed(4)}</span>
+                  {selectedEmb.unidadeBase === "kg" && (<><span className="text-muted-foreground">Por grama:</span><span className="font-bold text-foreground">R$ {(precoNum / (selectedEmb.pesoEmbalagem * 1000)).toFixed(6)}</span></>)}
+                  {selectedEmb.unidadeBase === "litro" && (<><span className="text-muted-foreground">Por ml:</span><span className="font-bold text-foreground">R$ {(precoNum / (selectedEmb.pesoEmbalagem * 1000)).toFixed(6)}</span></>)}
+                </>
+              )}
+              {!isEmbUnit && unidade === "kg" && (<><span className="text-muted-foreground">Por grama:</span><span className="font-bold text-foreground">R$ {(precoNum / 1000).toFixed(6)}</span></>)}
+              {!isEmbUnit && unidade === "g" && (<><span className="text-muted-foreground">Por kg:</span><span className="font-bold text-foreground">R$ {(precoNum * 1000).toFixed(2)}</span></>)}
+              {!isEmbUnit && unidade === "litro" && (<><span className="text-muted-foreground">Por ml:</span><span className="font-bold text-foreground">R$ {(precoNum / 1000).toFixed(6)}</span></>)}
             </div>
           </div>
         )}
