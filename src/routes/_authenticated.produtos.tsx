@@ -2173,8 +2173,20 @@ function ProdutoModal({
                     <span>{item.label}</span>
                   </button>
                 ))}
-              </div>
             </div>
+            {pKgNum > 0 && (
+              <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1 text-xs">
+                <p className="font-bold text-emerald-700">💰 Preços por unidade:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="text-muted-foreground">Por {unidadeBase}:</span>
+                  <span className="font-bold text-emerald-600">R$ {pKgNum.toFixed(2)}</span>
+                  {unidadeBase === "kg" && (<><span className="text-muted-foreground">Por grama (g):</span><span className="font-bold text-foreground">R$ {(pKgNum / 1000).toFixed(6)}</span></>)}
+                  {unidadeBase === "g" && (<><span className="text-muted-foreground">Por kg:</span><span className="font-bold text-foreground">R$ {(pKgNum * 1000).toFixed(2)}</span></>)}
+                  {unidadeBase === "litro" && (<><span className="text-muted-foreground">Por ml:</span><span className="font-bold text-foreground">R$ {(pKgNum / 1000).toFixed(6)}</span></>)}
+                </div>
+              </div>
+            )}
+          </div>
 
             {/* Passo 2: Conteúdo da Embalagem */}
             <Field label={`2️⃣ Quanto vem dentro de 1 ${tipoEmbalagem.toUpperCase()}?`}>
@@ -2202,7 +2214,9 @@ function ProdutoModal({
                   <option value="kg">quilos (kg)</option>
                   <option value="ml">ml (mililitros)</option>
                   <option value="litro">litros (l)</option>
+                  <option value="saco">saco</option>
                   <option value="un">unidades</option>
+                  <option value="mil">milheiros</option>
                 </select>
               </div>
             </Field>
