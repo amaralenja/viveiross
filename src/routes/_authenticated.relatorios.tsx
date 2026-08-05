@@ -931,6 +931,19 @@ function RelatoriosPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const desvincularFuncMut = useMutation({
+    mutationFn: async ({ id, vid }: { id: string; vid: string | null }) => {
+      const { error } = await supabase.from("funcionarios").update({ viveiro_id: vid }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Funcionário atualizado!");
+      qc.invalidateQueries({ queryKey: ["funcionarios", "relatorio"] });
+      qc.invalidateQueries({ queryKey: ["funcionarios"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   async function gerarLink(viveiroIds: string[] | null, titulo: string | null, asPdf = false): Promise<string | null> {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) {
@@ -1110,6 +1123,7 @@ function RelatoriosPage() {
                           <th className="p-2 text-right">Salário</th>
                           <th className="p-2 text-right">Vales (total)</th>
                           <th className="p-2 text-left">Status</th>
+                          <th className="p-2"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1119,6 +1133,10 @@ function RelatoriosPage() {
                             <td className="p-2 text-right">{formatBRL(Number(f.salario ?? 0))}</td>
                             <td className="p-2 text-right">{formatBRL(f.totalVales)}</td>
                             <td className="p-2">{f.ativo ? "Ativo" : "Inativo"}</td>
+                            <td className="p-2">
+                              <button onClick={() => { if (confirm(`Desvincular "${f.nome}" deste viveiro?`)) desvincularFuncMut.mutate({ id: f.id, vid: null }); }}
+                                className="text-[10px] font-bold text-amber-600 hover:underline">Desvincular</button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1127,6 +1145,7 @@ function RelatoriosPage() {
                           <td className="p-2">Total</td>
                           <td className="p-2 text-right">{formatBRL(l.totalSalarios)}</td>
                           <td className="p-2 text-right">{formatBRL(l.totalValesViv)}</td>
+                          <td className="p-2"></td>
                           <td className="p-2"></td>
                         </tr>
                       </tfoot>
