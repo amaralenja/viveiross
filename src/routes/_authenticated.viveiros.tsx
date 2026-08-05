@@ -99,6 +99,37 @@ function ViveirosPage() {
   const racaoPorViveiro = totaisPorViveiro.racao ?? {};
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
 
+  const { data: receitasPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "receitas"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("caixa_lancamentos")
+        .select("viveiro_id, valor")
+        .eq("tipo", "receita");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const r of (data ?? []) as Array<{ viveiro_id: string | null; valor: number }>) {
+        if (r.viveiro_id) map[r.viveiro_id] = (map[r.viveiro_id] ?? 0) + Number(r.valor ?? 0);
+      }
+      return map;
+    },
+  });
+  const { data: despescasPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "despescas"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("despescas")
+        .select("viveiro_id, quantidade_kg");
+      if (error) throw error;
+      const map: Record<string, { kg: number; count: number }> = {};
+      for (const d of (data ?? []) as Array<{ viveiro_id: string; quantidade_kg: number }>) {
+        const cur = map[d.viveiro_id] ?? { kg: 0, count: 0 };
+        cur.kg += Number(d.quantidade_kg ?? 0);
+        cur.count += 1;
+        map[d.viveiro_id] = cur;
+      }
+      return map;
+    },
+  });
+
   type BioItem = {
     id: string;
     viveiro_id: string;
@@ -315,43 +346,52 @@ function ViveirosPage() {
               )}
               {(() => {
                 const ultima = (biometriasPorViveiro[v.id] ?? [])[0];
-                if (!ultima || !v.qtd_povoada) return null;
-                const sobrev = ultima.sobrevivencia_percent != null
-                  ? Number(ultima.sobrevivencia_percent) / 100
-                  : 1;
+                const desp = despescasPorViveiro[v.id];
+                const despescadoKg = desp?.kg ?? 0;
+                const receitas = receitasPorViveiro[v.id] ?? 0;
+                const custoRacao = custoPorViveiro[v.id] ?? 0;
+                const lucro = receitas - custoRacao;
+                const fmt = (n: number, d = 2) => n.toLocaleString("pt-BR", { maximumFractionDigits: d });
+
+                if (!ultima && !desp && receitas === 0 && custoRacao === 0) return null;
+
+                const sobrev = ultima?.sobrevivencia_percent != null ? Number(ultima.sobrevivencia_percent) / 100 : 1;
                 const vivos = Number(v.qtd_povoada) * sobrev;
-                const biomassaKg = (Number(ultima.peso_medio_g) * vivos) / 1000;
-                if (biomassaKg <= 0) return null;
+                const biomassaKg = ((Number(ultima?.peso_medio_g ?? 0) * vivos) / 1000) + despescadoKg;
                 const racaoKg = racaoPorViveiro[v.id] ?? 0;
-                const fca = racaoKg > 0 ? racaoKg / biomassaKg : 0;
-                const fmt = (n: number, d = 2) =>
-                  n.toLocaleString("pt-BR", { maximumFractionDigits: d });
+                const fca = racaoKg > 0 && biomassaKg > 0 ? racaoKg / biomassaKg : 0;
+
                 return (
-                  <div className="mt-3 p-3 rounded-xl border bg-gradient-to-br from-primary/10 to-primary/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
-                        FCA — Fator de Conversão Alimentar
-                      </p>
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDateBR(ultima.data_biometria)}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
+                  <div className="mt-3 p-3 rounded-xl border bg-gradient-to-br from-primary/10 to-primary/5 space-y-2">
+                    {ultima && v.qtd_povoada && biomassaKg > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">FCA — Conversão Alimentar</p>
+                          <span className="text-[10px] text-muted-foreground">{formatDateBR(ultima.data_biometria)}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="rounded-lg bg-background/60 p-2"><p className="text-[9px] uppercase text-muted-foreground">Biomassa</p><p className="text-sm font-bold">{fmt(biomassaKg, 1)} kg</p></div>
+                          <div className="rounded-lg bg-background/60 p-2"><p className="text-[9px] uppercase text-muted-foreground">Ração total</p><p className="text-sm font-bold">{fmt(racaoKg, 1)} kg</p></div>
+                          <div className="rounded-lg bg-primary/15 p-2"><p className="text-[9px] uppercase text-muted-foreground">FCA</p><p className="text-sm font-bold text-primary">{fca > 0 ? fmt(fca) : "—"}</p></div>
+                        </div>
+                        {despescadoKg > 0 && <p className="text-[10px] text-muted-foreground mt-1">Já despescado: {fmt(despescadoKg, 1)} kg</p>}
+                      </div>
+                    )}
+                    <div className={`grid ${ultima ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-1 border-t`}>
                       <div className="rounded-lg bg-background/60 p-2">
-                        <p className="text-[9px] uppercase text-muted-foreground">Biomassa</p>
-                        <p className="text-sm font-bold">{fmt(biomassaKg, 1)} kg</p>
+                        <p className="text-[9px] uppercase text-muted-foreground">Receitas</p>
+                        <p className="text-sm font-bold text-emerald-600">{fmt(receitas, 0)}</p>
                       </div>
                       <div className="rounded-lg bg-background/60 p-2">
-                        <p className="text-[9px] uppercase text-muted-foreground">Ração total</p>
-                        <p className="text-sm font-bold">{fmt(racaoKg, 1)} kg</p>
+                        <p className="text-[9px] uppercase text-muted-foreground">Custo ração</p>
+                        <p className="text-sm font-bold text-amber-600">{fmt(custoRacao, 0)}</p>
                       </div>
-                      <div className="rounded-lg bg-primary/15 p-2">
-                        <p className="text-[9px] uppercase text-muted-foreground">FCA</p>
-                        <p className="text-sm font-bold text-primary">
-                          {fca > 0 ? fmt(fca) : "—"}
-                        </p>
+                      <div className="rounded-lg bg-background/60 p-2">
+                        <p className="text-[9px] uppercase text-muted-foreground">Lucro</p>
+                        <p className={`text-sm font-bold ${lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>{fmt(lucro, 0)}</p>
                       </div>
                     </div>
+                    {despescadoKg > 0 && <p className="text-[10px] text-muted-foreground">📦 Despescado: {fmt(despescadoKg, 1)} kg</p>}
                   </div>
                 );
               })()}
