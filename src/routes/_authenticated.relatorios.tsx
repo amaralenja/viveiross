@@ -106,6 +106,8 @@ function RelatoriosPage() {
 
   const { data: viveiros = [] } = useQuery({
     queryKey: ["viveiros", "relatorio"],
+    staleTime: 0,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
@@ -118,6 +120,7 @@ function RelatoriosPage() {
 
   const { data: lancamentos = [] } = useQuery({
     queryKey: ["lancamentos", "relatorio"],
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
@@ -130,6 +133,7 @@ function RelatoriosPage() {
 
   const { data: biometrias = [] } = useQuery({
     queryKey: ["biometrias", "relatorio"],
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("biometrias")
@@ -142,6 +146,7 @@ function RelatoriosPage() {
 
   const { data: despesas = [] } = useQuery({
     queryKey: ["despesas_gerais", "relatorio"],
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("despesas_gerais")
@@ -154,6 +159,7 @@ function RelatoriosPage() {
 
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["funcionarios", "relatorio"],
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("funcionarios")
@@ -166,6 +172,7 @@ function RelatoriosPage() {
 
   const { data: vales = [] } = useQuery({
     queryKey: ["vales", "relatorio"],
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vales")
@@ -178,6 +185,7 @@ function RelatoriosPage() {
 
   const { data: caixa = [] } = useQuery({
     queryKey: ["caixa_lancamentos", "relatorio"],
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caixa_lancamentos")
