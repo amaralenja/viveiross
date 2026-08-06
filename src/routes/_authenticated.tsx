@@ -52,6 +52,17 @@ function AuthLayout() {
   const [tutorOpen, setTutorOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
+  const [tutorVideo, setTutorVideo] = useState<string | null>(null);
+  const [tutorLabel, setTutorLabel] = useState("");
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { videoId, label } = (e as CustomEvent).detail;
+      setTutorVideo(videoId); setTutorLabel(label); setTutorOpen(true);
+    };
+    window.addEventListener("tutorial:open", handler);
+    return () => window.removeEventListener("tutorial:open", handler);
+  }, []);
 
   const getMyAccess = useServerFn(getMyAccessFn);
   const { data: acesso, isLoading: accessLoading } = useQuery({
@@ -276,7 +287,7 @@ function AuthLayout() {
           }}
         />
       )}
-      {tutorOpen && (
+      {tutorOpen && !tutorVideo && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setTutorOpen(false)}>
           <div className="bg-card w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b">
@@ -285,27 +296,55 @@ function AuthLayout() {
             </div>
             <div className="overflow-y-auto p-4 space-y-2">
               {[
-                { label: "Início", url: "https://youtube.com/shorts/D7GysoMWd-w" },
-                { label: "Viveiros", url: "https://youtube.com/shorts/EIvub9T9ED4" },
-                { label: "Biometrias", url: "https://youtube.com/shorts/sUlipirdezE" },
-                { label: "Caixa", url: "https://youtube.com/shorts/WDe74R9yfes" },
-                { label: "Caixa Simples", url: "https://youtu.be/ibiUgxNT9xI" },
-                { label: "Relatórios", url: "https://youtube.com/shorts/6ToxQuEVPAA" },
-                { label: "Financeiro Pessoal", url: "https://youtube.com/shorts/ZaVvfYK5vmg" },
-                { label: "Senhas", url: "https://youtube.com/shorts/mgsGVqLeSM4" },
+                { label: "Início", id: "D7GysoMWd-w" },
+                { label: "Viveiros", id: "EIvub9T9ED4" },
+                { label: "Biometrias", id: "sUlipirdezE" },
+                { label: "Caixa", id: "WDe74R9yfes" },
+                { label: "Caixa Simples", id: "ibiUgxNT9xI" },
+                { label: "Relatórios", id: "6ToxQuEVPAA" },
+                { label: "Financeiro", id: "ZaVvfYK5vmg" },
+                { label: "Senhas", id: "mgsGVqLeSM4" },
               ].map(t => (
-                <a key={t.label} href={t.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-xl border hover:bg-muted transition text-sm font-semibold">
+                <button key={t.id} onClick={() => { setTutorVideo(t.id); setTutorLabel(t.label); }}
+                  className="flex items-center gap-3 p-3 rounded-xl border hover:bg-muted transition text-sm font-semibold w-full text-left">
                   <div className="size-9 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center shrink-0"><Youtube className="size-4"/></div>
                   <span className="flex-1">{t.label}</span>
                   <span className="text-[10px] text-muted-foreground">Ver ▶</span>
-                </a>
+                </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tutorOpen && tutorVideo && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => { setTutorVideo(null); setTutorLabel(""); setTutorOpen(false); }}>
+          <div className="bg-card rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setTutorVideo(null)} className="size-8 rounded-lg hover:bg-muted flex items-center justify-center text-sm">← Voltar</button>
+                <h2 className="font-bold text-lg">🎬 {tutorLabel}</h2>
+              </div>
+              <button onClick={() => { setTutorVideo(null); setTutorLabel(""); setTutorOpen(false); }} className="size-9 rounded-lg hover:bg-muted flex items-center justify-center">✕</button>
+            </div>
+            <div className="p-2">
+              <div className="relative w-full" style={{paddingBottom:"56.25%"}}>
+                <iframe className="absolute inset-0 w-full h-full rounded-xl"
+                  src={`https://www.youtube.com/embed/${tutorVideo}?autoplay=1&rel=0`}
+                  allow="autoplay; encrypted-media" allowFullScreen title="Tutorial" />
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+export function useTutorial() {
+  return { openTutorial: (videoId: string, label: string) => {
+    const ev = new CustomEvent("tutorial:open", { detail: { videoId, label } });
+    window.dispatchEvent(ev);
+  }};
 }
 
