@@ -4,8 +4,6 @@ import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Pencil, X, Plus, TrendingUp, TrendingDown, FileDown, DollarSign, PieChart, Tag, List, BarChart3 } from "lucide-react";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   head: () => ({ meta: [{ title: "Financeiro Pessoal" }] }),
@@ -77,13 +75,16 @@ function FinanceiroPage() {
   function edit(l:Lanc){ setEditing(l); setTipo(l.tipo as any); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacio||""); setShowForm(true); }
 
   async function pdf(){
+    const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const jsPDF = pdfModule.default;
+    const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
     const doc=new jsPDF();
     doc.setFontSize(16); doc.text("Financeiro Pessoal",14,20);
     doc.setFontSize(9); doc.text(`Período: ${fMes||"Todos"} · ${fmtD(hoje())}`,14,27);
     doc.setFontSize(12); doc.setTextColor(0,130,70); doc.text(`Receitas: ${brl(tot.rec)}`,14,36);
     doc.setTextColor(180,30,30); doc.text(`Despesas: ${brl(tot.desp)}`,14,43);
     doc.setTextColor(0); doc.text(`Saldo: ${brl(tot.saldo)}`,14,50);
-    (doc as any).autoTable({ startY:56, head:[["Data","Tipo","Descrição","Categoria","Valor"]], body:filtrados.map(l=>[fmtD(l.data),l.tipo==="receita"?"Receita":"Despesa",l.descricao,l.categoria,`${l.tipo==="receita"?"+":"-"}${brl(Number(l.valor))}`]), styles:{fontSize:8}, headStyles:{fillColor:[30,41,59]} });
+    autoTable(doc, { startY:56, head:[["Data","Tipo","Descrição","Categoria","Valor"]], body:filtrados.map(l=>[fmtD(l.data),l.tipo==="receita"?"Receita":"Despesa",l.descricao,l.categoria,`${l.tipo==="receita"?"+":"-"}${brl(Number(l.valor))}`]), styles:{fontSize:8}, headStyles:{fillColor:[30,41,59]} });
     window.open(URL.createObjectURL(doc.output("blob")));
     toast.success("PDF gerado!");
   }
