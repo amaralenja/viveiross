@@ -593,6 +593,8 @@ function CaixaSimplesPage() {
   });
 
   const [editingFunc, setEditingFunc] = useState<{ id: string; nome: string; salario: number | null; tipo_remuneracao: "mensal" | "diaria" | null; viveiro_id: string | null } | null>(null);
+  const [aumentarConta, setAumentarConta] = useState<Conta | null>(null);
+  const [aumentarValor, setAumentarValor] = useState("");
   const [editFuncNome, setEditFuncNome] = useState("");
   const [editFuncSalario, setEditFuncSalario] = useState("");
   const [editFuncTipo, setEditFuncTipo] = useState<"mensal" | "diaria">("mensal");
@@ -615,6 +617,21 @@ function CaixaSimplesPage() {
       setEditingFunc(null);
       qc.invalidateQueries({ queryKey: ["funcionarios"] });
       qc.invalidateQueries({ queryKey: ["funcionarios", "ativos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const aumentarContaMut = useMutation({
+    mutationFn: async ({ conta, adicional }: { conta: Conta; adicional: number }) => {
+      const novoValor = Number(conta.valor) + adicional;
+      const { error } = await supabase.from("contas_pagar").update({ valor: novoValor }).eq("id", conta.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Valor da conta aumentado!");
+      setAumentarConta(null); setAumentarValor("");
+      qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+      qc.invalidateQueries({ queryKey: ["contas-receber"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1835,6 +1852,7 @@ function CaixaSimplesPage() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Button size="sm" variant="default" onClick={() => pagarContaMut.mutate(c)}><Check className="size-4 mr-1"/>Receber</Button>
                         <Button size="sm" variant="outline" onClick={() => openPagarParcial(c)} className="text-primary border-primary/30"><Receipt className="size-4 mr-1"/>Parcial</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setAumentarConta(c); setAumentarValor(""); }} className="text-amber-700 border-amber-500/40 text-xs">+ Aumentar</Button>
                         <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}><Pencil className="size-4"/></Button>
                         <Button size="icon" variant="ghost" onClick={() => { if(confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-4"/></Button>
                       </div>
@@ -2163,6 +2181,21 @@ function CaixaSimplesPage() {
             <div><Label>Alocação</Label><Select value={editFuncViveiroId} onValueChange={setEditFuncViveiroId}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value={TODOS}>🔄 Rateado entre todos</SelectItem><SelectItem value={INTERNO}>🏢 Nenhum viveiro</SelectItem>{viveiros.map(v => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}</SelectContent></Select></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setEditingFunc(null)}>Cancelar</Button><Button disabled={updateFuncMut.isPending} onClick={() => updateFuncMut.mutate()}>{updateFuncMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!aumentarConta} onOpenChange={(open) => { if (!open) setAumentarConta(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Aumentar valor da conta</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{aumentarConta?.descricao} — valor atual: {aumentarConta ? brl(Number(aumentarConta.valor)) : ""}</p>
+          <div className="space-y-2">
+            <Label>Quanto adicionar? (R$)</Label>
+            <Input inputMode="decimal" value={aumentarValor} onChange={e => setAumentarValor(e.target.value.replace(/[^0-9.,]/g,""))} placeholder="0,00" autoFocus />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAumentarConta(null)}>Cancelar</Button>
+            <Button disabled={!aumentarValor || !aumentarConta} onClick={() => { const v=Number(aumentarValor.replace(",",".")); if(v>0&&aumentarConta) aumentarContaMut.mutate({conta:aumentarConta,adicional:v}); }}>Aumentar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
