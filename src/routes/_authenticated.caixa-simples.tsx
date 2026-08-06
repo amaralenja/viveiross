@@ -623,7 +623,9 @@ function CaixaSimplesPage() {
 
   const aumentarContaMut = useMutation({
     mutationFn: async ({ conta, adicional }: { conta: Conta; adicional: number }) => {
-      const novoValor = Number(conta.valor) + adicional;
+      const { data: atual } = await supabase.from("contas_pagar").select("valor").eq("id", conta.id).single();
+      const valorAtual = Number(atual?.valor ?? conta.valor);
+      const novoValor = valorAtual + adicional;
       const { error } = await supabase.from("contas_pagar").update({ valor: novoValor }).eq("id", conta.id);
       if (error) throw error;
     },
