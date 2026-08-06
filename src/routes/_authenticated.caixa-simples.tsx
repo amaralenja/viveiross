@@ -426,7 +426,7 @@ function CaixaSimplesPage() {
       const { data, error } = await supabase
         .from("contas_pagar")
         .select("id, descricao, valor, data_vencimento, data_pagamento, pago, categoria, observacao, socio_id, viveiro_id, recorrencia, tipo_operacao")
-        .or("tipo_operacao.eq.pagar,tipo_operacao.is.null")
+        .neq("tipo_operacao", "receber")
         .order("pago", { ascending: true })
         .order("data_vencimento", { ascending: true });
       if (error) throw error;
