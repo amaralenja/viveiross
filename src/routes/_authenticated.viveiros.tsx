@@ -350,12 +350,9 @@ function ViveirosPage() {
                 const ultima = (biometriasPorViveiro[v.id] ?? [])[0];
                 const desp = despescasPorViveiro[v.id];
                 const despescadoKg = desp?.kg ?? 0;
-                const receitas = receitasPorViveiro[v.id] ?? 0;
-                const custoRacao = custoPorViveiro[v.id] ?? 0;
-                const lucro = receitas - custoRacao;
                 const fmt = (n: number, d = 2) => n.toLocaleString("pt-BR", { maximumFractionDigits: d });
 
-                if (!ultima && !desp && receitas === 0 && custoRacao === 0) return null;
+                if (!ultima && !desp) return null;
 
                 const sobrev = ultima?.sobrevivencia_percent != null ? Number(ultima.sobrevivencia_percent) / 100 : 1;
                 const vivos = Number(v.qtd_povoada) * sobrev;
@@ -388,20 +385,6 @@ function ViveirosPage() {
                         {despescadoKg > 0 && <p className="text-[10px] text-muted-foreground mt-1">Já despescado: {fmt(despescadoKg, 1)} kg</p>}
                       </div>
                     )}
-                    <div className={`grid ${ultima ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-1 border-t`}>
-                      <div className="rounded-lg bg-background/60 p-2">
-                        <p className="text-[9px] uppercase text-muted-foreground">Receitas</p>
-                        <p className="text-sm font-bold text-emerald-600">{fmt(receitas, 0)}</p>
-                      </div>
-                      <div className="rounded-lg bg-background/60 p-2">
-                        <p className="text-[9px] uppercase text-muted-foreground">Custo ração</p>
-                        <p className="text-sm font-bold text-amber-600">{fmt(custoRacao, 0)}</p>
-                      </div>
-                      <div className="rounded-lg bg-background/60 p-2">
-                        <p className="text-[9px] uppercase text-muted-foreground">Lucro</p>
-                        <p className={`text-sm font-bold ${lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>{fmt(lucro, 0)}</p>
-                      </div>
-                    </div>
                     {despescadoKg > 0 && <p className="text-[10px] text-muted-foreground">📦 Despescado: {fmt(despescadoKg, 1)} kg</p>}
                   </div>
                 );
