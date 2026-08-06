@@ -533,11 +533,9 @@ function RelatoriosPage() {
         ["Pós-larvas", l.qtdPovoada.toLocaleString("pt-BR")],
         ["Ração total", `${formatNumber(l.racaoKg)} kg`],
         ["Custo ração", formatBRL(l.custoRacao)],
-        ["Custo outros", formatBRL(l.custoOutros)],
         ["Desp. rateadas", formatBRL(l.custoDespRateio)],
         ["Desp. próprias", formatBRL(l.custoDespIndiv)],
         ["Custo total", formatBRL(l.custoTotal)],
-        ["R$/kg", l.custoPorKg ? formatBRL(l.custoPorKg) : "—"],
         ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
         ["Sobreviv.", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
         ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
@@ -1088,11 +1086,9 @@ function RelatoriosPage() {
                 <Info label="Pós-larvas" value={l.qtdPovoada.toLocaleString("pt-BR")} />
                 <Info label="Ração total" value={`${formatNumber(l.racaoKg)} kg`} />
                 <Info label="Custo ração" value={formatBRL(l.custoRacao)} />
-                <Info label="Custo outros" value={formatBRL(l.custoOutros)} />
                 <Info label="Despesas (rateadas)" value={formatBRL(l.custoDespRateio)} />
                 <Info label="Despesas (próprias)" value={formatBRL(l.custoDespIndiv)} />
                 <Info label="Custo total" value={formatBRL(l.custoTotal)} />
-                <Info label="R$/kg" value={l.custoPorKg ? formatBRL(l.custoPorKg) : "—"} />
                 <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
                 <Info label="Sobrev." value={l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"} />
                 <Info label="Biomassa" value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"} />
