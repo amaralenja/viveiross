@@ -456,14 +456,8 @@ function ViveirosPage() {
                 );
               })()}
               <div className="mt-3 flex gap-2">
-                <button onClick={() => setRelatorioViveiro(v)}
-                  className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20 transition">
-                  📊 Relatório
-                </button>
-                <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })}
-                  className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>
-                  <Power className="size-5" /> {ativo ? "Desativar" : "Ativar"}
-                </button>
+                <button onClick={() => setRelatorioViveiro(v)} className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20">📊 Relatório</button>
+                <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })} className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}><Power className="size-5" />{ativo ? "Desativar" : "Ativar"}</button>
               </div>
             </li>
             );
@@ -896,75 +890,32 @@ function RelatorioViveiroModal({ viveiro, racaoKg, custoRacao, receitas, despesc
   viveiro: Viveiro; racaoKg: number; custoRacao: number; receitas: number;
   despesca?: { kg: number; count: number }; onClose: () => void;
 }) {
-  const { data: bios = [] } = useQuery({
-    queryKey: ["biometrias", "relatorio", viveiro.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("biometrias")
-        .select("id, data_biometria, peso_medio_g, sobrevivencia_percent, amostras")
-        .eq("viveiro_id", viveiro.id).order("data_biometria", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Array<{ id: string; data_biometria: string; peso_medio_g: number; sobrevivencia_percent: number | null; amostras: number | null }>;
-    },
-  });
-
-  const despescadoKg = despesca?.kg ?? 0;
-  const lucro = receitas - custoRacao;
-  const baseDate = viveiro.data_povoamento ?? null;
-  const dias = baseDate ? diasDeCultivo(baseDate) : 0;
-  const ultimaBio = bios[0];
-  const biomassaKg = ultimaBio ? (Number(ultimaBio.peso_medio_g) * Number(viveiro.qtd_povoada ?? 0) * (ultimaBio.sobrevivencia_percent != null ? Number(ultimaBio.sobrevivencia_percent) / 100 : 1)) / 1000 : 0;
-  const fca = racaoKg > 0 && (biomassaKg + despescadoKg) > 0 ? racaoKg / (biomassaKg + despescadoKg) : 0;
   const fmt = (n: number, d = 2) => n.toLocaleString("pt-BR", { maximumFractionDigits: d });
   const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const baseDate = viveiro.data_povoamento ?? null;
+  const dias = baseDate ? diasDeCultivo(baseDate) : 0;
+  const despescadoKg = despesca?.kg ?? 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-card w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
-          <div>
-            <h2 className="font-bold text-xl">{viveiro.nome}</h2>
-            <p className="text-xs text-muted-foreground">
-              {dias > 0 ? `${dias} dias de cultivo` : "Sem povoamento"}
-              {baseDate && ` · desde ${formatDateBR(baseDate)}`}
-            </p>
-          </div>
+          <div><h2 className="font-bold text-xl">{viveiro.nome}</h2><p className="text-xs text-muted-foreground">{dias > 0 ? `${dias}d cultivo` : "Sem povoamento"}</p></div>
           <button onClick={onClose} className="size-10 rounded-lg hover:bg-muted flex items-center justify-center"><X className="size-5" /></button>
         </div>
         <div className="overflow-y-auto p-4 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <div className="p-3 rounded-xl bg-muted/40 border"><p className="text-[10px] uppercase text-muted-foreground">Ração</p><p className="text-lg font-bold">{fmt(racaoKg, 1)} kg</p></div>
-            <div className="p-3 rounded-xl bg-muted/40 border"><p className="text-[10px] uppercase text-muted-foreground">Custo ração</p><p className="text-lg font-bold text-amber-600">{brl(custoRacao)}</p></div>
-            <div className="p-3 rounded-xl bg-muted/40 border"><p className="text-[10px] uppercase text-muted-foreground">Povoados</p><p className="text-lg font-bold">{Number(viveiro.qtd_povoada ?? 0).toLocaleString("pt-BR")}</p></div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20"><span className="text-[10px] uppercase text-emerald-600 block">Receitas</span><span className="text-base font-bold text-emerald-600">{brl(receitas)}</span></div>
+            <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20"><span className="text-[10px] uppercase text-rose-600 block">Custo Ração</span><span className="text-base font-bold text-rose-600">{brl(custoRacao)}</span></div>
+            <div className="p-2.5 rounded-xl bg-muted/40 border"><span className="text-[10px] uppercase text-muted-foreground block">Lucro</span><span className={`text-base font-bold ${receitas - custoRacao >= 0 ? "text-emerald-600" : "text-destructive"}`}>{brl(receitas - custoRacao)}</span></div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20"><p className="text-[10px] uppercase text-emerald-600">Receitas</p><p className="text-lg font-bold text-emerald-600">{brl(receitas)}</p></div>
-            <div className="p-3 rounded-xl bg-muted/40 border"><p className="text-[10px] uppercase text-muted-foreground">Lucro</p><p className={`text-lg font-bold ${lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>{brl(lucro)}</p></div>
-            <div className="p-3 rounded-xl bg-muted/40 border"><p className="text-[10px] uppercase text-muted-foreground">Despescado</p><p className="text-lg font-bold">{fmt(despescadoKg, 1)} kg</p></div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2 rounded bg-muted/20"><span className="text-muted-foreground">Ração</span><span className="float-right font-bold">{fmt(racaoKg,1)}kg</span></div>
+            <div className="p-2 rounded bg-muted/20"><span className="text-muted-foreground">Povoados</span><span className="float-right font-bold">{Number(viveiro.qtd_povoada ?? 0).toLocaleString("pt-BR")}</span></div>
+            <div className="p-2 rounded bg-muted/20"><span className="text-muted-foreground">Fornecedor</span><span className="float-right font-bold">{viveiro.fornecedor || "—"}</span></div>
+            <div className="p-2 rounded bg-muted/20"><span className="text-muted-foreground">Dias cultivo</span><span className="float-right font-bold">{dias}</span></div>
+            {despescadoKg > 0 && <div className="p-2 rounded bg-muted/20 col-span-2"><span className="text-muted-foreground">Despescado</span><span className="float-right font-bold">{fmt(despescadoKg,1)}kg</span></div>}
           </div>
-          {biomassaKg > 0 && (
-            <div className="p-3 rounded-xl border bg-gradient-to-br from-primary/10 to-primary/5">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2">FCA — Conversão Alimentar</p>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg bg-background/60 p-2"><p className="text-[9px] uppercase text-muted-foreground">Biomassa total</p><p className="text-sm font-bold">{fmt(biomassaKg + despescadoKg, 1)} kg</p></div>
-                <div className="rounded-lg bg-background/60 p-2"><p className="text-[9px] uppercase text-muted-foreground">Ração</p><p className="text-sm font-bold">{fmt(racaoKg, 1)} kg</p></div>
-                <div className="rounded-lg bg-primary/15 p-2"><p className="text-[9px] uppercase text-muted-foreground">FCA</p><p className="text-sm font-bold text-primary">{fca > 0 ? fmt(fca) : "—"}</p></div>
-              </div>
-            </div>
-          )}
-          {bios.length > 0 && (
-            <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Biometrias</p>
-              <div className="space-y-1">
-                {bios.slice(0, 5).map((b) => (
-                  <div key={b.id} className="flex justify-between text-xs p-2 rounded bg-muted/20 border">
-                    <span>{formatDateBR(b.data_biometria)}</span>
-                    <span className="font-bold">{Number(b.peso_medio_g).toLocaleString("pt-BR")}g</span>
-                    {b.sobrevivencia_percent != null && <span className="text-muted-foreground">{Number(b.sobrevivencia_percent)}%</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
