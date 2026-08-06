@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } fro
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, Zap, Shield, Clock, KeyRound } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, Zap, Shield, Clock, KeyRound, DollarSign } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
 import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
@@ -37,6 +37,7 @@ const NAV = [
 const MAIS_BASE = [
   { to: "/relatorios", label: "Relatórios", icon: FileText },
   { to: "/caixa-simples", label: "Caixa Simples", icon: Zap },
+  { to: "/financeiro", label: "Financeiro", icon: DollarSign },
   { to: "/senhas", label: "Senhas", icon: KeyRound },
 ] as const;
 
