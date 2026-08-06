@@ -20,6 +20,7 @@ type Viveiro = {
   data_povoamento: string | null;
   qtd_povoada: number | null;
   fornecedor: string | null;
+  biomassa_manual: number | null;
   fazendas: { nome: string } | { nome: string }[] | null;
 };
 
@@ -35,6 +36,7 @@ function ViveirosPage() {
   const [racaoViveiro, setRacaoViveiro] = useState<Viveiro | null>(null);
   const [historicoViveiro, setHistoricoViveiro] = useState<Viveiro | null>(null);
   const [editarViveiro, setEditarViveiro] = useState<Viveiro | null>(null);
+  const [editarBiomassa, setEditarBiomassa] = useState<Viveiro | null>(null);
 
   const { data: fazendas = [] } = useQuery({
     queryKey: ["fazendas"],
@@ -53,7 +55,7 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, status, data_povoamento, qtd_povoada, fornecedor, fazendas(nome)")
+        .select("id, nome, status, data_povoamento, qtd_povoada, fornecedor, biomassa_manual, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as Viveiro[], (v) => v.nome);
@@ -357,7 +359,8 @@ function ViveirosPage() {
 
                 const sobrev = ultima?.sobrevivencia_percent != null ? Number(ultima.sobrevivencia_percent) / 100 : 1;
                 const vivos = Number(v.qtd_povoada) * sobrev;
-                const biomassaKg = ((Number(ultima?.peso_medio_g ?? 0) * vivos) / 1000) + despescadoKg;
+                const biomassaCalc = ((Number(ultima?.peso_medio_g ?? 0) * vivos) / 1000) + despescadoKg;
+                const biomassaKg = v.biomassa_manual != null ? Number(v.biomassa_manual) : biomassaCalc;
                 const racaoKg = racaoPorViveiro[v.id] ?? 0;
                 const fca = racaoKg > 0 && biomassaKg > 0 ? racaoKg / biomassaKg : 0;
 
@@ -370,7 +373,15 @@ function ViveirosPage() {
                           <span className="text-[10px] text-muted-foreground">{formatDateBR(ultima.data_biometria)}</span>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <div className="rounded-lg bg-background/60 p-2"><p className="text-[9px] uppercase text-muted-foreground">Biomassa</p><p className="text-sm font-bold">{fmt(biomassaKg, 1)} kg</p></div>
+                          <div className="rounded-lg bg-background/60 p-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[9px] uppercase text-muted-foreground">Biomassa</p>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); setEditarBiomassa(v); }}
+                                className="text-primary hover:text-primary/70"><Pencil className="size-3" /></button>
+                            </div>
+                            <p className="text-sm font-bold">{fmt(biomassaKg, 1)} kg</p>
+                            {v.biomassa_manual != null && <p className="text-[9px] text-primary">editado</p>}
+                          </div>
                           <div className="rounded-lg bg-background/60 p-2"><p className="text-[9px] uppercase text-muted-foreground">Ração total</p><p className="text-sm font-bold">{fmt(racaoKg, 1)} kg</p></div>
                           <div className="rounded-lg bg-primary/15 p-2"><p className="text-[9px] uppercase text-muted-foreground">FCA</p><p className="text-sm font-bold text-primary">{fca > 0 ? fmt(fca) : "—"}</p></div>
                         </div>
@@ -461,6 +472,11 @@ function ViveirosPage() {
             );
           })}
         </ul>
+      )}
+
+      {editarBiomassa && (
+        <BiomassaEditModal viveiro={editarBiomassa} onClose={() => setEditarBiomassa(null)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["viveiros"] }); setEditarBiomassa(null); }} />
       )}
 
       {open && (
@@ -1424,5 +1440,30 @@ function HistoricoModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function BiomassaEditModal({ viveiro, onClose, onSaved }: { viveiro: Viveiro; onClose: () => void; onSaved: () => void }) {
+  const [valor, setValor] = useState(viveiro.biomassa_manual != null ? String(viveiro.biomassa_manual) : "");
+  const [loading, setLoading] = useState(false);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setLoading(true);
+    try {
+      const v = valor.trim() === "" ? null : Number(valor.replace(",", "."));
+      if (v != null && (isNaN(v) || v < 0)) throw new Error("Valor inválido");
+      await supabase.from("viveiros").update({ biomassa_manual: v }).eq("id", viveiro.id);
+      toast.success("Biomassa atualizada!"); onSaved();
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Erro"); }
+    finally { setLoading(false); }
+  }
+  return (
+    <ModalShell title={`Biomassa · ${viveiro.nome}`} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-xs text-muted-foreground">Valor manual (kg). Vazio = automático.</p>
+        <Field label="Biomassa (kg)"><input type="text" inputMode="decimal" value={valor} onChange={e => setValor(e.target.value.replace(/[^0-9.,]/g,""))} placeholder="Automático" className="input" autoFocus /></Field>
+        <button type="submit" disabled={loading} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold">{loading ? "Salvando..." : "Salvar"}</button>
+      </form>
+      <ModalStyle />
+    </ModalShell>
   );
 }
