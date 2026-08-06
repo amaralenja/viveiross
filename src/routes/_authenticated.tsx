@@ -105,7 +105,7 @@ function AuthLayout() {
     pwCfg.enabled && !!pwCfg.pin && location.pathname.startsWith("/senhas");
   const requiresLock =
     (sectionRequiresLock(pwCfg, location.pathname) || senhasRequiresLock) &&
-    !unlockedSections.some((s) => location.pathname.startsWith(s));
+    !unlockedSections.some((s) => location.pathname === s || location.pathname.startsWith(s + "/"));
 
   async function handleLogout() {
     lockApp();

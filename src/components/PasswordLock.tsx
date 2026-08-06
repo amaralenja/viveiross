@@ -11,7 +11,7 @@ export function isSectionUnlocked(sectionPath?: string) {
     const list = JSON.parse(raw);
     if (!Array.isArray(list)) return false;
     if (!sectionPath) return list.length > 0;
-    return list.some((s) => sectionPath.startsWith(s));
+    return list.some((s) => sectionPath === s || sectionPath.startsWith(s + "/"));
   } catch {
     return false;
   }

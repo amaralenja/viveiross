@@ -68,5 +68,5 @@ export function usePwConfig(userId: string | null | undefined) {
 
 export function sectionRequiresLock(cfg: PwConfig, pathname: string) {
   if (!cfg.enabled || !cfg.pin || cfg.sections.length === 0) return false;
-  return cfg.sections.some((s) => pathname.startsWith(s));
+  return cfg.sections.some((s) => pathname === s || pathname.startsWith(s + "/"));
 }
