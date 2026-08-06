@@ -434,6 +434,20 @@ function CaixaSimplesPage() {
     },
   });
 
+  const { data: contasReceber = [] } = useQuery({
+    queryKey: ["contas-receber"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contas_pagar")
+        .select("id, descricao, valor, data_vencimento, data_pagamento, pago, categoria, observacao, socio_id, viveiro_id, recorrencia, tipo_operacao")
+        .eq("tipo_operacao", "receber")
+        .order("pago", { ascending: true })
+        .order("data_vencimento", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Conta[];
+    },
+  });
+
   const { data: vales = [] } = useQuery({
     queryKey: ["vales", "totais"],
     queryFn: async () => {
@@ -1934,21 +1948,7 @@ function CaixaSimplesPage() {
                                 valor: saldoRestante,
                                 data: todayISO(),
                                 motivo: "Quitação de salário do mês",
-  });
-
-  const { data: contasReceber = [] } = useQuery({
-    queryKey: ["contas-receber"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contas_pagar")
-        .select("id, descricao, valor, data_vencimento, data_pagamento, pago, categoria, observacao, socio_id, viveiro_id, recorrencia, tipo_operacao")
-        .eq("tipo_operacao", "receber")
-        .order("pago", { ascending: true })
-        .order("data_vencimento", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Conta[];
-    },
-  });
+                              });
                             }}
                           >
                             <Check className="size-4 mr-1" /> Quitar Mês
