@@ -1852,6 +1852,22 @@ function CaixaSimplesPage() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Button size="sm" variant="default" onClick={() => pagarContaMut.mutate(c)}><Check className="size-4 mr-1"/>Receber</Button>
                         <Button size="sm" variant="outline" onClick={() => openPagarParcial(c)} className="text-primary border-primary/30"><Receipt className="size-4 mr-1"/>Parcial</Button>
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          const [m,a]=await Promise.all([import("jspdf"),import("jspdf-autotable")]);
+                          const J=m.default; const A=(a as any).default; const doc=new J();
+                          const info=getContaFinancialInfo(c);
+                          doc.setFontSize(14); doc.text(`Conta a Receber: ${c.descricao}`,14,20);
+                          doc.setFontSize(9); doc.text(new Date().toLocaleString("pt-BR"),14,27);
+                          let y=36; doc.setFontSize(10);
+                          doc.text(`Valor: ${brl(Number(c.valor))}`,14,y);y+=6;
+                          doc.text(`Recebido: ${brl(info.valorPago)}`,14,y);y+=6;
+                          doc.text(`Restante: ${brl(info.valorRestante)}`,14,y);y+=6;
+                          doc.text(`Vencimento: ${fmtDate(c.data_vencimento)}`,14,y);y+=8;
+                          if(info.pagamentos.length>0){doc.text("Histórico:",14,y);y+=6;
+                            A(doc,{startY:y,head:[["Data","Valor"]],body:info.pagamentos.map(p=>[fmtDate(p.data),brl(Number(p.valor))]),styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},margin:{left:14}});}
+                          window.open(URL.createObjectURL(doc.output("blob")));
+                          toast.success("PDF gerado!");
+                        }} className="text-xs px-2 h-8" title="PDF individual"><FileDown className="size-3.5"/></Button>
                         <Button size="sm" variant="outline" onClick={() => { setAumentarConta(c); setAumentarValor(""); }} className="text-amber-700 border-amber-500/40 text-xs">+ Aumentar</Button>
                         <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}><Pencil className="size-4"/></Button>
                         <Button size="icon" variant="ghost" onClick={() => { if(confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-4"/></Button>
