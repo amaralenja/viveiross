@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, redirect, useLocation, useNavigate } fro
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, Zap, Shield, Clock, KeyRound, DollarSign } from "lucide-react";
+import { LayoutDashboard, Warehouse, FlaskConical, FileText, LogOut, Package, Wallet, Plus, Zap, Shield, Clock, KeyRound, DollarSign, HelpCircle, Youtube } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
 import { PasswordLock, isUnlocked, lockApp } from "@/components/PasswordLock";
@@ -49,6 +49,7 @@ function AuthLayout() {
   const location = useLocation();
   const [unlockedSections, setUnlockedSections] = useState<string[]>([]);
   const [maisOpen, setMaisOpen] = useState(false);
+  const [tutorOpen, setTutorOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -161,14 +162,15 @@ function AuthLayout() {
             </div>
             <span className="font-bold text-lg">Viveiros</span>
           </Link>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-            title={user?.email ?? ""}
-          >
-            <LogOut className="size-4" />
-            <span className="hidden sm:inline">Sair</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setTutorOpen(true)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition"
+              title="Tutoriais"><HelpCircle className="size-4"/> <span className="hidden sm:inline">Ajuda</span></button>
+            <button onClick={handleLogout}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+              title={user?.email ?? ""}><LogOut className="size-4"/>
+              <span className="hidden sm:inline">Sair</span></button>
+          </div>
         </div>
       </header>
 
@@ -273,6 +275,35 @@ function AuthLayout() {
             navigate({ to });
           }}
         />
+      )}
+      {tutorOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setTutorOpen(false)}>
+          <div className="bg-card w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="font-bold text-lg flex items-center gap-2"><Youtube className="size-5 text-red-600"/> Tutoriais</h2>
+              <button onClick={() => setTutorOpen(false)} className="size-9 rounded-lg hover:bg-muted flex items-center justify-center">✕</button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2">
+              {[
+                { label: "Início", url: "https://youtube.com/shorts/D7GysoMWd-w" },
+                { label: "Viveiros", url: "https://youtube.com/shorts/EIvub9T9ED4" },
+                { label: "Biometrias", url: "https://youtube.com/shorts/sUlipirdezE" },
+                { label: "Caixa", url: "https://youtube.com/shorts/WDe74R9yfes" },
+                { label: "Caixa Simples", url: "https://youtu.be/ibiUgxNT9xI" },
+                { label: "Relatórios", url: "https://youtube.com/shorts/6ToxQuEVPAA" },
+                { label: "Financeiro Pessoal", url: "https://youtube.com/shorts/ZaVvfYK5vmg" },
+                { label: "Senhas", url: "https://youtube.com/shorts/mgsGVqLeSM4" },
+              ].map(t => (
+                <a key={t.label} href={t.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-xl border hover:bg-muted transition text-sm font-semibold">
+                  <div className="size-9 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center shrink-0"><Youtube className="size-4"/></div>
+                  <span className="flex-1">{t.label}</span>
+                  <span className="text-[10px] text-muted-foreground">Ver ▶</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
