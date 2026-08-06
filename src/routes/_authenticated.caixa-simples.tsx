@@ -1849,10 +1849,11 @@ function CaixaSimplesPage() {
                         {info.valorPago > 0 && <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mt-2"><div className="bg-emerald-500 h-full" style={{width:`${info.percentualPago}%`}}/></div>}
                         <div className="text-xs text-muted-foreground mt-2">Vence {fmtDate(c.data_vencimento)}{c.viveiro_id && viveiroMap.get(c.viveiro_id) ? ` · ${viveiroMap.get(c.viveiro_id)}` : ""}</div>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Button size="sm" variant="default" onClick={() => pagarContaMut.mutate(c)}><Check className="size-4 mr-1"/>Receber</Button>
-                        <Button size="sm" variant="outline" onClick={() => openPagarParcial(c)} className="text-primary border-primary/30"><Receipt className="size-4 mr-1"/>Parcial</Button>
-                        <Button size="sm" variant="outline" onClick={async () => {
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button size="sm" variant="default" onClick={() => pagarContaMut.mutate(c)}><Check className="size-3.5 mr-0.5"/>Receber</Button>
+                        <Button size="sm" variant="outline" onClick={() => openPagarParcial(c)} className="text-primary border-primary/30"><Receipt className="size-3.5 mr-0.5"/>Parcial</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setAumentarConta(c); setAumentarValor(""); }} className="text-amber-700 border-amber-500/40 text-[11px]">+ Aumentar</Button>
+                        <Button size="icon" variant="ghost" className="size-7" onClick={async () => {
                           const [m,a]=await Promise.all([import("jspdf"),import("jspdf-autotable")]);
                           const J=m.default; const A=(a as any).default; const doc=new J();
                           const info=getContaFinancialInfo(c);
@@ -1867,8 +1868,7 @@ function CaixaSimplesPage() {
                             A(doc,{startY:y,head:[["Data","Valor"]],body:info.pagamentos.map(p=>[fmtDate(p.data),brl(Number(p.valor))]),styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},margin:{left:14}});}
                           window.open(URL.createObjectURL(doc.output("blob")));
                           toast.success("PDF gerado!");
-                        }} className="text-xs px-2 h-8" title="PDF individual"><FileDown className="size-3.5"/></Button>
-                        <Button size="sm" variant="outline" onClick={() => { setAumentarConta(c); setAumentarValor(""); }} className="text-amber-700 border-amber-500/40 text-xs">+ Aumentar</Button>
+                        }} title="PDF individual"><FileDown className="size-3.5"/></Button>
                         <Button size="icon" variant="ghost" onClick={() => setEditingConta(c)}><Pencil className="size-4"/></Button>
                         <Button size="icon" variant="ghost" onClick={() => { if(confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-4"/></Button>
                       </div>
