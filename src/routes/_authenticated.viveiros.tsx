@@ -35,7 +35,6 @@ function ViveirosPage() {
   const [racaoViveiro, setRacaoViveiro] = useState<Viveiro | null>(null);
   const [historicoViveiro, setHistoricoViveiro] = useState<Viveiro | null>(null);
   const [editarViveiro, setEditarViveiro] = useState<Viveiro | null>(null);
-  const [relatorioViveiro, setRelatorioViveiro] = useState<Viveiro | null>(null);
 
   const { data: fazendas = [] } = useQuery({
     queryKey: ["fazendas"],
@@ -455,23 +454,13 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
-              <div className="mt-3 flex gap-2">
-                <button onClick={() => setRelatorioViveiro(v)} className="flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 bg-blue-600/10 text-blue-700 border border-blue-600/20 hover:bg-blue-600/20">📊 Relatório</button>
-                <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })} className={`flex-1 h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}><Power className="size-5" />{ativo ? "Desativar" : "Ativar"}</button>
+              <div className="mt-3">
+                <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })} className={`w-full h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}><Power className="size-5" />{ativo ? "Desativar" : "Ativar"}</button>
               </div>
             </li>
             );
           })}
         </ul>
-      )}
-
-      {relatorioViveiro && (
-        <RelatorioViveiroModal viveiro={relatorioViveiro}
-          racaoKg={racaoPorViveiro[relatorioViveiro.id] ?? 0}
-          custoRacao={custoPorViveiro[relatorioViveiro.id] ?? 0}
-          receitas={receitasPorViveiro[relatorioViveiro.id] ?? 0}
-          despesca={despescasPorViveiro[relatorioViveiro.id]}
-          onClose={() => setRelatorioViveiro(null)} />
       )}
 
       {open && (
