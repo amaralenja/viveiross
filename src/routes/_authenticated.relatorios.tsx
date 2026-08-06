@@ -537,7 +537,6 @@ function RelatoriosPage() {
         ["Desp. próprias", formatBRL(l.custoDespIndiv)],
         ["Custo total", formatBRL(l.custoTotal)],
         ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
-        ["Sobreviv.", l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"],
         ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
         ["FCA", l.fca != null ? formatNumber(l.fca) : "—"],
         ["Receitas", formatBRL(l.receitas)],
@@ -1090,7 +1089,6 @@ function RelatoriosPage() {
                 <Info label="Despesas (próprias)" value={formatBRL(l.custoDespIndiv)} />
                 <Info label="Custo total" value={formatBRL(l.custoTotal)} />
                 <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
-                <Info label="Sobrev." value={l.sobrevivencia ? `${formatNumber(l.sobrevivencia)} %` : "—"} />
                 <Info label="Biomassa" value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"} />
                 <Info label="FCA" value={l.fca != null ? formatNumber(l.fca) : "—"} />
                 <Info label="Lançamentos" value={String(l.nLancamentos)} />
