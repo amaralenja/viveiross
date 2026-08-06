@@ -333,9 +333,6 @@ function RelatoriosPage() {
 
       const lucro = receitas - custoTotal;
 
-      // Inclui custo com funcionários no total
-      custoTotal += totalSalarios;
-
       return {
         id: v.id,
         viveiro: textValue(v.nome),
@@ -548,8 +545,7 @@ function RelatoriosPage() {
         ["Receitas", formatBRL(l.receitas)],
         ["Lucro est.", formatBRL(l.lucro)],
         ["Saldo caixa", formatBRL(l.saldoCaixa)],
-        ["Funcionários", String(l.funcionarios.length)],
-        ["Salários", formatBRL(l.totalSalarios)],
+        ["Vales", formatBRL(l.totalValesViv)],
         ["Vales", formatBRL(l.totalValesViv)],
         ["Lançamentos", String(l.nLancamentos)],
         ["Biometrias", String(l.nBiometrias)],
@@ -1107,52 +1103,8 @@ function RelatoriosPage() {
                 <Info label="Receitas" value={formatBRL(l.receitas)} />
                 <Info label="Lucro estimado" value={formatBRL(l.lucro)} />
                 <Info label="Saldo caixa" value={formatBRL(l.saldoCaixa)} />
-                <Info label="Funcionários" value={String(l.funcionarios.length)} />
-                <Info label="Salários (soma)" value={formatBRL(l.totalSalarios)} />
                 <Info label="Vales totais" value={formatBRL(l.totalValesViv)} />
               </div>
-
-              {l.funcionarios.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Funcionários e vales</p>
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="p-2 text-left">Nome</th>
-                          <th className="p-2 text-right">Salário</th>
-                          <th className="p-2 text-right">Vales (total)</th>
-                          <th className="p-2 text-left">Status</th>
-                          <th className="p-2"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {l.funcionarios.map((f) => (
-                          <tr key={f.id} className="border-t">
-                            <td className="p-2">{f.nome}</td>
-                            <td className="p-2 text-right">{formatBRL(Number(f.salario ?? 0))}</td>
-                            <td className="p-2 text-right">{formatBRL(f.totalVales)}</td>
-                            <td className="p-2">{f.ativo ? "Ativo" : "Inativo"}</td>
-                            <td className="p-2">
-                              <button onClick={() => { if (confirm(`Desvincular "${f.nome}" deste viveiro?`)) desvincularFuncMut.mutate({ id: f.id, vid: null }); }}
-                                className="text-[10px] font-bold text-amber-600 hover:underline">Desvincular</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-muted/50 font-semibold">
-                        <tr>
-                          <td className="p-2">Total</td>
-                          <td className="p-2 text-right">{formatBRL(l.totalSalarios)}</td>
-                          <td className="p-2 text-right">{formatBRL(l.totalValesViv)}</td>
-                          <td className="p-2"></td>
-                          <td className="p-2"></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              )}
 
               {l.receitasLista.length > 0 && (
                 <div className="mt-5">
