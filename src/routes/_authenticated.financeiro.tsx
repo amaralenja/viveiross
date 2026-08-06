@@ -133,9 +133,9 @@ function FinanceiroPage() {
           </div>
         </form>}
         {filtrados.length===0?<div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div>:<div className="space-y-1">
-          {filtrados.map(l=><div key={l.id} className="flex items-center gap-2 p-2 rounded-lg bg-card border text-xs">
+          {filtrados.map(l=><div key={l.id} className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 p-2.5 rounded-lg bg-card border text-xs">
             <span className="text-muted-foreground w-16 shrink-0">{fmtD(l.data)}</span>
-            <span className={`font-bold w-14 shrink-0 ${l.tipo==="receita"?"text-emerald-600":"text-rose-600"}`}>{l.tipo==="receita"?"+":"-"}{brl(Number(l.valor))}</span>
+            <span className={`font-bold w-24 shrink-0 text-right ${l.tipo==="receita"?"text-emerald-600":"text-rose-600"}`}>{l.tipo==="receita"?"+":"-"}{brl(Number(l.valor))}</span>
             <span className="truncate flex-1 min-w-0 font-medium">{l.descricao}</span>
             <span className="text-muted-foreground bg-muted px-1.5 py-0.5 rounded text-[10px] shrink-0">{l.categoria}</span>
             <button onClick={()=>edit(l)} className="size-6 rounded hover:bg-muted flex items-center justify-center shrink-0"><Pencil className="size-3"/></button>
