@@ -1604,6 +1604,8 @@ function CaixaSimplesPage() {
                               >
                                 <Receipt className="size-4 mr-1" /> Pagar Parte
                               </Button>
+                              <Button size="sm" variant="outline" onClick={() => { setAumentarConta(c); setAumentarValor(""); }}
+                                className="text-amber-700 border-amber-500/40 text-[11px]">+ Aumentar</Button>
                               {info.valorPago > 0 && (
                                 <Button
                                   size="sm"
