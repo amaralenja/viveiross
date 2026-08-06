@@ -1873,7 +1873,17 @@ function CaixaSimplesPage() {
                         <Button size="icon" variant="ghost" onClick={() => { if(confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-4"/></Button>
                       </div>
                     </div>
-                    {info.pagamentos.length > 0 && <div className="pt-1.5 border-t"><p className="text-[10px] text-muted-foreground">Recebido: {info.pagamentos.map(p=>`${brl(Number(p.valor))} em ${fmtDate(p.data)}`).join(" · ")}</p></div>}
+                    {info.pagamentos.length > 0 && (
+                      <div className="pt-2 border-t mt-2 space-y-1">
+                        <p className="text-[10px] font-semibold uppercase text-muted-foreground">Histórico de recebimentos</p>
+                        {info.pagamentos.map((p,idx) => (
+                          <div key={p.id||idx} className="flex items-center justify-between text-xs bg-muted/40 p-1.5 rounded-lg">
+                            <span className="font-semibold text-emerald-600">✓ {brl(Number(p.valor))} <span className="text-muted-foreground font-normal ml-1">em {fmtDate(p.data)}</span></span>
+                            {p.id!=="legacy" && <Button size="icon" variant="ghost" className="size-6 text-destructive hover:bg-destructive/10" onClick={()=>{if(confirm(`Remover pagamento de ${brl(p.valor)}?`))removerPagamentoParcialMut.mutate({conta:c,paymentId:p.id})}}><Trash2 className="size-3"/></Button>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </li>);
                 })}
               </ul></div>)}
