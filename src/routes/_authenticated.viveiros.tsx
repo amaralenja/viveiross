@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
   head: () => ({ meta: [{ title: "Viveiros" }] }),
@@ -216,6 +217,8 @@ function ViveirosPage() {
           <h1 className="text-3xl font-bold">Viveiros</h1>
           <p className="text-muted-foreground mt-1">{viveiros.length} cadastrados</p>
         </div>
+        <div className="flex items-center gap-2">
+          <BtnTutorial videoId="EIvub9T9ED4" label="Viveiros" />
         <button
           onClick={() => setOpen(true)}
           className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"

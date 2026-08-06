@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Activity, Trash2, TrendingUp, Calendar, Utensils, Users, Scale, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 type ViveiroOption = {
   id: string;
@@ -171,6 +172,7 @@ function BiometriasPage() {
         <h1 className="text-3xl font-bold">Biometrias</h1>
         <p className="text-muted-foreground mt-1">Peso médio e crescimento por viveiro</p>
       </div>
+      <BtnTutorial videoId="sUlipirdezE" label="Biometrias" />
 
       {viveiros.length === 0 ? (
         <div className="p-8 rounded-2xl border-2 border-dashed text-center">

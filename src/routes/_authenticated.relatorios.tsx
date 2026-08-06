@@ -2,6 +2,7 @@ import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
+import { BtnTutorial } from "@/components/BtnTutorial";
 import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, MessageCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -997,6 +998,7 @@ function RelatoriosPage() {
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="mt-1 text-muted-foreground break-words">Extrato por viveiro</p>
         </div>
+        <BtnTutorial videoId="6ToxQuEVPAA" label="Relatorios" />
         <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <button
 

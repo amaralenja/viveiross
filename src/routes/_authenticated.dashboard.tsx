@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePwConfig } from "@/lib/password-config";
 import { PasswordLock } from "@/components/PasswordLock";
 import { parseProdutoEmbalagem } from "@/lib/embalagem";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -461,6 +462,8 @@ function Dashboard() {
             <p className="text-sm text-white/80 mt-0.5">Registre insumos nos viveiros</p>
           </div>
           <div className="flex items-center gap-2">
+            <BtnTutorial videoId="D7GysoMWd-w" label="Início" />
+            <div className="flex items-center gap-2">
             <div className="text-right shrink-0 bg-white/20 backdrop-blur px-4 py-2 rounded-xl">
               <span className="text-[10px] font-bold text-white/70 block uppercase">Total Hoje</span>
               <span className="text-xl font-black text-white tabular-nums">

@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { getMyAccessFn } from "@/lib/admin.functions";
 import { usePwConfig, sectionRequiresLock } from "@/lib/password-config";
 import { CalculadoraPopup } from "@/components/Calculadora";
+import { useTutorial } from "@/hooks/use-tutorial";
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -339,12 +340,5 @@ function AuthLayout() {
       )}
     </div>
   );
-}
-
-export function useTutorial() {
-  return { openTutorial: (videoId: string, label: string) => {
-    const ev = new CustomEvent("tutorial:open", { detail: { videoId, label } });
-    window.dispatchEvent(ev);
-  }};
 }
 

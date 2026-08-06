@@ -9,6 +9,7 @@ import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
 import { parseProdutoEmbalagem, getUnidadeBase } from "@/lib/embalagem";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
   head: () => ({ meta: [{ title: "Caixa" }] }),
@@ -842,6 +843,7 @@ function CaixaPage() {
           <h1 className="text-2xl font-bold">Caixa</h1>
           <p className="text-sm text-muted-foreground">Despesas e receitas por viveiro</p>
         </div>
+        <BtnTutorial videoId="WDe74R9yfes" label="Caixa" />
       </div>
 
       {/* Resumo geral */}

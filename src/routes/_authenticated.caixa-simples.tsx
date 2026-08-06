@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw } from "lucide-react";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 
 const CS_TAG = "[cs]";
@@ -1243,6 +1244,7 @@ function CaixaSimplesPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2"><Zap className="size-6 text-primary" /> Caixa Simples</h1>
         <p className="text-sm text-muted-foreground">Lançamento rápido — reflete direto no Caixa e nos Relatórios</p>
       </div>
+      <BtnTutorial videoId="ibiUgxNT9xI" label="Caixa Simples" />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Resumo geral</CardTitle></CardHeader>

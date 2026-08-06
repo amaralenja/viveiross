@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Pencil, Plus, TrendingUp, TrendingDown, FileDown, DollarSign, PieChart, Tag, List, BarChart3 } from "lucide-react";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   head: () => ({ meta: [{ title: "Financeiro Pessoal" }] }),
@@ -73,7 +74,7 @@ function FinanceiroPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3"><div className="size-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"><DollarSign className="size-5"/></div><div><h1 className="text-xl font-bold">Financeiro Pessoal</h1><p className="text-xs text-muted-foreground">Suas finanças separadas do caixa</p></div></div>
+      <div className="flex items-center gap-3"><div className="size-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"><DollarSign className="size-5"/></div><div><h1 className="text-xl font-bold">Financeiro Pessoal</h1><p className="text-xs text-muted-foreground">Suas finanças separadas do caixa</p></div><BtnTutorial videoId="ZaVvfYK5vmg" label="Financeiro"/></div>
       <div className="flex gap-1 p-1 rounded-xl bg-muted">
         {(["lancamentos","relatorio","categorias"]as const).map(t=>(<button key={t} onClick={()=>setTab(t)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition ${tab===t?"bg-card shadow-sm text-foreground":"text-muted-foreground"}`}>{t==="lancamentos"?<><List className="size-3.5 inline mr-1"/>Lançamentos</>:t==="relatorio"?<><BarChart3 className="size-3.5 inline mr-1"/>Relatório</>:<><Tag className="size-3.5 inline mr-1"/>Categorias</>}</button>))}
       </div>
