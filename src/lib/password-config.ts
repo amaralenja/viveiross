@@ -7,6 +7,7 @@ export type PwConfig = {
 };
 
 export const LOCKABLE_SECTIONS: { path: string; label: string }[] = [
+  { path: "/dashboard", label: "Início" },
   { path: "/viveiros", label: "Viveiros" },
   { path: "/produtos", label: "Produtos" },
   { path: "/biometrias", label: "Biometria" },
