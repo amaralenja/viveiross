@@ -638,6 +638,20 @@ function CaixaSimplesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [aumentarSalario, setAumentarSalario] = useState<{ id: string; nome: string; salario: number } | null>(null);
+  const [aumentarSalarioValor, setAumentarSalarioValor] = useState("");
+
+  const aumentarSalarioMut = useMutation({
+    mutationFn: async ({ id, adicional }: { id: string; adicional: number }) => {
+      const { data: atual } = await supabase.from("funcionarios").select("salario").eq("id", id).single();
+      const novo = Number(atual?.salario ?? 0) + adicional;
+      const { error } = await supabase.from("funcionarios").update({ salario: novo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Salário aumentado!"); setAumentarSalario(null); setAumentarSalarioValor(""); qc.invalidateQueries({ queryKey: ["funcionarios"] }); qc.invalidateQueries({ queryKey: ["funcionarios", "ativos"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const valesPorFuncionario = useMemo(() => {
     const groups = new Map<string, { nome: string; total: number; itens: typeof vales }>();
     for (const v of vales) {
@@ -2021,44 +2035,18 @@ function CaixaSimplesPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1">
                         {saldoRestante > 0 && salario > 0 && (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            disabled={pagarParcialFuncMut.isPending}
-                            onClick={() => {
-                              pagarParcialFuncMut.mutate({
-                                funcionarioId: f.id,
-                                nomeFuncionario: f.nome,
-                                valor: saldoRestante,
-                                data: todayISO(),
-                                motivo: "Quitação de salário do mês",
-                              });
-                            }}
-                          >
-                            <Check className="size-4 mr-1" /> Quitar Mês
+                          <Button size="sm" variant="default" disabled={pagarParcialFuncMut.isPending}
+                            onClick={() => pagarParcialFuncMut.mutate({ funcionarioId: f.id, nomeFuncionario: f.nome, valor: saldoRestante, data: todayISO(), motivo: "Quitação de salário do mês" })}>
+                            <Check className="size-3.5 mr-0.5"/>Quitar Mês
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openPagarParcialFunc(f)}
-                          className="text-primary border-primary/30 hover:bg-primary/5"
-                        >
-                          <Receipt className="size-4 mr-1" /> Pagar Parte / Vale
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => buildFuncionarioPdf(f, meusVales, totalPago, saldoRestante)}
-                          className="text-emerald-700 border-emerald-500/40 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700/50 font-bold text-xs"
-                          title="Gerar PDF do funcionário"
-                        >
-                          <FileDown className="size-4 mr-1" /> PDF
-                        </Button>
-                        <Button size="icon" variant="ghost" className="size-8" onClick={() => { setEditingFunc(f); setEditFuncNome(f.nome); setEditFuncSalario(f.salario != null ? String(f.salario) : ""); setEditFuncTipo(f.tipo_remuneracao === "diaria" ? "diaria" : "mensal"); setEditFuncViveiroId(f.viveiro_id || TODOS); }} title="Editar"><Pencil className="size-4" /></Button>
-                        <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Tem certeza que deseja apagar "${f.nome}"?`)) removeFuncMut.mutate(f.id); }} title="Remover"><Trash2 className="size-4" /></Button>
+                        <Button size="sm" variant="outline" onClick={() => openPagarParcialFunc(f)} className="text-primary border-primary/30"><Receipt className="size-3.5 mr-0.5"/>Pagar Parte</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setAumentarSalario({ id: f.id, nome: f.nome, salario: Number(f.salario ?? 0) }); setAumentarSalarioValor(""); }} className="text-amber-700 border-amber-500/40 text-[11px]">+ Aumentar</Button>
+                        <Button size="icon" variant="ghost" className="size-7" onClick={() => buildFuncionarioPdf(f, meusVales, totalPago, saldoRestante)} title="PDF"><FileDown className="size-3.5"/></Button>
+                        <Button size="icon" variant="ghost" className="size-7" onClick={() => { setEditingFunc(f); setEditFuncNome(f.nome); setEditFuncSalario(f.salario != null ? String(f.salario) : ""); setEditFuncTipo(f.tipo_remuneracao === "diaria" ? "diaria" : "mensal"); setEditFuncViveiroId(f.viveiro_id || TODOS); }} title="Editar"><Pencil className="size-3.5"/></Button>
+                        <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Tem certeza que deseja apagar "${f.nome}"?`)) removeFuncMut.mutate(f.id); }} title="Remover"><Trash2 className="size-3.5"/></Button>
                       </div>
                     </div>
 
@@ -2226,6 +2214,14 @@ function CaixaSimplesPage() {
             <Button variant="outline" onClick={() => setAumentarConta(null)}>Cancelar</Button>
             <Button disabled={!aumentarValor || !aumentarConta} onClick={() => { const v=Number(aumentarValor.replace(",",".")); if(v>0&&aumentarConta) aumentarContaMut.mutate({conta:aumentarConta,adicional:v}); }}>Aumentar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!aumentarSalario} onOpenChange={(o) => { if(!o) setAumentarSalario(null); }}>
+        <DialogContent><DialogHeader><DialogTitle>Aumentar salário</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{aumentarSalario?.nome} — salário atual: {aumentarSalario ? brl(aumentarSalario.salario) : ""}</p>
+          <div className="space-y-2"><Label>Quanto adicionar? (R$)</Label><Input inputMode="decimal" value={aumentarSalarioValor} onChange={e=>setAumentarSalarioValor(e.target.value.replace(/[^0-9.,]/g,""))} placeholder="0,00" autoFocus /></div>
+          <DialogFooter><Button variant="outline" onClick={()=>setAumentarSalario(null)}>Cancelar</Button><Button disabled={!aumentarSalarioValor||!aumentarSalario} onClick={()=>{const v=Number(aumentarSalarioValor.replace(",","."));if(v>0&&aumentarSalario)aumentarSalarioMut.mutate({id:aumentarSalario.id,adicional:v});}}>Aumentar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
