@@ -36,7 +36,7 @@ function FinanceiroPage() {
   const { data: cats=[] } = useQuery({ queryKey: ["fp_cats"], queryFn: async()=>{ const r=await supabase.from("categorias_financeiro").select("*").order("nome"); if(r.error)throw r.error; return(r.data??[]) as Cat[]; } });
 
   const catsUnificadas = useMemo(()=>{
-    const set=new Set<string>();
+    const set=new Set<string>(["geral"]);
     CAT_PADRAO.forEach(c=>set.add(c.replace(/^.\s*/,"")));
     cats.forEach(c=>set.add(c.nome));
     lancs.forEach(l=>set.add(l.categoria));
@@ -72,7 +72,7 @@ function FinanceiroPage() {
   const delCatMut=useMutation({ mutationFn:(id:string)=>supabase.from("categorias_financeiro").delete().eq("id",id), onSuccess:()=>{ toast.success("Removida"); qc.invalidateQueries({queryKey:["fp_cats"]}); },onError:(e:Error)=>toast.error(e.message) });
 
   function reset(){ setShowForm(false); setEditing(null); setDesc(""); setVal(""); setCat("geral"); setDt(hoje()); setObs(""); }
-  function edit(l:Lanc){ setEditing(l); setTipo(l.tipo as any); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacio||""); setShowForm(true); }
+  function edit(l:Lanc){ setEditing(l); setTipo(l.tipo as any); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao||""); setShowForm(true); }
 
   async function pdf(){
     const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
