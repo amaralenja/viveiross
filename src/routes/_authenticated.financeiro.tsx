@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/financeiro")({
 type Lanc = { id: string; tipo: string; descricao: string; valor: number; categoria: string; data: string; observacao: string | null };
 type Cat = { id: string; nome: string; icone: string; excluida: boolean };
 
-const CAT_PADRAO = ["💵 Salário","🍽️ Alimentação","🚗 Transporte","🏠 Moradia","⚡ Energia","💧 Água","📱 Internet","🏥 Saúde","🎓 Educação","🎮 Lazer","💼 Freelance","📦 Compras","🐷 Investimento","📌 Outros"];
+const CAT_PADRAO = ["Salário","Alimentação","Transporte","Moradia","Energia","Água","Internet","Saúde","Educação","Lazer","Freelance","Compras","Investimento","Outros"];
 
 function brl(n: number) { return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
 function fmtD(d: string) { const [y,m,day]=d.split("-"); return `${day}/${m}/${y}`; }
@@ -39,7 +39,7 @@ function FinanceiroPage() {
   const excludedNames = useMemo(()=>new Set(cats.filter(c=>c.excluida).map(c=>c.nome)),[cats]);
   const catsUnificadas = useMemo(()=>{
     const set=new Set<string>(["geral"]);
-    CAT_PADRAO.forEach(c=>{const n=c.replace(/^.\s*/,"");if(!excludedNames.has(n))set.add(n)});
+    CAT_PADRAO.forEach(c=>{if(!excludedNames.has(c))set.add(c)});
     cats.filter(c=>!c.excluida).forEach(c=>set.add(c.nome));
     lancs.forEach(l=>set.add(l.categoria));
     return Array.from(set).sort();
@@ -94,7 +94,7 @@ function FinanceiroPage() {
       {tab==="categorias"&&<>
         <div className="flex gap-2"><input value={novaCat} onChange={e=>setNovaCat(e.target.value)} placeholder="Nova categoria" className="app-input h-9 flex-1 text-xs" onKeyDown={e=>{if(e.key==="Enter"&&novaCat.trim())addCatMut.mutate(novaCat.trim())}}/><button onClick={()=>{if(novaCat.trim())addCatMut.mutate(novaCat.trim())}} disabled={addCatMut.isPending} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold"><Plus className="size-3.5"/></button></div>
         <p className="text-[10px] text-muted-foreground">Categorias disponíveis — delete qualquer uma, exceto Geral</p>
-        <div className="grid grid-cols-2 gap-1.5">{catsUnificadas.filter(c=>c!=="geral").map(c=>{const padrao=CAT_PADRAO.some(p=>p.replace(/^.\s*/,"")===c);const catObj=cats.find(x=>x.nome===c&&!x.excluida);return <div key={c} className="flex items-center gap-2 p-2 rounded-lg bg-card border text-xs"><span className="font-medium truncate flex-1">{c}</span><span className="text-muted-foreground text-[10px]">{padrao?"padrão":"custom"}</span><button onClick={()=>{if(confirm(`Remover "${c}"?`))delCatMut.mutate({id:catObj?.id,nome:c})}} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3"/></button></div>})}</div>
+        <div className="grid grid-cols-2 gap-1.5">{catsUnificadas.filter(c=>c!=="geral").map(c=>{const padrao=CAT_PADRAO.includes(c);const catObj=cats.find(x=>x.nome===c&&!x.excluida);return <div key={c} className="flex items-center gap-2 p-2 rounded-lg bg-card border text-xs"><span className="font-medium truncate flex-1">{c}</span><span className="text-muted-foreground text-[10px]">{padrao?"padrão":"custom"}</span><button onClick={()=>{if(confirm(`Remover "${c}"?`))delCatMut.mutate({id:catObj?.id,nome:c})}} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3"/></button></div>})}</div>
       </>}
     </div>
   );
