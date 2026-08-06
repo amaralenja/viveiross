@@ -14,6 +14,7 @@ type ViveiroRelatorio = {
   data_povoamento: string | null;
   status: string;
   fornecedor: string | null;
+  biomassa_manual: number | null;
   fazendas: { nome: string } | { nome: string }[] | null;
 };
 type LancamentoRelatorio = {
@@ -111,7 +112,7 @@ function RelatoriosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, qtd_povoada, data_povoamento, status, fornecedor, fazendas(nome)")
+        .select("id, nome, qtd_povoada, data_povoamento, status, fornecedor, biomassa_manual, fazendas(nome)")
         .order("nome");
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as unknown as ViveiroRelatorio[], (v) => v.nome);
@@ -234,9 +235,10 @@ function RelatoriosPage() {
       const sobrevivencia = ultimaBio?.sobrevivencia_percent != null ? Number(ultimaBio.sobrevivencia_percent) : null;
       const sobrevivenciaCalculo = sobrevivencia ?? 100;
       const qtdPovoada = Number(v.qtd_povoada ?? 0);
-      const biomassa = ultimaBio && qtdPovoada > 0 && pesoMedio > 0
+      const biomassaCalc = ultimaBio && qtdPovoada > 0 && pesoMedio > 0
         ? (qtdPovoada * (sobrevivenciaCalculo / 100) * pesoMedio) / 1000
         : 0;
+      const biomassa = v.biomassa_manual != null ? Number(v.biomassa_manual) : biomassaCalc;
       const fca = ultimaBio && biomassa > 0 ? racaoKg / biomassa : null;
       const custoPorKg = biomassa > 0 ? custoTotal / biomassa : 0;
 
