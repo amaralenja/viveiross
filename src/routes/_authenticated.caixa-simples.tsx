@@ -863,10 +863,11 @@ function CaixaSimplesPage() {
         throw new Error(`O valor excede o saldo restante de ${brl(info.valorRestante)}`);
       }
 
+      const isReceber = conta.tipo_operacao === "receber";
       const isTotal = Math.abs(valorPagamento - info.valorRestante) < 0.01 || info.valorRestante === 0;
-      const descLancamento = isTotal
-        ? `Quitação de conta: ${conta.descricao}`
-        : `Pagamento parcial: ${conta.descricao}`;
+      const descLancamento = isReceber
+        ? (isTotal ? `Recebimento total: ${conta.descricao}` : `Recebimento parcial: ${conta.descricao}`)
+        : (isTotal ? `Quitação de conta: ${conta.descricao}` : `Pagamento parcial: ${conta.descricao}`);
 
       const { data: lanc, error: lErr } = await supabase
         .from("caixa_lancamentos")
@@ -877,7 +878,7 @@ function CaixaSimplesPage() {
           descricao: descLancamento,
           categoria: conta.categoria ?? "geral",
           valor: valorPagamento,
-          tipo: "despesa",
+          tipo: isReceber ? "receita" : "despesa",
           socio_id: conta.socio_id,
           observacao: `${CS_TAG} [CONTA:${conta.id}] ${descLancamento}`.trim(),
         })
@@ -927,6 +928,7 @@ function CaixaSimplesPage() {
             viveiro_id: conta.viveiro_id,
             recorrencia: conta.recorrencia,
             parent_id: conta.id,
+            tipo_operacao: conta.tipo_operacao,
           });
           if (nErr) throw nErr;
         }
@@ -1908,7 +1910,7 @@ function CaixaSimplesPage() {
                 })}
               </ul></div>)}
               {contasReceber.filter(c => c.pago).length > 0 && (<div><h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Recebidas</h3><ul className="space-y-2">
-                {contasReceber.filter(c => c.pago).map((c) => (<li key={c.id} className="border rounded-xl p-2.5 bg-card/40"><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-emerald-600">✓ {brl(Number(c.valor))}</span><span className="text-sm truncate line-through">{c.descricao}</span><Button size="icon" variant="ghost" className="size-7" onClick={() => { if (confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-3.5" /></Button></div></li>))}
+                {contasReceber.filter(c => c.pago).map((c) => { const info = getContaFinancialInfo(c); return (<li key={c.id} className="border rounded-xl p-2.5 bg-card/40 space-y-1.5"><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-emerald-600 shrink-0">✓ {brl(Number(c.valor))}</span><span className="text-sm truncate line-through flex-1 min-w-0">{c.descricao}</span><Button size="icon" variant="ghost" className="size-7 shrink-0" onClick={() => { if (confirm("Remover?")) removeContaMut.mutate(c); }}><Trash2 className="size-3.5" /></Button></div>{info.pagamentos.length > 0 && (<div className="pt-1.5 border-t space-y-1"><p className="text-[10px] font-semibold uppercase text-muted-foreground">Histórico de recebimentos</p>{info.pagamentos.map((p,idx) => (<div key={p.id||idx} className="flex items-center justify-between text-xs bg-muted/40 p-1.5 rounded-lg"><span className="font-semibold text-emerald-600">✓ {brl(Number(p.valor))} <span className="text-muted-foreground font-normal ml-1">em {fmtDate(p.data)}</span></span>{p.id!=="legacy" && <Button size="icon" variant="ghost" className="size-6 text-destructive hover:bg-destructive/10" onClick={()=>{if(confirm(`Remover recebimento de ${brl(p.valor)}?`))removerPagamentoParcialMut.mutate({conta:c,paymentId:p.id})}}><Trash2 className="size-3"/></Button>}</div>))}</div>)}</li>); })}
               </ul></div>)}
             </div>
           )}
