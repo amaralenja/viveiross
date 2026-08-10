@@ -1373,7 +1373,7 @@ function HistoricoModal({
           ) : (
             <>
               <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">
-                {datas.length} {datas.length === 1 ? "dia com registro" : "dias com registros"} · {lancamentos.length + caixaLancs.length} itens
+                {datas.length} {datas.length === 1 ? "dia com registro" : "dias com registros"} · {lancamentos.length} itens
               </p>
 
               <ul className="space-y-2">

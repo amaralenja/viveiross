@@ -201,7 +201,7 @@ async function buildPdfBlob(rows: Lanc[], socioMap: Map<string, string>, viveiro
       r.socio_id ? (socioMap.get(r.socio_id) ?? "—") : "—",
       r.viveiro_id ? (viveiroMap.get(r.viveiro_id) ?? "—") : (r.categoria === "interno" ? "Gasto interno" : r.tipo === "conta_pagar" ? "—" : "Rateado"),
       r.quantidade != null ? `${r.quantidade} ${r.unidade ?? ""}` : "—",
-      `- ${brl(Number(r.valor))}`,
+      `${r.tipo === "receita" ? "+" : "-"} ${brl(Number(r.valor))}`,
     ]),
     styles: { fontSize: 8 },
     headStyles: { fillColor: [30, 41, 59] },
@@ -1128,7 +1128,8 @@ function CaixaSimplesPage() {
 
 
   const totais = useMemo(() => {
-    const despesas = lancamentos.reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const despesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
+    const receitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor ?? 0), 0);
     let contasPendentes = 0;
     let contasPagas = 0;
     for (const c of contas) {
@@ -1142,7 +1143,7 @@ function CaixaSimplesPage() {
     const mesAtual = new Date().toISOString().slice(0, 7);
     const valesMes = vales.filter((v) => v.data_vale?.startsWith(mesAtual)).reduce((s, v) => s + Number(v.valor ?? 0), 0);
     const salarios = funcionarios.reduce((s, f) => s + Number(f.salario ?? 0), 0);
-    return { despesas, contasPendentes, contasPagas, vales: totalVales, valesMes, salarios };
+    return { despesas, receitas, contasPendentes, contasPagas, vales: totalVales, valesMes, salarios };
   }, [lancamentos, contas, vales, funcionarios]);
 
   const exportRows = useMemo(() => {
@@ -2159,7 +2160,7 @@ function CaixaSimplesPage() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-red-600">- {brl(Number(l.valor))}</span>
+                      <span className={`text-xs font-bold ${l.tipo === "receita" ? "text-emerald-600" : "text-red-600"}`}>{l.tipo === "receita" ? "+" : "-"} {brl(Number(l.valor))}</span>
                       <span className="font-medium truncate">{l.descricao}</span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 space-x-1">
