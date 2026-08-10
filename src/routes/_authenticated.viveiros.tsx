@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
+import { quantidadeEmKg } from "@/lib/embalagem";
 import { BtnTutorial } from "@/components/BtnTutorial";
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
@@ -68,7 +69,7 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("viveiro_id, quantidade, custo_total, preco_unidade, data_lancamento, produtos(preco_unidade)")
+        .select("viveiro_id, quantidade, unidade, custo_total, preco_unidade, data_lancamento, produtos(preco_unidade, unidade)")
         .eq("tipo", "racao");
       if (error) throw error;
       const racao: Record<string, number> = {};
@@ -76,20 +77,24 @@ function ViveirosPage() {
       for (const l of (data ?? []) as Array<{
         viveiro_id: string;
         quantidade: number | null;
+        unidade: string | null;
         custo_total: number | null;
         preco_unidade: number | null;
         data_lancamento: string | null;
-        produtos: { preco_unidade: number | null } | { preco_unidade: number | null }[] | null;
+        produtos: { preco_unidade: number | null; unidade: string | null } | { preco_unidade: number | null; unidade: string | null }[] | null;
       }>) {
         const qtd = Number(l.quantidade ?? 0);
-        racao[l.viveiro_id] = (racao[l.viveiro_id] ?? 0) + qtd;
+        const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
+        const qtdKg = quantidadeEmKg(l.unidade, qtd, prod?.unidade) ?? qtd;
+        racao[l.viveiro_id] = (racao[l.viveiro_id] ?? 0) + qtdKg;
         let valor: number | null = null;
         if (l.custo_total != null) {
           valor = Number(l.custo_total);
-        } else {
-          const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
-          const preco = l.preco_unidade ?? prod?.preco_unidade ?? null;
-          if (preco != null) valor = Number(preco) * qtd;
+        } else if (prod?.preco_unidade != null) {
+          // sem custo_total: estima com preço/kg do produto × quantidade em kg
+          valor = Number(prod.preco_unidade) * qtdKg;
+        } else if (l.preco_unidade != null) {
+          valor = Number(l.preco_unidade) * qtd;
         }
         if (valor != null) {
           custo[l.viveiro_id] = (custo[l.viveiro_id] ?? 0) + valor;

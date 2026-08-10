@@ -73,3 +73,32 @@ export function formatUnidadeDb(unidadeBase: string, tipoEmbalagem?: string, pes
 export function getUnidadeBase(unidadeStr: string | null | undefined): string {
   return parseProdutoEmbalagem(unidadeStr).unidadeBase;
 }
+
+const PACOTE_WORDS = ["saco", "pacote", "caixa", "fardo", "galao", "galão", "balde", "bombona", "lata", "frasco", "sacola"];
+
+/**
+ * Converte a quantidade lançada (na unidade escolhida) para kg, para
+ * agregações de "ração total". Retorna null quando não é massa (litro/ml/un),
+ * pra não somar peras com maçãs. Usada por Viveiros e Início — mesma regra.
+ */
+export function quantidadeEmKg(
+  unidadeLancamento: string | null | undefined,
+  quantidade: number,
+  produtoUnidade?: string | null,
+): number | null {
+  const q = Number(quantidade) || 0;
+  const u = (unidadeLancamento || "").trim().toLowerCase();
+  const base = u.split("[")[0].trim();
+  if (PACOTE_WORDS.includes(base)) {
+    // quantidade está em pacotes (ex.: "saco") — multiplica pelo peso da embalagem do produto
+    const emb = parseProdutoEmbalagem(produtoUnidade);
+    const peso = emb.pesoEmbalagem ?? 1;
+    const pesoKg = emb.unidadeBase === "g" ? peso / 1000 : peso;
+    return q * pesoKg;
+  }
+  if (base === "g" || base === "grama" || base === "gramas") return q / 1000;
+  if (base === "mg") return q / 1_000_000;
+  if (base === "litro" || base === "l" || base === "ml" || base === "un" || base === "unidade") return null;
+  // "kg", "kg [saco:30]" (base kg) ou desconhecido: assume que já está em kg
+  return q;
+}

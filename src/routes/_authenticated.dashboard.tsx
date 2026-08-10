@@ -16,7 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/hooks/use-auth";
 import { usePwConfig } from "@/lib/password-config";
 import { PasswordLock } from "@/components/PasswordLock";
-import { parseProdutoEmbalagem } from "@/lib/embalagem";
+import { parseProdutoEmbalagem, quantidadeEmKg } from "@/lib/embalagem";
 import { BtnTutorial } from "@/components/BtnTutorial";
 
 
@@ -290,7 +290,7 @@ function Dashboard() {
         )
         .eq("data_lancamento", todayLocal())
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(500);
 
       if (error) throw error;
       return (data ?? []) as Lanc[];
@@ -395,7 +395,7 @@ function Dashboard() {
     const hoje = todayLocal();
     return ultimos
       .filter((l) => l.data_lancamento === hoje)
-      .reduce((s, l) => s + Number(l.quantidade ?? 0), 0);
+      .reduce((s, l) => s + (quantidadeEmKg(l.unidade, Number(l.quantidade ?? 0)) ?? 0), 0);
   }, [ultimos]);
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
