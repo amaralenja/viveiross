@@ -1,5 +1,7 @@
 // Cálculos e formatadores compartilhados entre a página de Relatórios (autenticada)
 // e a página pública de compartilhamento (/r/$token).
+// IMPORTANTE: computeLinhas é a ÚNICA fonte de cálculo — a página do app também a
+// chama, então app e link público mostram exatamente os mesmos números.
 
 export type ViveiroRel = {
   id: string;
@@ -8,6 +10,7 @@ export type ViveiroRel = {
   data_povoamento: string | null;
   status: string;
   fornecedor: string | null;
+  biomassa_manual: number | null;
   fazendas: { nome: string } | { nome: string }[] | null;
 };
 export type LancamentoRel = {
@@ -44,8 +47,9 @@ export type FuncionarioRel = {
   salario: number | null;
   ativo: boolean;
   viveiro_id: string | null;
-  observacao: string | null;
+  observacao?: string | null;
   tipo_remuneracao?: "mensal" | "diaria" | null;
+  data_inicio?: string | null;
 };
 export type ValeRel = {
   id: string;
@@ -65,6 +69,8 @@ export type CaixaRel = {
   quantidade: number | null;
   unidade: string | null;
   observacao: string | null;
+  despesa_id: string | null;
+  lancamento_id: string | null;
 };
 
 export type RelatorioBundle = {
@@ -117,15 +123,23 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
   const funcionarios = bundle?.funcionarios ?? [];
   const vales = bundle?.vales ?? [];
   const caixa = bundle?.caixa ?? [];
-  const ativos = viveiros.filter((v) => (v.status ?? "ativo") === "ativo");
-  const nViv = Math.max(1, ativos.length);
-  const ativosSet = new Set(ativos.map((v) => v.id));
+
+  const nAtivos = Math.max(1, viveiros.filter((viv) => viv.status === "ativo").length);
   const despesasRateadas = despesas.filter((d) => d.rateio === "todos" || d.viveiro_id == null);
   const despesasIndividuais = despesas.filter((d) => d.rateio !== "todos" && d.viveiro_id != null);
-  const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nViv;
+  const custoRateioPorViveiro = despesasRateadas.reduce((s, d) => s + Number(d.valor ?? 0), 0) / nAtivos;
+  const caixaRateado = caixa.filter((c) => c.viveiro_id == null && c.categoria !== "interno");
+  // Despesas puras do caixa (não vieram de despesas_gerais nem de lançamentos de ração)
+  const caixaDespesaPura = caixa.filter(
+    (c) => c.tipo !== "receita" && c.despesa_id == null && c.lancamento_id == null && c.categoria !== "interno",
+  );
+  const caixaDespesaRateada = caixaDespesaPura.filter((c) => c.viveiro_id == null);
+  const caixaDespesaIndiv = caixaDespesaPura.filter((c) => c.viveiro_id != null);
+  const custoCaixaRateioPorViveiro = caixaDespesaRateada.reduce((s, c) => s + Number(c.valor ?? 0), 0) / nAtivos;
 
   return viveiros.map((v) => {
-    const ehAtivo = ativosSet.has(v.id);
+    // Rateio (despesas/caixa/receitas compartilhadas) só cai em viveiro ATIVO.
+    const isAtivo = v.status === "ativo";
     const lancs = lancamentos.filter((l) => l.viveiro_id === v.id);
     const lancsRacao = lancs.filter((l) => l.tipo === "racao");
     const lancsOutros = lancs.filter((l) => l.tipo !== "racao");
@@ -135,8 +149,11 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
     const custoOutrosLanc = lancsOutros.reduce((s, l) => s + Number(l.custo_total ?? 0), 0);
     const despesasDoViveiro = despesasIndividuais.filter((d) => d.viveiro_id === v.id);
     const custoDespIndiv = despesasDoViveiro.reduce((s, d) => s + Number(d.valor ?? 0), 0);
-    const custoDespRateio = ehAtivo ? custoRateioPorViveiro : 0;
-    const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio;
+    const custoDespRateio = isAtivo ? custoRateioPorViveiro : 0;
+    const caixaDespIndivViv = caixaDespesaIndiv.filter((c) => c.viveiro_id === v.id);
+    const custoCaixaIndiv = caixaDespIndivViv.reduce((s, c) => s + Number(c.valor ?? 0), 0);
+    const custoCaixaRateio = isAtivo ? custoCaixaRateioPorViveiro : 0;
+    const custoOutros = custoOutrosLanc + custoDespIndiv + custoDespRateio + custoCaixaIndiv + custoCaixaRateio;
     const custoTotal = custoRacao + custoOutros;
 
     const bios = biometrias.filter((b) => b.viveiro_id === v.id);
@@ -145,17 +162,17 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
     const sobrevivencia = ultimaBio?.sobrevivencia_percent != null ? Number(ultimaBio.sobrevivencia_percent) : null;
     const sobrevivenciaCalculo = sobrevivencia ?? 100;
     const qtdPovoada = Number(v.qtd_povoada ?? 0);
-    const biomassa = ultimaBio && qtdPovoada > 0 && pesoMedio > 0
+    const biomassaCalc = ultimaBio && qtdPovoada > 0 && pesoMedio > 0
       ? (qtdPovoada * (sobrevivenciaCalculo / 100) * pesoMedio) / 1000
       : 0;
+    const biomassa = v.biomassa_manual != null ? Number(v.biomassa_manual) : biomassaCalc;
     const fca = ultimaBio && biomassa > 0 ? racaoKg / biomassa : null;
     const custoPorKg = biomassa > 0 ? custoTotal / biomassa : 0;
 
-    const datasLanc = lancs.map((l) => l.data_lancamento).sort();
-    const primeiraData = datasLanc[0];
-    const base = v.data_povoamento ?? primeiraData ?? null;
+    const base = v.data_povoamento ?? null;
     const dias = base ? diasDeCultivo(base) : null;
 
+    // Ração dia a dia
     const mapaRacao = new Map<string, { kg: number; custo: number }>();
     for (const l of lancsRacao) {
       const cur = mapaRacao.get(l.data_lancamento) ?? { kg: 0, custo: 0 };
@@ -168,55 +185,79 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       .sort((a, b) => (a.data < b.data ? 1 : -1));
 
     const despesasLista = [
-      ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const })),
-      ...(ehAtivo ? despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nViv, tipoRateio: "rateado" as const })) : []),
+      ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const, source: "despesa" as const })),
+      ...(isAtivo ? despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nAtivos, tipoRateio: "rateado" as const, source: "despesa" as const })) : []),
+      ...caixaDespIndivViv.map((c) => ({
+        id: c.id,
+        viveiro_id: c.viveiro_id,
+        descricao: c.descricao,
+        categoria: c.categoria ?? "caixa",
+        valor: Number(c.valor ?? 0),
+        data_despesa: c.data_lancamento,
+        rateio: "individual",
+        share: Number(c.valor ?? 0),
+        tipoRateio: "individual" as const,
+        source: "caixa" as const,
+      })),
+      ...(isAtivo ? caixaDespesaRateada.map((c) => ({
+        id: c.id,
+        viveiro_id: c.viveiro_id,
+        descricao: c.descricao,
+        categoria: c.categoria ?? "caixa",
+        valor: Number(c.valor ?? 0),
+        data_despesa: c.data_lancamento,
+        rateio: "todos",
+        share: Number(c.valor ?? 0) / nAtivos,
+        tipoRateio: "rateado" as const,
+        source: "caixa" as const,
+      })) : []),
     ];
 
+    // Funcionários ligados a este viveiro + total de vales por funcionário
     const funcsDiretos = funcionarios.filter((f) => f.viveiro_id === v.id);
-    const funcsRateados = ehAtivo ? funcionarios.filter((f) => f.viveiro_id === null) : [];
-    const funcsDoViveiro = [...funcsDiretos, ...funcsRateados];
+    const funcsRateados = funcionarios.filter((f) => f.viveiro_id === null);
+    const dCultivo = Math.max(1, dias ?? 1);
 
-    const totalDiasTodosAtivos = ativos.reduce((sum: number, viv: typeof v) => {
-      const pData = (lancamentos.filter((l) => l.viveiro_id === viv.id).map((l) => l.data_lancamento).sort())[0];
-      const bDate = viv.data_povoamento ?? pData ?? null;
-      return sum + (bDate ? Math.max(1, diasDeCultivo(bDate)) : 1);
+    const totalDiasTodos = viveiros.filter((viv) => viv.status === "ativo").reduce((sum, viv) => {
+      const b = viv.data_povoamento ?? null;
+      return sum + (b ? Math.max(1, diasDeCultivo(b)) : 1);
     }, 0);
 
-    const funcsComVales = funcsDoViveiro.map((f) => {
+    const calcCustoFunc = (f: FuncionarioRel, isDireto: boolean): number => {
+      const baseSal = Number(f.salario ?? 0);
+      const dataBase = f.data_inicio ?? v.data_povoamento ?? null;
+      const diasFunc = dataBase ? Math.max(1, diasDeCultivo(dataBase)) : dCultivo;
+      if (f.tipo_remuneracao === "diaria") {
+        return baseSal * diasFunc;
+      }
+      if (isDireto) return baseSal;
+      const prop = totalDiasTodos > 0 ? dCultivo / totalDiasTodos : 1 / nAtivos;
+      return baseSal * prop;
+    };
+
+    const funcsComVales = [...funcsDiretos.map((f) => {
       const meus = vales.filter((vv) => vv.funcionario_id === f.id);
       const totalVales = meus.reduce((s, x) => s + Number(x.valor ?? 0), 0);
-      const baseSal = Number(f.salario ?? 0);
-      let custoCalculado = baseSal;
-      const dCultivo = Math.max(1, dias ?? 1);
-
-      if (f.viveiro_id === v.id) {
-        if (f.tipo_remuneracao === "diaria") {
-          custoCalculado = baseSal * dCultivo;
-        } else {
-          custoCalculado = baseSal;
-        }
-      } else {
-        // Rateado / distribuído entre viveiros
-        if (f.tipo_remuneracao === "diaria") {
-          custoCalculado = baseSal * dCultivo;
-        } else {
-          const prop = totalDiasTodosAtivos > 0 ? dCultivo / totalDiasTodosAtivos : 1 / nViv;
-          custoCalculado = baseSal * prop;
-        }
-      }
-
+      const custoCalculado = calcCustoFunc(f, true);
       return { ...f, vales: meus, totalVales, custoCalculado };
-    });
-
-    const totalSalarios = funcsComVales.reduce((s, f) => s + f.custoCalculado, 0);
+    }), ...funcsRateados.map((f) => {
+      const meus = vales.filter((vv) => vv.funcionario_id === f.id);
+      const totalVales = meus.reduce((s, x) => s + Number(x.valor ?? 0), 0);
+      const custoCalculado = calcCustoFunc(f, false);
+      return { ...f, vales: meus, totalVales, custoCalculado };
+    })];
+    const totalSalarios = funcsComVales.reduce((s, f) => s + (f.custoCalculado ?? Number(f.salario ?? 0)), 0);
     const totalValesViv = funcsComVales.reduce((s, f) => s + f.totalVales, 0);
 
-    const caixaDoViv = caixa.filter((c) => c.viveiro_id === v.id);
+    // Caixa: receitas/despesas atribuídas a este viveiro + rateados (viveiro_id null)
+    const caixaDoVivDireto = caixa.filter((c) => c.viveiro_id === v.id);
+    const caixaDoViv = [...caixaDoVivDireto, ...(isAtivo ? caixaRateado.map((c) => ({ ...c, valor: Number(c.valor ?? 0) / nAtivos })) : [])];
     const receitasLista = caixaDoViv.filter((c) => c.tipo === "receita");
     const despesasCaixa = caixaDoViv.filter((c) => c.tipo !== "receita");
     const receitas = receitasLista.reduce((s, c) => s + Number(c.valor ?? 0), 0);
     const despesasCaixaTot = despesasCaixa.reduce((s, c) => s + Number(c.valor ?? 0), 0);
     const saldoCaixa = receitas - despesasCaixaTot;
+
     const lucro = receitas - custoTotal;
 
     return {
