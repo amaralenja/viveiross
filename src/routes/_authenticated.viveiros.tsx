@@ -230,6 +230,7 @@ function ViveirosPage() {
         >
           <Plus className="size-5" /> Novo
         </button>
+        </div>
       </div>
 
       {isLoading ? (
