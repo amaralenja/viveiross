@@ -37,7 +37,6 @@ const NAV = [
 
 const MAIS_BASE = [
   { to: "/relatorios", label: "Relatórios", icon: FileText },
-  { to: "/caixa-simples", label: "Caixa Simples", icon: Zap },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign },
   { to: "/senhas", label: "Senhas", icon: KeyRound },
 ] as const;
@@ -301,7 +300,6 @@ function AuthLayout() {
                 { label: "Viveiros", id: "EIvub9T9ED4" },
                 { label: "Biometrias", id: "sUlipirdezE" },
                 { label: "Caixa", id: "WDe74R9yfes" },
-                { label: "Caixa Simples", id: "ibiUgxNT9xI" },
                 { label: "Relatórios", id: "6ToxQuEVPAA" },
                 { label: "Financeiro", id: "ZaVvfYK5vmg" },
                 { label: "Senhas", id: "mgsGVqLeSM4" },
