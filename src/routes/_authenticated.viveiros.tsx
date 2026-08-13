@@ -1177,12 +1177,26 @@ function EditarViveiroModal({
     <ModalShell title={`Editar · ${viveiro.nome}`} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <Field label="Data de povoamento">
-          <input
-            type="date"
-            value={dataPovoamento}
-            onChange={(e) => setDataPovoamento(e.target.value)}
-            className="input"
-          />
+          <div className="flex gap-2 items-center">
+            <input
+              type="date"
+              value={dataPovoamento}
+              onChange={(e) => setDataPovoamento(e.target.value)}
+              className="input flex-1"
+            />
+            {dataPovoamento && (
+              <button
+                type="button"
+                onClick={() => setDataPovoamento("")}
+                className="h-11 px-3 rounded-xl border border-destructive/30 text-destructive text-xs font-bold hover:bg-destructive/5 shrink-0"
+              >
+                Zerar
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Os dias de cultivo só começam a contar a partir do povoamento. Colocou a data errada? Toque em <span className="font-semibold">Zerar</span> e salve para zerar os dias.
+          </p>
         </Field>
         <Field label="Quantidade de pós-larvas">
           <input

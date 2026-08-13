@@ -70,10 +70,11 @@ function PessoalTab() {
   const [sub, setSub] = useState<"lancamentos" | "relatorio" | "categorias">("lancamentos");
   const [editing, setEditing] = useState<FpLanc | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
+  const [tipo, setTipo] = useState<"despesa" | "receita" | "vale" | "a_pagar" | "a_receber">("despesa");
   const [desc, setDesc] = useState(""); const [val, setVal] = useState("");
   const [cat, setCat] = useState("geral"); const [dt, setDt] = useState(todayISO());
   const [obs, setObs] = useState("");
+  const [funcionarioId, setFuncionarioId] = useState("");
   const [fMes, setFMes] = useState(todayISO().slice(0, 7));
   const [fCat, setFCat] = useState("todas");
   const [novaCat, setNovaCat] = useState("");
@@ -81,6 +82,7 @@ function PessoalTab() {
 
   const { data: lancs = [] } = useQuery({ queryKey: ["fp"], queryFn: async () => { const r = await supabase.from("financeiro_pessoal").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }); if (r.error) throw r.error; return (r.data ?? []) as FpLanc[]; } });
   const { data: cats = [] } = useQuery({ queryKey: ["fp_cats"], queryFn: async () => { const r = await supabase.from("categorias_financeiro").select("*").order("nome"); if (r.error) throw r.error; return (r.data ?? []) as FpCat[]; } });
+  const { data: funcionarios = [] } = useQuery({ queryKey: ["funcionarios", "ativos"], queryFn: async () => { const { data, error } = await supabase.from("funcionarios").select("id, nome").eq("ativo", true).order("nome"); if (error) throw error; return (data ?? []) as { id: string; nome: string }[]; } });
 
   const excludedNames = useMemo(() => new Set(cats.filter((c) => c.excluida).map((c) => c.nome)), [cats]);
   const catsUnificadas = useMemo(() => {
@@ -97,12 +99,55 @@ function PessoalTab() {
   const toggleAll = () => setSel(sel.size === filtrados.length ? new Set() : new Set(filtrados.map((l) => l.id)));
   const toExport = sel.size > 0 ? filtrados.filter((l) => sel.has(l.id)) : filtrados;
 
-  const saveFpMut = useMutation({ mutationFn: async () => { const v = Number(val.replace(",", ".")); if (!desc.trim() || !v || v <= 0) throw new Error("Preencha descrição e valor."); if (editing) { await supabase.from("financeiro_pessoal").update({ tipo, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obs.trim() || null }).eq("id", editing.id); } else { const { data: u } = await supabase.auth.getUser(); await supabase.from("financeiro_pessoal").insert({ user_id: u.user?.id, tipo, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obs.trim() || null }); } }, onSuccess: () => { toast.success(editing ? "Atualizado" : "Registrado"); reset(); qc.invalidateQueries({ queryKey: ["fp"] }); }, onError: (e: Error) => toast.error(e.message) });
+  const saveFpMut = useMutation({ mutationFn: async () => {
+    const v = Number(val.replace(",", "."));
+    if (!v || v <= 0) throw new Error("Informe o valor.");
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) throw new Error("Sessão expirada.");
+
+    if (!editing && tipo === "vale") {
+      if (!funcionarioId) throw new Error("Selecione o funcionário.");
+      const func = funcionarios.find((f) => f.id === funcionarioId);
+      const motivo = desc.trim() || "Vale";
+      const { data: valeData, error: vErr } = await supabase.from("vales").insert({ user_id: uid, funcionario_id: funcionarioId, valor: v, motivo, data_vale: dt }).select("id").single();
+      if (vErr) throw vErr;
+      const { error: cErr } = await supabase.from("caixa_lancamentos").insert({ user_id: uid, data_lancamento: dt, descricao: `Pagamento funcionário: ${func?.nome ?? ""}`, categoria: "folha_pagamento", valor: v, tipo: "despesa", observacao: `${CS_TAG} [VALE:${valeData.id}] ${motivo}`.trim() });
+      if (cErr) throw cErr;
+      return;
+    }
+
+    if (!editing && (tipo === "a_pagar" || tipo === "a_receber")) {
+      if (!desc.trim()) throw new Error("Informe a descrição.");
+      const { error } = await supabase.from("contas_pagar").insert({ user_id: uid, descricao: desc.trim(), valor: v, data_vencimento: dt, categoria: "geral", observacao: obs.trim() || null, tipo_operacao: tipo === "a_receber" ? "receber" : "pagar", recorrencia: "none" });
+      if (error) throw error;
+      return;
+    }
+
+    // Despesa / Receita -> financeiro pessoal
+    if (!desc.trim()) throw new Error("Preencha descrição e valor.");
+    const tipoFp = tipo === "receita" ? "receita" : "despesa";
+    if (editing) {
+      await supabase.from("financeiro_pessoal").update({ tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obs.trim() || null }).eq("id", editing.id);
+    } else {
+      await supabase.from("financeiro_pessoal").insert({ user_id: uid, tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obs.trim() || null });
+    }
+  }, onSuccess: () => {
+    const msg = tipo === "vale" ? "Vale registrado" : tipo === "a_pagar" ? "Conta a pagar registrada" : tipo === "a_receber" ? "Conta a receber registrada" : (editing ? "Atualizado" : "Registrado");
+    toast.success(msg);
+    reset();
+    qc.invalidateQueries({ queryKey: ["fp"] });
+    qc.invalidateQueries({ queryKey: ["vales"] });
+    qc.invalidateQueries({ queryKey: ["contas-pagar"] });
+    qc.invalidateQueries({ queryKey: ["contas-receber"] });
+    qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
+    qc.invalidateQueries({ queryKey: ["caixa"] });
+  }, onError: (e: Error) => toast.error(e.message) });
   const delFpMut = useMutation({ mutationFn: (id: string) => supabase.from("financeiro_pessoal").delete().eq("id", id), onSuccess: () => { toast.success("Removido"); qc.invalidateQueries({ queryKey: ["fp"] }); }, onError: (e: Error) => toast.error(e.message) });
   const addCatMut = useMutation({ mutationFn: async (nome: string) => { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, icone: "📌" }); }, onSuccess: () => { toast.success("Categoria adicionada"); setNovaCat(""); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
   const delCatMut = useMutation({ mutationFn: async ({ id, nome }: { id?: string; nome: string }) => { if (id) { await supabase.from("categorias_financeiro").delete().eq("id", id); } else { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, excluida: true, icone: "🚫" }); } }, onSuccess: () => { toast.success("Removida"); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
 
-  function reset() { setShowForm(false); setEditing(null); setDesc(""); setVal(""); setCat("geral"); setDt(todayISO()); setObs(""); }
+  function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setDesc(""); setVal(""); setCat("geral"); setDt(todayISO()); setObs(""); setFuncionarioId(""); }
   function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setShowForm(true); }
 
   async function pdf() {
@@ -142,9 +187,27 @@ function PessoalTab() {
           <button onClick={() => { reset(); setShowForm(true); }} className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1"><Plus className="size-3.5" />Novo</button>
         </div>
         {showForm && <form onSubmit={(e) => { e.preventDefault(); saveFpMut.mutate(); }} className="rounded-xl bg-card border p-3 space-y-2">
-          <div className="flex gap-1 p-0.5 bg-muted rounded-lg"><button type="button" onClick={() => setTipo("despesa")} className={`flex-1 h-8 rounded-md font-bold text-xs ${tipo === "despesa" ? "bg-rose-500 text-white" : "text-muted-foreground"}`}><TrendingDown className="size-3 inline mr-0.5" />Despesa</button><button type="button" onClick={() => setTipo("receita")} className={`flex-1 h-8 rounded-md font-bold text-xs ${tipo === "receita" ? "bg-emerald-600 text-white" : "text-muted-foreground"}`}><TrendingUp className="size-3 inline mr-0.5" />Receita</button></div>
-          <div className="grid grid-cols-2 gap-2"><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Descrição" className="app-input h-9 text-xs" /><input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="Valor R$" className="app-input h-9 text-xs" inputMode="decimal" /></div>
-          <div className="grid grid-cols-2 gap-2"><select value={cat} onChange={(e) => setCat(e.target.value)} className="app-input h-9 text-xs">{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select><input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-9 text-xs" /></div>
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" onClick={() => setTipo("despesa")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "despesa" ? "bg-rose-500 text-white" : "bg-muted text-muted-foreground"}`}>Despesa</button>
+            <button type="button" onClick={() => setTipo("receita")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "receita" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>Receita</button>
+            {!editing && (<>
+              <button type="button" onClick={() => setTipo("vale")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "vale" ? "bg-amber-600 text-white" : "bg-muted text-muted-foreground"}`}>Vale</button>
+              <button type="button" onClick={() => setTipo("a_pagar")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "a_pagar" ? "bg-red-600 text-white" : "bg-muted text-muted-foreground"}`}>A pagar</button>
+              <button type="button" onClick={() => setTipo("a_receber")} className={`col-span-2 h-8 rounded-md font-bold text-[11px] ${tipo === "a_receber" ? "bg-emerald-700 text-white" : "bg-muted text-muted-foreground"}`}>A receber</button>
+            </>)}
+          </div>
+          {tipo === "vale" && (
+            <select value={funcionarioId} onChange={(e) => setFuncionarioId(e.target.value)} className="app-input h-9 text-xs w-full">
+              <option value="">— selecione o funcionário —</option>
+              {funcionarios.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+            </select>
+          )}
+          <div className="grid grid-cols-2 gap-2"><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={tipo === "vale" ? "Motivo (opcional)" : "Descrição"} className="app-input h-9 text-xs" /><input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="Valor R$" className="app-input h-9 text-xs" inputMode="decimal" /></div>
+          {(tipo === "despesa" || tipo === "receita") ? (
+            <div className="grid grid-cols-2 gap-2"><select value={cat} onChange={(e) => setCat(e.target.value)} className="app-input h-9 text-xs">{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select><input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-9 text-xs" /></div>
+          ) : (
+            <div><label className="text-[10px] uppercase text-muted-foreground font-bold">{tipo === "vale" ? "Data do vale" : "Vencimento"}</label><input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-9 text-xs w-full" /></div>
+          )}
           <div className="flex gap-2"><button type="button" onClick={reset} className="flex-1 h-8 rounded-lg border text-xs font-semibold">Cancelar</button><button type="submit" disabled={saveFpMut.isPending} className="flex-1 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold">{saveFpMut.isPending ? "Salvando..." : "Salvar"}</button></div>
         </form>}
         {filtrados.length === 0 ? <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div> : <div className="space-y-1">{filtrados.map((l) => <div key={l.id} className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 p-2.5 rounded-lg bg-card border text-xs"><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="size-3.5 shrink-0 mt-0.5" /><span className="text-muted-foreground w-16 shrink-0">{fmtDate(l.data)}</span><span className={`font-bold w-28 shrink-0 text-right tabular-nums ${l.tipo === "receita" ? "text-emerald-600" : "text-rose-600"}`}>{l.tipo === "receita" ? "+" : "-"}{brl(Number(l.valor))}</span><span className="truncate flex-1 min-w-0 font-medium">{l.descricao}</span><span className="text-muted-foreground bg-muted px-1.5 py-0.5 rounded text-[10px] shrink-0">{l.categoria}</span><button onClick={() => edit(l)} className="size-6 rounded hover:bg-muted flex items-center justify-center shrink-0"><Pencil className="size-3" /></button><button onClick={() => { if (confirm("Apagar?")) delFpMut.mutate(l.id); }} className="size-6 rounded hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"><Trash2 className="size-3" /></button></div>)}</div>}
