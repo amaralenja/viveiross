@@ -1,10 +1,10 @@
 import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, useRef, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power, ShoppingBag, Plus, Tag, Filter, ChevronLeft, ChevronRight, Boxes } from "lucide-react";
+import { Trash2, Pencil, X, Wallet, Users, TrendingUp, TrendingDown, FileDown, Download, Maximize2, FileSpreadsheet, Power, ShoppingBag, Plus, Tag, Filter, Boxes } from "lucide-react";
 import jsPDF from "jspdf";
 import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -464,18 +464,6 @@ function CaixaPage() {
   const [buscaDiscriminacao, setBuscaDiscriminacao] = useState("");
   const [filtroDestinoDisc, setFiltroDestinoDisc] = useState("__todos__");
 
-  const viveirosScrollRef = useRef<HTMLDivElement>(null);
-
-  function scrollViveiros(direction: "left" | "right") {
-    if (viveirosScrollRef.current) {
-      const scrollAmount = 320;
-      viveirosScrollRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  }
-
   const compraMut = useMutation({
     mutationFn: async (compraData: {
       socioId: string;
@@ -934,48 +922,20 @@ function CaixaPage() {
       {/* Carrossel de caixas por viveiro */}
       {relatorio.porViveiro.length > 0 && (
         <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <div>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                Caixa por viveiro ({relatorio.porViveiro.length})
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Arraste pro lado ou use as setas para navegar entre os viveiros
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => scrollViveiros("left")}
-                className="size-9 rounded-xl border bg-card hover:bg-accent flex items-center justify-center text-foreground transition active:scale-95 shadow-sm"
-                title="Rolar para esquerda"
-                aria-label="Rolar para esquerda"
-              >
-                <ChevronLeft className="size-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollViveiros("right")}
-                className="size-9 rounded-xl border bg-card hover:bg-accent flex items-center justify-center text-foreground transition active:scale-95 shadow-sm"
-                title="Rolar para direita"
-                aria-label="Rolar para direita"
-              >
-                <ChevronRight className="size-5" />
-              </button>
-            </div>
+          <div className="px-1">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Caixa por viveiro ({relatorio.porViveiro.length})
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Saldo, receitas, despesas e histórico de cada viveiro
+            </p>
           </div>
 
-          <div
-            ref={viveirosScrollRef}
-            className="w-full overflow-x-auto scroll-smooth touch-pan-x py-2 px-1 flex gap-4 snap-x snap-mandatory focus:outline-none"
-            style={{
-              WebkitOverflowScrolling: "touch",
-            }}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 px-1">
             {relatorio.porViveiro.map((v) => (
               <div
                 key={v.id}
-                className="snap-start shrink-0 w-[85%] sm:w-[320px] rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3"
+                className="w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 transition-shadow hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -1027,18 +987,24 @@ function CaixaPage() {
                   </div>
                 </div>
 
-                <div>
+                <div className={`rounded-xl p-3 min-w-0 overflow-hidden ${v.saldo >= 0 ? "bg-emerald-500/5" : "bg-destructive/5"}`}>
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Saldo
                   </p>
                   <p
-                    className={`text-2xl font-black tabular-nums ${v.saldo >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                    className={`text-xl sm:text-2xl font-black tabular-nums leading-tight break-words ${v.saldo >= 0 ? "text-emerald-600" : "text-destructive"}`}
                   >
                     {fmtBRL(v.saldo)}
                   </p>
-                  <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground tabular-nums">
-                    <span className="text-emerald-600">+ {fmtBRL(v.receitaTotal)}</span>
-                    <span className="text-destructive">− {fmtBRL(v.despesaTotal)}</span>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-emerald-500/10 px-2 py-1 min-w-0 overflow-hidden">
+                      <p className="text-[9px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Receitas</p>
+                      <p className="text-xs font-bold text-emerald-600 tabular-nums leading-tight break-words">{fmtBRL(v.receitaTotal)}</p>
+                    </div>
+                    <div className="rounded-lg bg-destructive/10 px-2 py-1 min-w-0 overflow-hidden">
+                      <p className="text-[9px] uppercase font-bold text-destructive">Despesas</p>
+                      <p className="text-xs font-bold text-destructive tabular-nums leading-tight break-words">{fmtBRL(v.despesaTotal)}</p>
+                    </div>
                   </div>
                 </div>
 
