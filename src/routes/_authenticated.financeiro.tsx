@@ -442,11 +442,16 @@ async function buildContaPdf(conta: Conta, info: ReturnType<typeof getContaFinan
   doc.setTextColor(0);
   doc.setFontSize(10);
   let y = 36;
+  const isReceber = conta.tipo_operacao === "receber";
   const status = info.isPago ? "QUITADA" : info.isParcial ? `PARCIAL (${info.percentualPago}%)` : "PENDENTE";
-  doc.text(`Status: ${status}`, 14, y); y += 6;
-  doc.text(`Valor total: ${brl(info.total)}`, 14, y); y += 6;
-  doc.text(`Já pago: ${brl(info.valorPago)}`, 14, y); y += 6;
-  doc.text(`Saldo restante: ${brl(info.valorRestante)}`, 14, y); y += 6;
+  doc.setFont("helvetica", "bold");
+  doc.text(`${isReceber ? "Conta a receber" : "Conta a pagar"} — ${status}`, 14, y); y += 7;
+  doc.setFont("helvetica", "normal");
+  doc.text(`Débito (total): ${brl(info.total)}`, 14, y); y += 6;
+  doc.text(`Crédito (pago): ${brl(info.valorPago)}`, 14, y); y += 6;
+  doc.setFont("helvetica", "bold");
+  doc.text(`Saldo${isReceber ? " a receber" : " devedor"}: ${brl(info.valorRestante)}`, 14, y); y += 6;
+  doc.setFont("helvetica", "normal");
   doc.text(`Vencimento: ${fmtDate(conta.data_vencimento)}`, 14, y); y += 6;
   if (conta.viveiro_id && viveiroMap.get(conta.viveiro_id)) {
     doc.text(`Viveiro: ${viveiroMap.get(conta.viveiro_id)}`, 14, y); y += 6;
@@ -456,27 +461,29 @@ async function buildContaPdf(conta: Conta, info: ReturnType<typeof getContaFinan
   }
   y += 4;
 
-  if (info.pagamentos.length > 0) {
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Histórico de Pagamentos", 14, y);
-    y += 6;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Extrato · Débito · Crédito · Saldo", 14, y);
+  doc.setFont("helvetica", "normal");
+  y += 2;
 
-    autoTable(doc, {
-      startY: y,
-      head: [["Data", "Valor Pago", "Observação"]],
-      body: info.pagamentos.map((p) => [
-        fmtDate(p.data),
-        brl(Number(p.valor)),
-        p.observacao || "—",
-      ]),
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-    });
-  } else {
-    doc.text("Nenhum pagamento registrado.", 14, y);
+  // Linha 1 = o débito (valor da conta). Depois cada pagamento (crédito) com o saldo correndo até zero.
+  const pagsOrd = [...info.pagamentos].sort((a, b) => (a.data < b.data ? -1 : 1));
+  let saldoRun = info.total;
+  const rows: string[][] = [[fmtDate(conta.data_vencimento), isReceber ? "Valor a receber" : "Valor da conta", brl(info.total), "—", brl(saldoRun)]];
+  for (const p of pagsOrd) {
+    saldoRun = Math.max(0, saldoRun - Number(p.valor));
+    rows.push([fmtDate(p.data), (p.observacao && p.observacao.trim()) || (isReceber ? "Recebimento" : "Pagamento"), "—", brl(Number(p.valor)), brl(saldoRun)]);
   }
+  autoTable(doc, {
+    startY: y + 4,
+    head: [["Data", "Histórico", "Débito", "Crédito", "Saldo"]],
+    body: rows,
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right", fontStyle: "bold" } },
+  });
 
   const blob = doc.output("blob") as Blob;
   const url = URL.createObjectURL(blob);
@@ -1881,12 +1888,15 @@ function CaixaSimplesSections({ tab }: { tab: "contas" | "funcionarios" }) {
                                   <div className="text-[11px] font-semibold text-muted-foreground uppercase">
                                     Histórico de pagamentos efetuados
                                   </div>
-                                  {info.pagamentos.map((p, idx) => (
+                                  {info.pagamentos.map((p, idx) => {
+                                    const saldoApos = Math.max(0, info.total - info.pagamentos.slice(0, idx + 1).reduce((s, pp) => s + Number(pp.valor || 0), 0));
+                                    return (
                                     <div key={p.id || idx} className="flex items-center justify-between text-xs bg-muted/40 p-2 rounded-lg">
                                       <div className="space-y-0.5">
-                                        <div className="font-semibold flex items-center gap-2">
+                                        <div className="font-semibold flex items-center gap-2 flex-wrap">
                                           <span className="text-emerald-600 font-bold">✓ {brl(Number(p.valor))}</span>
                                           <span className="text-muted-foreground font-normal">em {fmtDate(p.data)}</span>
+                                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">saldo {brl(saldoApos)}</span>
                                         </div>
                                         {p.observacao && <div className="text-muted-foreground text-[11px] italic">{p.observacao}</div>}
                                       </div>
@@ -1906,7 +1916,7 @@ function CaixaSimplesSections({ tab }: { tab: "contas" | "funcionarios" }) {
                                         </Button>
                                       )}
                                     </div>
-                                  ))}
+                                  ); })}
                                 </div>
                               )}
                             </div>
@@ -1993,12 +2003,15 @@ function CaixaSimplesSections({ tab }: { tab: "contas" | "funcionarios" }) {
 
                               {isExpanded && (
                                 <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-emerald-500/40">
-                                  {info.pagamentos.map((p, idx) => (
+                                  {info.pagamentos.map((p, idx) => {
+                                    const saldoApos = Math.max(0, info.total - info.pagamentos.slice(0, idx + 1).reduce((s, pp) => s + Number(pp.valor || 0), 0));
+                                    return (
                                     <div key={p.id || idx} className="flex items-center justify-between text-xs bg-muted/40 p-2 rounded-lg">
                                       <div className="space-y-0.5">
-                                        <div className="font-semibold flex items-center gap-2">
+                                        <div className="font-semibold flex items-center gap-2 flex-wrap">
                                           <span className="text-emerald-600 font-bold">✓ {brl(Number(p.valor))}</span>
                                           <span className="text-muted-foreground font-normal">em {fmtDate(p.data)}</span>
+                                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">saldo {brl(saldoApos)}</span>
                                         </div>
                                         {p.observacao && <div className="text-muted-foreground text-[11px] italic">{p.observacao}</div>}
                                       </div>
@@ -2018,7 +2031,7 @@ function CaixaSimplesSections({ tab }: { tab: "contas" | "funcionarios" }) {
                                         </Button>
                                       )}
                                     </div>
-                                  ))}
+                                  ); })}
                                 </div>
                               )}
                             </div>
