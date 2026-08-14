@@ -165,9 +165,9 @@ function PessoalTab() {
   return (
     <div className="space-y-4">
       <div className="flex gap-1 p-1 rounded-xl bg-muted">
-        {(["lancamentos", "relatorio", "categorias"] as const).map((t) => (
+        {(["lancamentos", "relatorio"] as const).map((t) => (
           <button key={t} onClick={() => setSub(t)} className={`flex-1 h-9 rounded-lg font-semibold text-[11px] sm:text-xs transition ${sub === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-            {t === "lancamentos" ? <><List className="size-3.5 inline mr-1" />Lançamentos</> : t === "relatorio" ? <><BarChart3 className="size-3.5 inline mr-1" />Relatório</> : <><Tag className="size-3.5 inline mr-1" />Categorias</>}
+            {t === "lancamentos" ? <><List className="size-3.5 inline mr-1" />Lançamentos</> : <><BarChart3 className="size-3.5 inline mr-1" />Relatório</>}
           </button>
         ))}
       </div>
@@ -183,6 +183,7 @@ function PessoalTab() {
           <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="app-input h-8 w-auto text-xs"><option value="todas">Todas</option>{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
           <button onClick={pdf} className="h-8 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1"><FileDown className="size-3" />PDF{sel.size > 0 ? ` (${sel.size})` : ""}</button>
           <button onClick={toggleAll} className="h-8 px-2 rounded-lg border text-xs font-semibold hover:bg-muted">{sel.size === filtrados.length && filtrados.length > 0 ? "Limpar" : "Todos"}</button>
+          <button onClick={() => setSub("categorias")} className="h-8 px-2 rounded-lg border text-xs font-semibold hover:bg-muted flex items-center gap-1"><Tag className="size-3" />Categorias</button>
           <div className="flex-1" />
           <button onClick={() => { reset(); setShowForm(true); }} className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1"><Plus className="size-3.5" />Novo</button>
         </div>
@@ -224,6 +225,7 @@ function PessoalTab() {
       </>}
 
       {sub === "categorias" && <>
+        <button onClick={() => setSub("lancamentos")} className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline"><List className="size-3.5" />Voltar aos lançamentos</button>
         <div className="flex gap-2"><input value={novaCat} onChange={(e) => setNovaCat(e.target.value)} placeholder="Nova categoria" className="app-input h-9 flex-1 text-xs" onKeyDown={(e) => { if (e.key === "Enter" && novaCat.trim()) addCatMut.mutate(novaCat.trim()); }} /><button onClick={() => { if (novaCat.trim()) addCatMut.mutate(novaCat.trim()); }} disabled={addCatMut.isPending} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold"><Plus className="size-3.5" /></button></div>
         <p className="text-[10px] text-muted-foreground">Categorias disponíveis — delete qualquer uma, exceto Geral</p>
         <div className="grid grid-cols-2 gap-1.5">{catsUnificadas.filter((c) => c !== "geral").map((c) => { const padrao = CAT_PADRAO.includes(c); const catObj = cats.find((x) => x.nome === c && !x.excluida); return <div key={c} className="flex items-center gap-2 p-2 rounded-lg bg-card border text-xs"><span className="font-medium truncate flex-1">{c}</span><span className="text-muted-foreground text-[10px] shrink-0">{padrao ? "padrão" : "custom"}</span><button onClick={() => { if (confirm(`Remover "${c}"?`)) delCatMut.mutate({ id: catObj?.id, nome: c }); }} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="size-3" /></button></div>; })}</div>
@@ -1473,219 +1475,6 @@ function CaixaSimplesSections({ tab }: { tab: "contas" | "funcionarios" }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base"><Plus className="size-4" /> Novo lançamento</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            <Button type="button" size="sm" variant={modo === "vale" ? "default" : "outline"} onClick={() => setModo("vale")}>Vale</Button>
-            <Button type="button" size="sm" variant={modo === "conta_pagar" ? "default" : "outline"} onClick={() => setModo("conta_pagar")}>Contas a pagar</Button>
-            <Button type="button" size="sm" variant={modo === "conta_receber" ? "default" : "outline"} onClick={() => setModo("conta_receber")}>Contas a receber</Button>
-          </div>
-
-          {modo === "vale" && (
-            <div>
-              <Label>Funcionário</Label>
-              {!showNovoFunc ? (
-                <div className="flex gap-2">
-                  <Select value={funcionarioId || "__none__"} onValueChange={(v) => setFuncionarioId(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— selecione —</SelectItem>
-                      {funcionarios.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" onClick={() => setShowNovoFunc(true)}>
-                    + Novo
-                  </Button>
-                </div>
-              ) : (
-                <div className="rounded-xl border bg-muted/20 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold">Novo Funcionário</span>
-                    <Button type="button" size="sm" variant="ghost" className="h-7 text-xs"
-                      onClick={() => { setShowNovoFunc(false); setNovoFuncNome(""); setNovoFuncSalario(""); }}>
-                      Cancelar
-                    </Button>
-                  </div>
-                  <Input autoFocus value={novoFuncNome} onChange={(e) => setNovoFuncNome(e.target.value)}
-                    placeholder="Nome do funcionário" />
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[10px]">Salário (R$)</Label>
-                      <Input inputMode="decimal" value={novoFuncSalario}
-                        onChange={(e) => setNovoFuncSalario(e.target.value.replace(/[^0-9.,]/g, ""))}
-                        placeholder="0,00" />
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">Tipo</Label>
-                      <Select value={novoFuncTipo} onValueChange={(v) => setNovoFuncTipo(v as "mensal" | "diaria")}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="mensal">Mensal</SelectItem>
-                          <SelectItem value="diaria">Diária</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-[10px]">Alocação</Label>
-                    <Select value={novoFuncViveiroId} onValueChange={setNovoFuncViveiroId}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={TODOS}>🔄 Rateado entre todos</SelectItem>
-                        <SelectItem value={INTERNO}>🏢 Nenhum viveiro (Geral)</SelectItem>
-                        {viveiros.map((v) => <SelectItem key={v.id} value={v.id}>{v.nome}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="button" size="sm" className="w-full"
-                    disabled={!novoFuncNome.trim() || !novoFuncSalario || addFuncMut.isPending}
-                    onClick={() => addFuncMut.mutate()}>
-                    {addFuncMut.isPending ? "Criando..." : "Criar Funcionário"}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div>
-            <Label>{modo === "vale" ? "Motivo (opcional)" : "Descrição"}</Label>
-            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={modo === "conta_pagar" ? "Ex: Conta de luz" : modo === "vale" ? "Ex: adiantamento" : "Ex: Tinta pro viveiro"} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Valor (R$)</Label>
-              <Input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
-            </div>
-            <div>
-              <Label>{dataLabel}</Label>
-              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
-            </div>
-          </div>
-
-          {modo === "conta_pagar" && (
-            <div className="rounded-md border border-dashed p-3 space-y-2">
-              <Label className="flex items-center gap-2"><Repeat className="size-4" /> É conta recorrente?</Label>
-              <p className="text-xs text-muted-foreground">Se sim, ao marcar como paga, a próxima parcela é criada automaticamente com o novo vencimento.</p>
-              <Select value={recorrencia} onValueChange={(v) => setRecorrencia(v as Conta["recorrencia"])}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Não, é única</SelectItem>
-                  <SelectItem value="diaria">Sim — todo dia</SelectItem>
-                  <SelectItem value="semanal">Sim — toda semana</SelectItem>
-                  <SelectItem value="mensal">Sim — todo mês</SelectItem>
-                  <SelectItem value="anual">Sim — todo ano</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {modo !== "vale" && (
-            <>
-              {false && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Quantidade (opcional)</Label>
-                    <Input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} placeholder="0" />
-                  </div>
-                  <div>
-                    <Label>Unidade</Label>
-                    <Select value={unidade} onValueChange={setUnidade}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="un">un</SelectItem>
-                        <SelectItem value="kg">kg</SelectItem>
-                        <SelectItem value="g">g</SelectItem>
-                        <SelectItem value="L">L</SelectItem>
-                        <SelectItem value="cx">cx</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <Label>{modo === "conta_pagar" ? "Quem vai pagar (sócio)" : "Quem pagou (sócio)"}</Label>
-                <div className="flex gap-2">
-                  <Select value={socioId || "__none__"} onValueChange={(v) => setSocioId(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="— nenhum —" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— nenhum —</SelectItem>
-                      {socios.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" onClick={() => setShowNovoSocio((v) => !v)}>
-                    {showNovoSocio ? "Cancelar" : "+ Novo"}
-                  </Button>
-                </div>
-                {showNovoSocio && (
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      autoFocus
-                      value={novoSocioNome}
-                      onChange={(e) => setNovoSocioNome(e.target.value)}
-                      placeholder="Nome do novo sócio"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (novoSocioNome.trim()) addSocioMut.mutate(novoSocioNome.trim());
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      disabled={!novoSocioNome.trim() || addSocioMut.isPending}
-                      onClick={() => addSocioMut.mutate(novoSocioNome.trim())}
-                    >
-                      Salvar
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <Label>Viveiro (ou rateado entre todos)</Label>
-                <div className="grid grid-cols-2 gap-1.5 mt-2">
-                  <button type="button" onClick={() => { setViveiroId(TODOS); setSelectedViveiros(new Set()); }}
-                    className={`py-1.5 px-2 rounded-lg border text-xs font-bold ${selectedViveiros.size === 0 && viveiroId === TODOS ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>🔄 Rateado</button>
-                  <button type="button" onClick={() => { setViveiroId(INTERNO); setSelectedViveiros(new Set()); }}
-                    className={`py-1.5 px-2 rounded-lg border text-xs font-bold ${selectedViveiros.size === 0 && viveiroId === INTERNO ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>🚫 Interno</button>
-                  {viveiros.map((v) => {
-                    const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
-                    return (
-                      <button key={v.id} type="button" onClick={() => {
-                        const n = new Set(selectedViveiros);
-                        if (n.has(v.id)) { n.delete(v.id); } else {
-                          if (n.size === 0 && viveiroId !== TODOS && viveiroId !== INTERNO && viveiroId && viveiroId !== v.id) n.add(viveiroId);
-                          n.add(v.id);
-                        }
-                        if (n.size === 0) setViveiroId(TODOS);
-                        setSelectedViveiros(n);
-                      }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
-                        {isSelected ? "✓ " : ""}{v.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedViveiros.size > 0 && <p className="text-[11px] text-muted-foreground mt-1">{selectedViveiros.size} viveiro(s) selecionado(s)</p>}
-              </div>
-
-              <div>
-                <Label>Observação (opcional)</Label>
-                <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={2} />
-              </div>
-            </>
-          )}
-
-          <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full">
-            {saveMut.isPending ? "Salvando..." : "Salvar lançamento"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
             <span>Contas a pagar / Dívidas</span>
             <div className="flex items-center gap-3 text-sm font-normal">
@@ -1742,7 +1531,7 @@ function CaixaSimplesSections({ tab }: { tab: "contas" | "funcionarios" }) {
         </CardHeader>
         <CardContent>
           {contasPendentes.length === 0 && contasPagas.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada. Crie uma acima escolhendo "Contas a pagar".</p>
+            <p className="text-sm text-muted-foreground">Nenhuma conta a pagar. Crie em <span className="font-semibold">Pessoal → Novo → A pagar</span>.</p>
           ) : (
             <div className="space-y-4">
               {contasPendentes.length > 0 && (
@@ -2070,7 +1859,7 @@ function CaixaSimplesSections({ tab }: { tab: "contas" | "funcionarios" }) {
         </CardHeader>
         <CardContent>
           {contasReceber.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma conta a receber. Crie acima em "Contas a receber".</p>
+            <p className="text-sm text-muted-foreground">Nenhuma conta a receber. Crie em <span className="font-semibold">Pessoal → Novo → A receber</span>.</p>
           ) : (
             <div className="space-y-3">
               {contasReceber.filter(c => !c.pago).length > 0 && (<div><h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Pendentes</h3><ul className="space-y-3">
