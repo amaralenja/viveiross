@@ -355,6 +355,23 @@ function ViveirosPage() {
                   </div>
                 </div>
               )}
+              {v.data_povoamento && (
+                <div className="mt-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-primary/5 border border-primary/15">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CalendarDays className="size-4 text-primary shrink-0" />
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      Povoado em <span className="font-bold text-foreground">{formatDateBR(v.data_povoamento)}</span> · <span className="font-bold text-primary">{diasDeCultivo(v.data_povoamento)} dias</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setEditarViveiro(v); }}
+                    className="h-7 px-2.5 rounded-lg border border-primary/30 text-[11px] font-bold text-primary hover:bg-primary/10 shrink-0"
+                  >
+                    Corrigir data
+                  </button>
+                </div>
+              )}
               {(() => {
                 const ultima = (biometriasPorViveiro[v.id] ?? [])[0];
                 const desp = despescasPorViveiro[v.id];
@@ -1174,9 +1191,16 @@ function EditarViveiroModal({
   }
 
   return (
-    <ModalShell title={`Editar · ${viveiro.nome}`} onClose={onClose}>
+    <ModalShell title={`Povoamento · ${viveiro.nome}`} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Data de povoamento">
+        <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="size-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0"><CalendarDays className="size-5" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-tight">Data de povoamento</p>
+              <p className="text-[11px] text-muted-foreground">É a partir dela que o viveiro começa a contar os dias de cultivo.</p>
+            </div>
+          </div>
           <div className="flex gap-2 items-center">
             <input
               type="date"
@@ -1188,16 +1212,29 @@ function EditarViveiroModal({
               <button
                 type="button"
                 onClick={() => setDataPovoamento("")}
-                className="h-11 px-3 rounded-xl border border-destructive/30 text-destructive text-xs font-bold hover:bg-destructive/5 shrink-0"
+                className="h-11 px-3 rounded-xl border border-destructive/40 text-destructive text-xs font-bold hover:bg-destructive/10 shrink-0"
               >
                 Zerar
               </button>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            Os dias de cultivo só começam a contar a partir do povoamento. Colocou a data errada? Toque em <span className="font-semibold">Zerar</span> e salve para zerar os dias.
+          {dataPovoamento ? (
+            <div className="rounded-xl bg-card border p-3 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Dias de cultivo</p>
+                <p className="text-3xl font-black text-primary tabular-nums leading-none">{diasDeCultivo(dataPovoamento)}</p>
+              </div>
+              <p className="text-[11px] text-emerald-600 font-semibold text-right shrink-0 leading-tight">✓ contando<br />desde {formatDateBR(dataPovoamento)}</p>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-700 dark:text-amber-400 font-medium leading-snug">
+              ⏸️ Ainda não povoado — os dias de cultivo ficam <span className="font-bold">zerados</span> até você definir a data acima.
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            Colocou a data errada sem querer? Toque em <span className="font-semibold">Zerar</span> e salve — os dias voltam pra zero.
           </p>
-        </Field>
+        </div>
         <Field label="Quantidade de pós-larvas">
           <input
             type="number"
