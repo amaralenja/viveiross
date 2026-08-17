@@ -623,12 +623,10 @@ function Dashboard() {
               <div className="flex gap-2">
                 <input
                   required
-                  min="0.01"
-                  step="0.01"
-                  type="number"
+                  type="text"
                   inputMode="decimal"
                   value={quantidade}
-                  onChange={(e) => setQuantidade(e.target.value)}
+                  onChange={(e) => setQuantidade(e.target.value.replace(/[^0-9.,]/g, ""))}
                   className="app-input flex-1 h-12 text-lg font-bold"
                   placeholder="Ex: 50"
                 />
@@ -658,14 +656,14 @@ function Dashboard() {
                   </select>
                 )}
               </div>
-              {embInfo?.temEmbalagem && Number(quantidade) > 0 && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem && (
+              {embInfo?.temEmbalagem && qNum > 0 && embInfo.pesoEmbalagem && unidadeLancamento === embInfo.tipoEmbalagem && (
                 <p className="text-[11px] text-primary font-medium">
-                  💡 {quantidade} {embInfo.tipoEmbalagem}(s) = {Number(quantidade) * embInfo.pesoEmbalagem} {embInfo.unidadeBase} no total
+                  💡 {qNum} {embInfo.tipoEmbalagem}(s) = {qNum * embInfo.pesoEmbalagem} {embInfo.unidadeBase} no total
                 </p>
               )}
-              {unidadeLancamento === "g" && Number(quantidade) > 0 && (
+              {unidadeLancamento === "g" && qNum > 0 && (
                 <p className="text-[11px] text-primary font-medium">
-                  💡 {quantidade}g = {(Number(quantidade) / 1000).toFixed(3)} kg
+                  💡 {qNum}g = {(qNum / 1000).toFixed(3)} kg
                 </p>
               )}
             </div>
