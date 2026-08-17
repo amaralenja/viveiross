@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark, ChevronRight } from "lucide-react";
 import { BtnTutorial } from "@/components/BtnTutorial";
 
 
@@ -24,45 +24,23 @@ export const Route = createFileRoute("/_authenticated/financeiro")({
 });
 
 function FinanceiroPage() {
-  const [tab, setTab] = useState<"pessoal" | "contas" | "funcionarios">("pessoal");
-  const TABS = [
-    { id: "pessoal", label: "Pessoal", icon: Wallet },
-    { id: "contas", label: "Contas", icon: Landmark },
-    { id: "funcionarios", label: "Funcionários", icon: Users },
-  ] as const;
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <div className="size-10 shrink-0 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"><DollarSign className="size-5" /></div>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold">Financeiro</h1>
-          <p className="text-xs text-muted-foreground truncate">Finanças, contas, recebimentos e funcionários num lugar só</p>
+          <p className="text-xs text-muted-foreground truncate">Sua conta pessoal — débito, crédito e saldo por pessoa</p>
         </div>
         <BtnTutorial videoId="ibiUgxNT9xI" label="Financeiro" />
       </div>
-      <div className="flex gap-1 p-1 rounded-xl bg-muted">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 h-9 rounded-lg font-semibold text-[11px] sm:text-xs transition flex items-center justify-center gap-1 ${active ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
-            >
-              <Icon className="size-3.5 shrink-0" />
-              <span className="truncate">{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
-      {tab === "pessoal" ? <PessoalTab /> : <CaixaSimplesSections tab={tab} />}
+      <PessoalTab />
     </div>
   );
 }
 
 const CAT_PADRAO = ["Salário", "Alimentação", "Transporte", "Moradia", "Energia", "Água", "Internet", "Saúde", "Educação", "Lazer", "Freelance", "Compras", "Investimento", "Outros"];
-type FpLanc = { id: string; tipo: string; descricao: string; valor: number; categoria: string; data: string; observacao: string | null };
+type FpLanc = { id: string; tipo: string; descricao: string; valor: number; categoria: string; data: string; observacao: string | null; created_at?: string };
 type FpCat = { id: string; nome: string; icone: string; excluida: boolean };
 
 function PessoalTab() {
@@ -79,6 +57,7 @@ function PessoalTab() {
   const [fCat, setFCat] = useState("todas");
   const [novaCat, setNovaCat] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [openConta, setOpenConta] = useState<string | null>(null);
 
   const { data: lancs = [] } = useQuery({ queryKey: ["fp"], queryFn: async () => { const r = await supabase.from("financeiro_pessoal").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }); if (r.error) throw r.error; return (r.data ?? []) as FpLanc[]; } });
   const { data: cats = [] } = useQuery({ queryKey: ["fp_cats"], queryFn: async () => { const r = await supabase.from("categorias_financeiro").select("*").order("nome"); if (r.error) throw r.error; return (r.data ?? []) as FpCat[]; } });
@@ -158,7 +137,8 @@ function PessoalTab() {
   const delCatMut = useMutation({ mutationFn: async ({ id, nome }: { id?: string; nome: string }) => { if (id) { await supabase.from("categorias_financeiro").delete().eq("id", id); } else { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, excluida: true, icone: "🚫" }); } }, onSuccess: () => { toast.success("Removida"); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
 
   function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setDesc(""); setVal(""); setCat("geral"); setDt(todayISO()); setObs(""); setFuncionarioId(""); }
-  function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setShowForm(true); }
+  function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setShowForm(true); setSub("lancamentos"); }
+  function novoNaConta(c: string, t: "despesa" | "receita") { reset(); setTipo(t); setCat(c); setDt(todayISO()); setShowForm(true); setSub("lancamentos"); }
 
   async function pdf() {
     const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
@@ -184,9 +164,9 @@ function PessoalTab() {
 
       {sub === "lancamentos" && <>
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-emerald-600 font-bold truncate">Receitas</p><p className="text-sm sm:text-lg font-black text-emerald-600 tabular-nums leading-tight break-words">{brl(tot.rec)}</p></div>
-          <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-rose-600 font-bold truncate">Despesas</p><p className="text-sm sm:text-lg font-black text-rose-600 tabular-nums leading-tight break-words">{brl(tot.desp)}</p></div>
-          <div className={`rounded-xl border p-2.5 min-w-0 overflow-hidden ${tot.saldo >= 0 ? "bg-muted/40" : "bg-rose-500/5 border-rose-500/30"}`}><p className="text-[10px] uppercase text-muted-foreground font-bold truncate">Saldo</p><p className={`text-sm sm:text-lg font-black tabular-nums leading-tight break-words ${tot.saldo >= 0 ? "text-foreground" : "text-rose-600"}`}>{brl(tot.saldo)}</p></div>
+          <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-rose-600 font-bold truncate">Débito</p><p className="text-sm sm:text-lg font-black text-rose-600 tabular-nums leading-tight break-words">{brl(tot.desp)}</p></div>
+          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-emerald-600 font-bold truncate">Crédito</p><p className="text-sm sm:text-lg font-black text-emerald-600 tabular-nums leading-tight break-words">{brl(tot.rec)}</p></div>
+          <div className={`rounded-xl border p-2.5 min-w-0 overflow-hidden ${tot.saldo >= 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-rose-500/5 border-rose-500/30"}`}><p className="text-[10px] uppercase text-muted-foreground font-bold truncate">Saldo</p><p className={`text-sm sm:text-lg font-black tabular-nums leading-tight break-words ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</p></div>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
           <input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className="app-input h-8 w-auto text-xs" />
@@ -199,8 +179,8 @@ function PessoalTab() {
         </div>
         {showForm && <form onSubmit={(e) => { e.preventDefault(); saveFpMut.mutate(); }} className="rounded-xl bg-card border p-3 space-y-2">
           <div className="grid grid-cols-2 gap-1">
-            <button type="button" onClick={() => setTipo("despesa")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "despesa" ? "bg-rose-500 text-white" : "bg-muted text-muted-foreground"}`}>Despesa</button>
-            <button type="button" onClick={() => setTipo("receita")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "receita" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>Receita</button>
+            <button type="button" onClick={() => setTipo("despesa")} className={`h-9 rounded-md font-bold text-xs flex flex-col items-center justify-center leading-none ${tipo === "despesa" ? "bg-rose-500 text-white" : "bg-muted text-muted-foreground"}`}>Débito<span className="text-[9px] font-medium opacity-80 mt-0.5">ele te deve / você deu</span></button>
+            <button type="button" onClick={() => setTipo("receita")} className={`h-9 rounded-md font-bold text-xs flex flex-col items-center justify-center leading-none ${tipo === "receita" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>Crédito<span className="text-[9px] font-medium opacity-80 mt-0.5">pagamento recebido</span></button>
           </div>
           {tipo === "vale" && (
             <select value={funcionarioId} onChange={(e) => setFuncionarioId(e.target.value)} className="app-input h-9 text-xs w-full">
@@ -208,7 +188,7 @@ function PessoalTab() {
               {funcionarios.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
           )}
-          <div className="grid grid-cols-2 gap-2"><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={tipo === "vale" ? "Motivo (opcional)" : "Descrição"} className="app-input h-9 text-xs" /><input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="Valor R$" className="app-input h-9 text-xs" inputMode="decimal" /></div>
+          <div className="grid grid-cols-2 gap-2"><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={tipo === "vale" ? "Motivo (opcional)" : "O que foi (especificação)"} className="app-input h-9 text-xs" /><input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="Valor R$" className="app-input h-9 text-xs" inputMode="decimal" /></div>
           {(tipo === "despesa" || tipo === "receita") ? (
             <div className="grid grid-cols-2 gap-2">
               <div className="flex gap-1 min-w-0">
@@ -226,40 +206,69 @@ function PessoalTab() {
       </>}
 
       {sub === "relatorio" && <>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-emerald-600 font-bold truncate">Receitas</p><p className="text-sm sm:text-lg font-black text-emerald-600 tabular-nums leading-tight break-words">{brl(tot.rec)}</p></div>
-          <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-rose-600 font-bold truncate">Despesas</p><p className="text-sm sm:text-lg font-black text-rose-600 tabular-nums leading-tight break-words">{brl(tot.desp)}</p></div>
-          <div className={`rounded-xl border p-2.5 min-w-0 overflow-hidden ${tot.saldo >= 0 ? "bg-muted/40" : "bg-rose-500/5 border-rose-500/30"}`}><p className="text-[10px] uppercase text-muted-foreground font-bold truncate">Saldo</p><p className={`text-sm sm:text-lg font-black tabular-nums leading-tight break-words ${tot.saldo >= 0 ? "text-foreground" : "text-rose-600"}`}>{brl(tot.saldo)}</p></div>
+        <div className="flex gap-2 flex-wrap items-center">
+          <input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className="app-input h-8 w-auto text-xs" />
+          <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="app-input h-8 w-auto text-xs"><option value="todas">Todas as contas</option>{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+          <button onClick={pdf} className="h-8 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1"><FileDown className="size-3" />PDF{fCat !== "todas" ? ` (${fCat})` : ""}</button>
         </div>
-        <div className="flex gap-2 flex-wrap"><input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className="app-input h-8 w-auto text-xs" /><select value={fCat} onChange={(e) => setFCat(e.target.value)} className="app-input h-8 w-auto text-xs"><option value="todas">Todas categorias</option>{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select><button onClick={pdf} className="h-8 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1"><FileDown className="size-3" />PDF{fCat !== "todas" ? ` (${fCat})` : ""}</button></div>
-        <div className="rounded-xl border bg-card p-4">
-          <h3 className="font-bold text-sm mb-1 flex items-center gap-2"><PieChart className="size-4 text-primary" />Débito · Crédito · Saldo por conta</h3>
-          <p className="text-[11px] text-muted-foreground mb-3">Cada categoria vira uma conta. Saldo = crédito − débito · <span className="text-blue-600 font-semibold">azul positivo</span> · <span className="text-rose-600 font-semibold">vermelho negativo</span>.</p>
-          <div className="space-y-1.5">
-            {Object.entries(tot.contas).sort((a, b) => Math.abs(b[1].credito - b[1].debito) - Math.abs(a[1].credito - a[1].debito)).map(([c, x]) => {
-              const saldo = x.credito - x.debito;
-              return (
-                <div key={c} className="rounded-lg border bg-card/60 p-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-sm truncate min-w-0">{c}</span>
-                    <span className={`text-base font-black tabular-nums shrink-0 break-words ${saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldo)}</span>
+        <div className={`rounded-xl border p-3 flex items-center justify-between ${tot.saldo >= 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-rose-500/5 border-rose-500/30"}`}>
+          <div><p className="text-[10px] uppercase text-muted-foreground font-bold">Saldo geral</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Débito {brl(tot.desp)} · Crédito {brl(tot.rec)}</p></div>
+          <span className={`text-2xl font-black tabular-nums ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground px-0.5">Toque numa pessoa para ver o extrato. Saldo <span className="text-rose-600 font-semibold">vermelho</span> = está te devendo · <span className="text-blue-600 font-semibold">azul</span> = a favor.</p>
+        <div className="space-y-2">
+          {Object.entries(tot.contas).sort((a, b) => Math.abs(b[1].credito - b[1].debito) - Math.abs(a[1].credito - a[1].debito)).map(([c, x]) => {
+            const saldo = x.credito - x.debito;
+            const aberta = openConta === c;
+            const entries = filtrados.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
+            let run = 0;
+            return (
+              <div key={c} className="rounded-xl border bg-card overflow-hidden">
+                <button onClick={() => setOpenConta(aberta ? null : c)} className="w-full flex items-center gap-2 p-3 text-left hover:bg-muted/40 transition">
+                  <ChevronRight className={`size-4 shrink-0 text-muted-foreground transition ${aberta ? "rotate-90" : ""}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-sm truncate">{c}</p>
+                    <p className="text-[11px] mt-0.5 tabular-nums"><span className="text-rose-600">Débito {brl(x.debito)}</span> <span className="text-muted-foreground">·</span> <span className="text-emerald-600">Crédito {brl(x.credito)}</span></p>
                   </div>
-                  <div className="flex gap-3 text-[11px] mt-0.5 tabular-nums">
-                    <span className="text-rose-600">Débito {brl(x.debito)}</span>
-                    <span className="text-emerald-600">Crédito {brl(x.credito)}</span>
+                  <div className="text-right shrink-0">
+                    <p className={`text-lg font-black tabular-nums leading-none ${saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldo)}</p>
+                    <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">{saldo < 0 ? "te deve" : saldo > 0 ? "a favor" : "quitado"}</p>
                   </div>
-                </div>
-              );
-            })}
-            {Object.keys(tot.contas).length === 0 && <p className="text-xs text-muted-foreground">Nenhum lançamento no período.</p>}
-          </div>
-          <div className="mt-3 pt-3 border-t flex items-center justify-between">
-            <span className="text-sm font-bold">Saldo total</span>
-            <div className="text-right">
-              <span className={`text-lg font-black tabular-nums ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</span>
-              <p className="text-[10px] text-muted-foreground tabular-nums">Déb {brl(tot.desp)} · Créd {brl(tot.rec)}</p>
-            </div>
-          </div>
+                </button>
+                {aberta && (
+                  <div className="border-t bg-muted/20 p-2.5">
+                    <div className="flex gap-2 mb-2">
+                      <button onClick={() => novoNaConta(c, "despesa")} className="flex-1 h-8 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/30 text-[11px] font-bold flex items-center justify-center gap-1"><Plus className="size-3" />Débito</button>
+                      <button onClick={() => novoNaConta(c, "receita")} className="flex-1 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[11px] font-bold flex items-center justify-center gap-1"><Plus className="size-3" />Crédito (recebi)</button>
+                    </div>
+                    <div className="overflow-x-auto -mx-2.5 px-2.5">
+                      <table className="w-full text-[11px] tabular-nums">
+                        <thead><tr className="text-[9px] uppercase text-muted-foreground border-b"><th className="text-left font-bold py-1 pr-2">Data</th><th className="text-left font-bold py-1 pr-2">Especificação</th><th className="text-right font-bold py-1 px-1.5">Débito</th><th className="text-right font-bold py-1 px-1.5">Crédito</th><th className="text-right font-bold py-1 pl-1.5">Saldo</th></tr></thead>
+                        <tbody>
+                          {entries.map((l) => {
+                            const v = Number(l.valor);
+                            const isCred = l.tipo === "receita";
+                            run += isCred ? v : -v;
+                            return (
+                              <tr key={l.id} className="border-b border-border/50 last:border-0">
+                                <td className="py-1.5 pr-2 text-muted-foreground whitespace-nowrap">{fmtDate(l.data)}</td>
+                                <td className="py-1.5 pr-2 font-medium">{l.descricao}</td>
+                                <td className="py-1.5 px-1.5 text-right text-rose-600">{isCred ? "—" : brl(v)}</td>
+                                <td className="py-1.5 px-1.5 text-right text-emerald-600">{isCred ? brl(v) : "—"}</td>
+                                <td className={`py-1.5 pl-1.5 text-right font-bold ${run >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(run)}</td>
+                              </tr>
+                            );
+                          })}
+                          {entries.length === 0 && <tr><td colSpan={5} className="py-2 text-center text-muted-foreground">Sem lançamentos.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {Object.keys(tot.contas).length === 0 && <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div>}
         </div>
       </>}
 
