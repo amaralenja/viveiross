@@ -201,11 +201,6 @@ function PessoalTab() {
           <div className="grid grid-cols-2 gap-1">
             <button type="button" onClick={() => setTipo("despesa")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "despesa" ? "bg-rose-500 text-white" : "bg-muted text-muted-foreground"}`}>Despesa</button>
             <button type="button" onClick={() => setTipo("receita")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "receita" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>Receita</button>
-            {!editing && (<>
-              <button type="button" onClick={() => setTipo("vale")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "vale" ? "bg-amber-600 text-white" : "bg-muted text-muted-foreground"}`}>Vale</button>
-              <button type="button" onClick={() => setTipo("a_pagar")} className={`h-8 rounded-md font-bold text-[11px] ${tipo === "a_pagar" ? "bg-red-600 text-white" : "bg-muted text-muted-foreground"}`}>A pagar</button>
-              <button type="button" onClick={() => setTipo("a_receber")} className={`col-span-2 h-8 rounded-md font-bold text-[11px] ${tipo === "a_receber" ? "bg-emerald-700 text-white" : "bg-muted text-muted-foreground"}`}>A receber</button>
-            </>)}
           </div>
           {tipo === "vale" && (
             <select value={funcionarioId} onChange={(e) => setFuncionarioId(e.target.value)} className="app-input h-9 text-xs w-full">
