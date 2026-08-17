@@ -94,7 +94,17 @@ function PessoalTab() {
   }, [cats, lancs, excludedNames]);
 
   const filtrados = useMemo(() => lancs.filter((l) => { if (fMes && !l.data.startsWith(fMes)) return false; if (fCat !== "todas" && l.categoria !== fCat) return false; return true; }), [lancs, fMes, fCat]);
-  const tot = useMemo(() => { let rec = 0, desp = 0; const pc: Record<string, number> = {}; for (const l of filtrados) { if (l.tipo === "receita") rec += Number(l.valor); else desp += Number(l.valor); pc[l.categoria] = (pc[l.categoria] ?? 0) + Number(l.valor); } return { rec, desp, saldo: rec - desp, pc }; }, [filtrados]);
+  const tot = useMemo(() => {
+    let rec = 0, desp = 0;
+    const contas: Record<string, { debito: number; credito: number }> = {};
+    for (const l of filtrados) {
+      const v = Number(l.valor);
+      const c = contas[l.categoria] ?? { debito: 0, credito: 0 };
+      if (l.tipo === "receita") { rec += v; c.credito += v; } else { desp += v; c.debito += v; }
+      contas[l.categoria] = c;
+    }
+    return { rec, desp, saldo: rec - desp, contas };
+  }, [filtrados]);
   const toggleSel = (id: string) => { const n = new Set(sel); n.has(id) ? n.delete(id) : n.add(id); setSel(n); };
   const toggleAll = () => setSel(sel.size === filtrados.length ? new Set() : new Set(filtrados.map((l) => l.id)));
   const toExport = sel.size > 0 ? filtrados.filter((l) => sel.has(l.id)) : filtrados;
@@ -205,7 +215,13 @@ function PessoalTab() {
           )}
           <div className="grid grid-cols-2 gap-2"><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={tipo === "vale" ? "Motivo (opcional)" : "Descrição"} className="app-input h-9 text-xs" /><input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="Valor R$" className="app-input h-9 text-xs" inputMode="decimal" /></div>
           {(tipo === "despesa" || tipo === "receita") ? (
-            <div className="grid grid-cols-2 gap-2"><select value={cat} onChange={(e) => setCat(e.target.value)} className="app-input h-9 text-xs">{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select><input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-9 text-xs" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex gap-1 min-w-0">
+                <select value={cat} onChange={(e) => setCat(e.target.value)} className="app-input h-9 text-xs flex-1 min-w-0">{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+                <button type="button" title="Criar nova categoria/conta" onClick={() => { const nome = window.prompt("Nome da nova categoria/conta:")?.trim(); if (nome) { addCatMut.mutate(nome); setCat(nome); } }} className="h-9 px-2.5 rounded-lg border text-sm font-bold text-primary hover:bg-primary/5 shrink-0">+</button>
+              </div>
+              <input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-9 text-xs" />
+            </div>
           ) : (
             <div><label className="text-[10px] uppercase text-muted-foreground font-bold">{tipo === "vale" ? "Data do vale" : "Vencimento"}</label><input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-9 text-xs w-full" /></div>
           )}
@@ -221,7 +237,35 @@ function PessoalTab() {
           <div className={`rounded-xl border p-2.5 min-w-0 overflow-hidden ${tot.saldo >= 0 ? "bg-muted/40" : "bg-rose-500/5 border-rose-500/30"}`}><p className="text-[10px] uppercase text-muted-foreground font-bold truncate">Saldo</p><p className={`text-sm sm:text-lg font-black tabular-nums leading-tight break-words ${tot.saldo >= 0 ? "text-foreground" : "text-rose-600"}`}>{brl(tot.saldo)}</p></div>
         </div>
         <div className="flex gap-2 flex-wrap"><input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className="app-input h-8 w-auto text-xs" /><select value={fCat} onChange={(e) => setFCat(e.target.value)} className="app-input h-8 w-auto text-xs"><option value="todas">Todas categorias</option>{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select><button onClick={pdf} className="h-8 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1"><FileDown className="size-3" />PDF{fCat !== "todas" ? ` (${fCat})` : ""}</button></div>
-        <div className="rounded-xl border bg-card p-4"><h3 className="font-bold text-sm mb-3 flex items-center gap-2"><PieChart className="size-4 text-primary" />Gastos por Categoria</h3><div className="space-y-1.5">{Object.entries(tot.pc).sort((a, b) => b[1] - a[1]).map(([c, v]) => <div key={c} className="flex items-center gap-2 text-sm"><span className="w-24 sm:w-32 truncate text-muted-foreground shrink-0">{c}</span><div className="flex-1 bg-secondary h-2 rounded-full overflow-hidden min-w-0"><div className="bg-primary h-full rounded-full" style={{ width: `${tot.desp > 0 ? Math.min(100, (v / tot.desp) * 100) : 0}%` }} /></div><span className="w-20 sm:w-24 text-right font-semibold tabular-nums shrink-0 text-xs sm:text-sm">{brl(v)}</span></div>)}</div></div>
+        <div className="rounded-xl border bg-card p-4">
+          <h3 className="font-bold text-sm mb-1 flex items-center gap-2"><PieChart className="size-4 text-primary" />Débito · Crédito · Saldo por conta</h3>
+          <p className="text-[11px] text-muted-foreground mb-3">Cada categoria vira uma conta. Saldo = crédito − débito · <span className="text-blue-600 font-semibold">azul positivo</span> · <span className="text-rose-600 font-semibold">vermelho negativo</span>.</p>
+          <div className="space-y-1.5">
+            {Object.entries(tot.contas).sort((a, b) => Math.abs(b[1].credito - b[1].debito) - Math.abs(a[1].credito - a[1].debito)).map(([c, x]) => {
+              const saldo = x.credito - x.debito;
+              return (
+                <div key={c} className="rounded-lg border bg-card/60 p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-sm truncate min-w-0">{c}</span>
+                    <span className={`text-base font-black tabular-nums shrink-0 break-words ${saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldo)}</span>
+                  </div>
+                  <div className="flex gap-3 text-[11px] mt-0.5 tabular-nums">
+                    <span className="text-rose-600">Débito {brl(x.debito)}</span>
+                    <span className="text-emerald-600">Crédito {brl(x.credito)}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {Object.keys(tot.contas).length === 0 && <p className="text-xs text-muted-foreground">Nenhum lançamento no período.</p>}
+          </div>
+          <div className="mt-3 pt-3 border-t flex items-center justify-between">
+            <span className="text-sm font-bold">Saldo total</span>
+            <div className="text-right">
+              <span className={`text-lg font-black tabular-nums ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</span>
+              <p className="text-[10px] text-muted-foreground tabular-nums">Déb {brl(tot.desp)} · Créd {brl(tot.rec)}</p>
+            </div>
+          </div>
+        </div>
       </>}
 
       {sub === "categorias" && <>
