@@ -46,6 +46,22 @@ function relName(rel: { nome: string } | { nome: string }[] | null | undefined):
   return rel.nome ?? "";
 }
 
+// Formata "2026-08-17" como "17/08"
+function fmtDiaMes(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}/${m[2]}` : iso;
+}
+
+// Adivinha o tipo do insumo pelo nome do produto, pra não precisar escolher de novo
+function guessTipoInsumo(nome: string): "racao" | "probiotico" | "medicamento" | "fertilizante" | "outro" | null {
+  const n = (nome || "").toLowerCase();
+  if (/(prob[ií]ot|probiot|bacter|lactob|bacillus|prob\b)/.test(n)) return "probiotico";
+  if (/(ra[çc][aã]o|racao|alimento|feed|farelo)/.test(n)) return "racao";
+  if (/(medic|rem[ée]dio|antibi[óo]t|florfenic|oxitetra|vitamina|premix)/.test(n)) return "medicamento";
+  if (/(fertil|adubo|calc[áa]rio|calcario|[óo]xido|oxido|cal\b|dolomita|ureia|ur[ée]ia|melaço|melaco|silicato)/.test(n)) return "fertilizante";
+  return null;
+}
+
 function AvisosDashboard() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -283,12 +299,16 @@ function Dashboard() {
   const { data: ultimos = [], isLoading } = useQuery({
     queryKey: ["dashboard", "ultimos-lancamentos"],
     queryFn: async () => {
+      const od = new Date();
+      od.setDate(od.getDate() - 1);
+      const ontem = ymd(od);
       const { data, error } = await supabase
         .from("lancamentos")
         .select(
           "id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, tipo, preco_unidade, custo_total, viveiros(nome)",
         )
-        .eq("data_lancamento", todayLocal())
+        .in("data_lancamento", [todayLocal(), ontem])
+        .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(500);
 
@@ -551,6 +571,8 @@ function Dashboard() {
                   const emb = parseProdutoEmbalagem(p.unidade);
                   setEmbInfo(emb);
                   setUnidadeLancamento(emb.unidadeBase || "kg");
+                  const t = guessTipoInsumo(p.nome);
+                  if (t) setTipoLancamento(t);
                 } else {
                   setProduto("");
                 }
@@ -660,9 +682,9 @@ function Dashboard() {
           </div>
 
           {totalCalc > 0 && (
-            <div className="bg-muted/50 p-3 rounded-xl flex items-center justify-between text-sm">
-              <span className="text-muted-foreground font-medium">Custo estimado:</span>
-              <span className="font-bold text-foreground tabular-nums text-base">
+            <div className="bg-emerald-500/10 border border-emerald-500/30 p-3.5 rounded-xl flex items-center justify-between">
+              <span className="text-emerald-700 font-semibold text-sm">Custo estimado</span>
+              <span className="font-black text-emerald-700 tabular-nums text-xl">
                 {totalCalc.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               </span>
             </div>
@@ -681,11 +703,11 @@ function Dashboard() {
       {/* Painel Comparativo Ração Hoje x Ontem */}
       <RacaoHojeOntem />
 
-      {/* Lançamentos de hoje */}
+      {/* Lançamentos de hoje e ontem */}
       <section className="space-y-3 pt-2">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-base font-bold flex items-center gap-2">
-            <ClipboardList className="size-5 text-primary" /> Lançados Hoje ({ultimos.length})
+            <ClipboardList className="size-5 text-primary" /> Lançamentos — hoje e ontem ({ultimos.length})
           </h2>
         </div>
 
@@ -693,57 +715,67 @@ function Dashboard() {
           <p className="text-muted-foreground text-sm">Carregando lançamentos...</p>
         ) : ultimos.length === 0 ? (
           <div className="p-6 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">
-            Nenhum lançamento feito hoje ainda.
+            Nenhum lançamento de hoje ou ontem.
           </div>
         ) : (
-          <ul className="space-y-2">
-            {ultimos.map((l) => (
-              <li
-                key={l.id}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-card border gap-3 shadow-xs"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-foreground text-sm truncate">{relName(l.viveiros) || "Viveiro"}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {l.produto_nome}
-                    <span className="ml-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
-                      {l.tipo === "racao" ? "🌾" : l.tipo === "probiotico" ? "🧪" : l.tipo === "medicamento" ? "💊" : l.tipo === "fertilizante" ? "🌱" : "📦"}
-                    </span>
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-base font-black text-emerald-600 tabular-nums">
-                    {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {l.unidade}
-                  </p>
-                  {l.custo_total != null && (
-                    <p className="text-[11px] font-semibold text-muted-foreground tabular-nums">
-                      {Number(l.custo_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </p>
+          <div className="space-y-2">
+            {ultimos.map((l, i) => {
+              const isHoje = l.data_lancamento === todayLocal();
+              const showHeader = i === 0 || ultimos[i - 1].data_lancamento !== l.data_lancamento;
+              return (
+                <div key={l.id} className="space-y-2">
+                  {showHeader && (
+                    <div className="flex items-center gap-2 pt-1 px-1">
+                      <span className={`text-[11px] font-bold uppercase tracking-wide ${isHoje ? "text-primary" : "text-muted-foreground"}`}>{isHoje ? "Hoje" : "Ontem"}</span>
+                      <span className="text-[11px] text-muted-foreground">{fmtDiaMes(l.data_lancamento)}</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
                   )}
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-card border gap-3 shadow-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-foreground text-sm truncate">{relName(l.viveiros) || "Viveiro"}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {l.produto_nome}
+                        <span className="ml-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+                          {l.tipo === "racao" ? "🌾" : l.tipo === "probiotico" ? "🧪" : l.tipo === "medicamento" ? "💊" : l.tipo === "fertilizante" ? "🌱" : "📦"}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-lg font-black text-emerald-600 tabular-nums leading-tight">
+                        {Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {l.unidade}
+                      </p>
+                      {l.custo_total != null && Number(l.custo_total) > 0 && (
+                        <p className="text-sm font-bold text-foreground tabular-nums">
+                          {Number(l.custo_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        onClick={() => setEditing(l)}
+                        className="size-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
+                        aria-label="Editar"
+                        title="Editar"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Apagar lançamento de ${l.quantidade}kg no ${relName(l.viveiros)}?`)) delMut.mutate(l.id);
+                        }}
+                        className="size-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                        aria-label="Apagar"
+                        title="Apagar"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <button
-                    onClick={() => setEditing(l)}
-                    className="size-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
-                    aria-label="Editar"
-                    title="Editar"
-                  >
-                    <Pencil className="size-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm(`Apagar lançamento de ${l.quantidade}kg no ${relName(l.viveiros)}?`)) delMut.mutate(l.id);
-                    }}
-                    className="size-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                    aria-label="Apagar"
-                    title="Apagar"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
         )}
       </section>
 
