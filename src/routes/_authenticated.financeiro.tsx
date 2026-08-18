@@ -52,6 +52,7 @@ function PessoalTab() {
   const [desc, setDesc] = useState(""); const [val, setVal] = useState("");
   const [cat, setCat] = useState("geral"); const [dt, setDt] = useState(todayISO());
   const [obs, setObs] = useState("");
+  const [forma, setForma] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
   const [fMes, setFMes] = useState(todayISO().slice(0, 7));
   const [fCat, setFCat] = useState("todas");
@@ -116,10 +117,11 @@ function PessoalTab() {
     // Despesa / Receita -> financeiro pessoal
     if (!desc.trim()) throw new Error("Preencha descrição e valor.");
     const tipoFp = tipo === "receita" ? "receita" : "despesa";
+    const obsFinal = forma.trim() || obs.trim() || null;
     if (editing) {
-      await supabase.from("financeiro_pessoal").update({ tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obs.trim() || null }).eq("id", editing.id);
+      await supabase.from("financeiro_pessoal").update({ tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obsFinal }).eq("id", editing.id);
     } else {
-      await supabase.from("financeiro_pessoal").insert({ user_id: uid, tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obs.trim() || null });
+      await supabase.from("financeiro_pessoal").insert({ user_id: uid, tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obsFinal });
     }
   }, onSuccess: () => {
     const msg = tipo === "vale" ? "Vale registrado" : tipo === "a_pagar" ? "Conta a pagar registrada" : tipo === "a_receber" ? "Conta a receber registrada" : (editing ? "Atualizado" : "Registrado");
@@ -136,8 +138,8 @@ function PessoalTab() {
   const addCatMut = useMutation({ mutationFn: async (nome: string) => { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, icone: "📌" }); }, onSuccess: () => { toast.success("Categoria adicionada"); setNovaCat(""); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
   const delCatMut = useMutation({ mutationFn: async ({ id, nome }: { id?: string; nome: string }) => { if (id) { await supabase.from("categorias_financeiro").delete().eq("id", id); } else { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, excluida: true, icone: "🚫" }); } }, onSuccess: () => { toast.success("Removida"); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
 
-  function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setDesc(""); setVal(""); setCat("geral"); setDt(todayISO()); setObs(""); setFuncionarioId(""); }
-  function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setShowForm(true); setSub("lancamentos"); }
+  function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setDesc(""); setVal(""); setCat("geral"); setDt(todayISO()); setObs(""); setForma(""); setFuncionarioId(""); }
+  function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setShowForm(true); setSub("lancamentos"); }
   function novoNaConta(c: string, t: "despesa" | "receita") { reset(); setTipo(t); setCat(c); setDt(todayISO()); setShowForm(true); setSub("lancamentos"); }
 
   async function pdf() {
@@ -189,6 +191,14 @@ function PessoalTab() {
             </select>
           )}
           <div className="grid grid-cols-2 gap-2"><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={tipo === "vale" ? "Motivo (opcional)" : "O que foi (especificação)"} className="app-input h-9 text-xs" /><input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="Valor R$" className="app-input h-9 text-xs" inputMode="decimal" /></div>
+          {(tipo === "despesa" || tipo === "receita") && (
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] uppercase text-muted-foreground font-bold mr-1 shrink-0">Foi</span>
+              {[{ v: "Pix", ic: "📱" }, { v: "Dinheiro", ic: "💵" }, { v: "Outro", ic: "🔁" }].map((f) => (
+                <button key={f.v} type="button" onClick={() => setForma(forma === f.v ? "" : f.v)} className={`flex-1 h-8 rounded-md text-[11px] font-bold border transition ${forma === f.v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-transparent"}`}>{f.ic} {f.v}</button>
+              ))}
+            </div>
+          )}
           {(tipo === "despesa" || tipo === "receita") ? (
             <div className="grid grid-cols-2 gap-2">
               <div className="flex gap-1 min-w-0">
@@ -202,7 +212,7 @@ function PessoalTab() {
           )}
           <div className="flex gap-2"><button type="button" onClick={reset} className="flex-1 h-8 rounded-lg border text-xs font-semibold">Cancelar</button><button type="submit" disabled={saveFpMut.isPending} className="flex-1 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold">{saveFpMut.isPending ? "Salvando..." : "Salvar"}</button></div>
         </form>}
-        {filtrados.length === 0 ? <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div> : <div className="space-y-1">{filtrados.map((l) => <div key={l.id} className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 p-2.5 rounded-lg bg-card border text-xs"><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="size-3.5 shrink-0 mt-0.5" /><span className="text-muted-foreground w-16 shrink-0">{fmtDate(l.data)}</span><span className={`font-bold w-28 shrink-0 text-right tabular-nums ${l.tipo === "receita" ? "text-emerald-600" : "text-rose-600"}`}>{l.tipo === "receita" ? "+" : "-"}{brl(Number(l.valor))}</span><span className="truncate flex-1 min-w-0 font-medium">{l.descricao}</span><span className="text-muted-foreground bg-muted px-1.5 py-0.5 rounded text-[10px] shrink-0">{l.categoria}</span><button onClick={() => edit(l)} className="size-6 rounded hover:bg-muted flex items-center justify-center shrink-0"><Pencil className="size-3" /></button><button onClick={() => { if (confirm("Apagar?")) delFpMut.mutate(l.id); }} className="size-6 rounded hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"><Trash2 className="size-3" /></button></div>)}</div>}
+        {filtrados.length === 0 ? <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div> : <div className="space-y-1">{filtrados.map((l) => <div key={l.id} className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 p-2.5 rounded-lg bg-card border text-xs"><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="size-3.5 shrink-0 mt-0.5" /><span className="text-muted-foreground w-16 shrink-0">{fmtDate(l.data)}</span><span className={`font-bold w-28 shrink-0 text-right tabular-nums ${l.tipo === "receita" ? "text-emerald-600" : "text-rose-600"}`}>{l.tipo === "receita" ? "+" : "-"}{brl(Number(l.valor))}</span><span className="truncate flex-1 min-w-0 font-medium">{l.descricao}{l.observacao ? <span className="ml-1 text-[9px] font-bold text-muted-foreground/80">· {l.observacao}</span> : null}</span><span className="text-muted-foreground bg-muted px-1.5 py-0.5 rounded text-[10px] shrink-0">{l.categoria}</span><button onClick={() => edit(l)} className="size-6 rounded hover:bg-muted flex items-center justify-center shrink-0"><Pencil className="size-3" /></button><button onClick={() => { if (confirm("Apagar?")) delFpMut.mutate(l.id); }} className="size-6 rounded hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"><Trash2 className="size-3" /></button></div>)}</div>}
       </>}
 
       {sub === "relatorio" && <>
@@ -252,7 +262,7 @@ function PessoalTab() {
                             return (
                               <tr key={l.id} className="border-b border-border/50 last:border-0">
                                 <td className="py-1.5 pr-2 text-muted-foreground whitespace-nowrap">{fmtDate(l.data)}</td>
-                                <td className="py-1.5 pr-2 font-medium">{l.descricao}</td>
+                                <td className="py-1.5 pr-2 font-medium">{l.descricao}{l.observacao ? <span className="ml-1 text-[9px] font-bold text-muted-foreground bg-muted px-1 py-0.5 rounded align-middle">{l.observacao}</span> : null}</td>
                                 <td className="py-1.5 px-1.5 text-right text-rose-600">{isCred ? "—" : brl(v)}</td>
                                 <td className="py-1.5 px-1.5 text-right text-emerald-600">{isCred ? brl(v) : "—"}</td>
                                 <td className={`py-1.5 pl-1.5 text-right font-bold ${run >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(run)}</td>
