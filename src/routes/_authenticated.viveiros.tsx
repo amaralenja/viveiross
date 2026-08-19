@@ -20,6 +20,7 @@ type Viveiro = {
   nome: string;
   status: string;
   data_povoamento: string | null;
+  data_preparacao: string | null;
   qtd_povoada: number | null;
   fornecedor: string | null;
   biomassa_manual: number | null;
@@ -57,7 +58,7 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, status, data_povoamento, qtd_povoada, fornecedor, biomassa_manual, fazendas(nome)")
+        .select("id, nome, status, data_povoamento, data_preparacao, qtd_povoada, fornecedor, biomassa_manual, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as Viveiro[], (v) => v.nome);
@@ -241,6 +242,10 @@ function ViveirosPage() {
         <ul className="space-y-3">
           {viveiros.map((v) => {
             const ativo = v.status === "ativo";
+            const emCultivo = !!v.data_povoamento;
+            const emPreparacao = !emCultivo && !!v.data_preparacao;
+            const faseLabel = emCultivo ? "Em cultivo" : emPreparacao ? "Em preparação" : ativo ? "Ativo" : "Inativo";
+            const faseClass = emCultivo ? "bg-primary/10 text-primary" : emPreparacao ? "bg-amber-500/15 text-amber-600" : ativo ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
             return (
             <li key={v.id} className="p-4 sm:p-5 rounded-2xl bg-card border">
               <div className="flex items-center justify-between gap-3">
@@ -251,13 +256,18 @@ function ViveirosPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-lg truncate">{v.nome}</p>
-                      <span className={`text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full ${ativo ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                        {ativo ? "Ativo" : "Inativo"}
+                      <span className={`text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full ${faseClass}`}>
+                        {faseLabel}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground truncate">
                       {relName(v.fazendas) || "Sem fazenda"}
                     </p>
+                    {emPreparacao && (
+                      <p className="text-xs text-amber-600 truncate mt-0.5">
+                        Preparado desde {formatDateBR(v.data_preparacao!)}
+                      </p>
+                    )}
                     {v.fornecedor && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         Laboratório: <span className="font-medium text-foreground">{v.fornecedor}</span>
@@ -292,7 +302,9 @@ function ViveirosPage() {
                         hint={
                           base
                             ? formatDateBR(v.data_povoamento!)
-                            : "Registre o povoamento"
+                            : emPreparacao
+                              ? "Em preparação"
+                              : "Registre o povoamento"
                         }
                         highlight={!semPovoamento}
                       />
@@ -1166,6 +1178,7 @@ function EditarViveiroModal({
   onSaved: () => void;
 }) {
   const [dataPovoamento, setDataPovoamento] = useState(viveiro.data_povoamento ?? "");
+  const [dataPreparacao, setDataPreparacao] = useState(viveiro.data_preparacao ?? "");
   const [qtdPovoada, setQtdPovoada] = useState(
     viveiro.qtd_povoada != null ? String(viveiro.qtd_povoada) : "",
   );
@@ -1178,16 +1191,20 @@ function EditarViveiroModal({
     try {
       const qtd = qtdPovoada.trim() === "" ? null : Number(qtdPovoada);
       if (qtd != null && (isNaN(qtd) || qtd < 0)) throw new Error("Quantidade inválida.");
+      // Ao povoar (colocar as pós-larvas), o viveiro é ativado automaticamente
+      const novoStatus = dataPovoamento ? "ativo" : viveiro.status;
       const { error } = await supabase
         .from("viveiros")
         .update({
           data_povoamento: dataPovoamento || null,
+          data_preparacao: dataPreparacao || null,
           qtd_povoada: qtd,
           fornecedor: fornecedor.trim() || null,
+          status: novoStatus,
         })
         .eq("id", viveiro.id);
       if (error) throw error;
-      toast.success("Viveiro atualizado!");
+      toast.success(dataPovoamento && viveiro.status !== "ativo" ? "Viveiro povoado e ativado!" : "Viveiro atualizado!");
       onSaved();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao salvar";
@@ -1198,14 +1215,29 @@ function EditarViveiroModal({
   }
 
   return (
-    <ModalShell title={`Povoamento · ${viveiro.nome}`} onClose={onClose}>
+    <ModalShell title={`Preparação e povoamento · ${viveiro.nome}`} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
+        <div className="rounded-2xl border bg-muted/30 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="size-9 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">🧹</div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-tight">Data de preparação</p>
+              <p className="text-[11px] text-muted-foreground">Quando o viveiro começou a ser preparado (antes de colocar as pós-larvas). Opcional.</p>
+            </div>
+          </div>
+          <input
+            type="date"
+            value={dataPreparacao}
+            onChange={(e) => setDataPreparacao(e.target.value)}
+            className="input w-full"
+          />
+        </div>
         <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3">
           <div className="flex items-center gap-2">
             <div className="size-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0"><CalendarDays className="size-5" /></div>
             <div className="min-w-0">
-              <p className="text-sm font-bold leading-tight">Data de povoamento</p>
-              <p className="text-[11px] text-muted-foreground">É a partir dela que o viveiro começa a contar os dias de cultivo.</p>
+              <p className="text-sm font-bold leading-tight">Data de povoamento (colocação das pós-larvas)</p>
+              <p className="text-[11px] text-muted-foreground">Ao definir, o viveiro é <span className="font-semibold text-primary">ativado</span> e começa a contar os dias de cultivo.</p>
             </div>
           </div>
           <div className="flex gap-2 items-center">
