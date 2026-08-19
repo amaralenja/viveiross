@@ -46,6 +46,17 @@ function relName(rel: { nome: string } | { nome: string }[] | null | undefined):
   return rel.nome ?? "";
 }
 
+// Dias de cultivo desde a data de povoamento (YYYY-MM-DD)
+function diasCultivoDe(iso: string | null): number | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const start = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.max(0, Math.round((today.getTime() - start.getTime()) / 86400000));
+}
+
 // Formata "2026-08-17" como "17/08"
 function fmtDiaMes(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
@@ -428,42 +439,66 @@ function Dashboard() {
       ontemDate.setDate(ontemDate.getDate() - 1);
       const ontem = ymd(ontemDate);
 
-      const { data: linhas } = await supabase
-        .from("lancamentos")
-        .select("id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, preco_unidade, custo_total, viveiros(nome)")
-        .in("data_lancamento", [hoje, ontem]);
+      const [vivRes, racRes, bioRes] = await Promise.all([
+        supabase.from("viveiros").select("id, nome, status, data_povoamento, qtd_povoada, biomassa_manual"),
+        supabase.from("lancamentos")
+          .select("viveiro_id, data_lancamento, quantidade, unidade, custo_total, preco_unidade, produtos(preco_unidade, unidade)")
+          .eq("tipo", "racao"),
+        supabase.from("biometrias")
+          .select("viveiro_id, peso_medio_g, sobrevivencia_percent, data_biometria")
+          .order("data_biometria", { ascending: false }),
+      ]);
 
-      const list = (linhas ?? []) as Array<{
-        id: string;
-        viveiro_id: string;
-        data_lancamento: string;
-        produto_nome: string;
-        quantidade: number | null;
-        unidade: string | null;
-        preco_unidade: number | null;
-        custo_total: number | null;
-        viveiros: { nome: string } | { nome: string }[] | null;
-      }>;
+      type Viv = { id: string; nome: string; status: string | null; data_povoamento: string | null; qtd_povoada: number | null; biomassa_manual: number | null };
+      type Rac = { viveiro_id: string; data_lancamento: string; quantidade: number | null; unidade: string | null; custo_total: number | null; preco_unidade: number | null; produtos: { preco_unidade: number | null; unidade: string | null } | { preco_unidade: number | null; unidade: string | null }[] | null };
+      type Bio = { viveiro_id: string; peso_medio_g: number; sobrevivencia_percent: number | null; data_biometria: string };
+      const vivs = (vivRes.data ?? []) as Viv[];
+      const racs = (racRes.data ?? []) as Rac[];
+      const bios = (bioRes.data ?? []) as Bio[];
 
-      const map = new Map<string, { nome: string; hoje: number; ontem: number }>();
-      let tHoje = 0;
-      let tOntem = 0;
-      for (const l of list) {
-        const nome = relName(l.viveiros) || "Sem viveiro";
-        const cur = map.get(l.viveiro_id) ?? { nome, hoje: 0, ontem: 0 };
-        const q = Number(l.quantidade ?? 0);
-        if (l.data_lancamento === hoje) {
-          cur.hoje += q;
-          tHoje += q;
-        } else if (l.data_lancamento === ontem) {
-          cur.ontem += q;
-          tOntem += q;
-        }
-        map.set(l.viveiro_id, cur);
+      const bioMap = new Map<string, Bio>();
+      for (const b of bios) if (!bioMap.has(b.viveiro_id)) bioMap.set(b.viveiro_id, b);
+
+      const agg = new Map<string, { hoje: number; ontem: number; acum: number; custo: number }>();
+      for (const l of racs) {
+        const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
+        const kg = quantidadeEmKg(l.unidade, Number(l.quantidade ?? 0), prod?.unidade) ?? Number(l.quantidade ?? 0);
+        let custo = 0;
+        if (l.custo_total != null) custo = Number(l.custo_total);
+        else if (prod?.preco_unidade != null) custo = Number(prod.preco_unidade) * kg;
+        else if (l.preco_unidade != null) custo = Number(l.preco_unidade) * Number(l.quantidade ?? 0);
+        const cur = agg.get(l.viveiro_id) ?? { hoje: 0, ontem: 0, acum: 0, custo: 0 };
+        cur.acum += kg;
+        cur.custo += custo;
+        if (l.data_lancamento === hoje) cur.hoje += kg;
+        else if (l.data_lancamento === ontem) cur.ontem += kg;
+        agg.set(l.viveiro_id, cur);
       }
-      const porViveiro = sortByViveiroNome(Array.from(map.values()), (v) => v.nome);
 
-      await gerarPdfInicio(ultimos, { totalHoje: tHoje, totalOntem: tOntem, porViveiro });
+      const rows = vivs.map((v) => {
+        const a = agg.get(v.id) ?? { hoje: 0, ontem: 0, acum: 0, custo: 0 };
+        const b = bioMap.get(v.id);
+        const sobrev = b?.sobrevivencia_percent != null ? Number(b.sobrevivencia_percent) / 100 : 1;
+        const vivos = Number(v.qtd_povoada ?? 0) * sobrev;
+        const biomassa = v.biomassa_manual != null ? Number(v.biomassa_manual) : (Number(b?.peso_medio_g ?? 0) * vivos) / 1000;
+        const fca = a.acum > 0 && biomassa > 0 ? a.acum / biomassa : 0;
+        return {
+          nome: v.nome,
+          ativo: v.status === "ativo",
+          dias: diasCultivoDe(v.data_povoamento),
+          povoada: v.qtd_povoada != null ? Number(v.qtd_povoada) : null,
+          hoje: a.hoje,
+          ontem: a.ontem,
+          acum: a.acum,
+          custo: a.custo,
+          peso: b?.peso_medio_g != null ? Number(b.peso_medio_g) : null,
+          biomassa,
+          fca,
+        };
+      });
+      const sorted = sortByViveiroNome(rows, (r) => r.nome);
+
+      await gerarPdfInicio(ultimos, { hoje, ontem, rows: sorted });
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -931,9 +966,14 @@ function EditLancModal({
   );
 }
 
+type PdfRow = {
+  nome: string; ativo: boolean; dias: number | null; povoada: number | null;
+  hoje: number; ontem: number; acum: number; custo: number; peso: number | null; biomassa: number; fca: number;
+};
+
 async function gerarPdfInicio(
   ultimosHoje: Lanc[],
-  statsOntemHoje: { totalHoje: number; totalOntem: number; porViveiro: Array<{ nome: string; hoje: number; ontem: number }> }
+  dados: { hoje: string; ontem: string; rows: PdfRow[] }
 ) {
   const [pdfModule, autoTableModule] = await Promise.all([
     import("jspdf"),
@@ -945,136 +985,142 @@ async function gerarPdfInicio(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const dataHojeStr = new Date().toLocaleDateString("pt-BR");
   const horaStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const n = (x: number, d = 1) => x.toLocaleString("pt-BR", { maximumFractionDigits: d });
+  const brl = (x: number) => `R$ ${x.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Banner Superior / Header
+  const rows = dados.rows;
+  const tHoje = rows.reduce((s, r) => s + r.hoje, 0);
+  const tOntem = rows.reduce((s, r) => s + r.ontem, 0);
+  const tAcum = rows.reduce((s, r) => s + r.acum, 0);
+  const tCusto = rows.reduce((s, r) => s + r.custo, 0);
+  const nAtivos = rows.filter((r) => r.ativo).length;
+  const diffTotal = tHoje - tOntem;
+  const pctTotal = tOntem > 0 ? (diffTotal / tOntem) * 100 : 0;
+
+  // ===== Cabeçalho =====
   doc.setFillColor(16, 185, 129);
-  doc.rect(0, 0, 210, 22, "F");
-
+  doc.rect(0, 0, 210, 24, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text("RELATÓRIO DIÁRIO DE RAÇÃO & ALIMENTAÇÃO", 14, 12);
-
+  doc.setFontSize(15);
+  doc.text("RELATÓRIO DE RAÇÃO & ALIMENTAÇÃO", 14, 11);
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
-  doc.text(`Emitido em ${dataHojeStr} às ${horaStr}`, 14, 18);
+  doc.text(`Emitido em ${dataHojeStr} às ${horaStr}  ·  ${nAtivos} viveiro(s) ativo(s) de ${rows.length}`, 14, 18);
 
-  // Cards de Resumo Executivo
-  doc.setTextColor(30, 41, 59);
+  // ===== Resumo (4 caixas) =====
+  const boxes: Array<[string, string, [number, number, number]]> = [
+    ["RAÇÃO HOJE", `${n(tHoje)} kg`, [16, 185, 129]],
+    ["RAÇÃO ONTEM", `${n(tOntem)} kg`, [30, 41, 59]],
+    ["RAÇÃO ACUMULADA", `${n(tAcum)} kg`, [37, 99, 235]],
+    ["CUSTO ACUMULADO", brl(tCusto), [217, 119, 6]],
+  ];
+  const bw = 45, bx0 = 14, gap = 2, by = 30;
+  boxes.forEach(([label, val, color], i) => {
+    const x = bx0 + i * (bw + gap);
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(x, by, bw, 17, 2, 2, "F");
+    doc.setFontSize(6.8);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, x + 3, by + 6);
+    doc.setFontSize(11);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(val, x + 3, by + 13);
+  });
+
+  // Linha de variação
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(diffTotal >= 0 ? 16 : 220, diffTotal >= 0 ? 160 : 38, diffTotal >= 0 ? 120 : 38);
+  doc.text(`Variação hoje x ontem: ${diffTotal >= 0 ? "+" : ""}${n(diffTotal)} kg (${pctTotal >= 0 ? "+" : ""}${pctTotal.toFixed(1)}%)`, 14, 54);
+
+  let currentY = 60;
+
+  // ===== Tabela 1: Panorama por viveiro =====
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("RESUMO GERAL DO DIA", 14, 30);
+  doc.setTextColor(30, 41, 59);
+  doc.text("PANORAMA POR VIVEIRO", 14, currentY);
 
-  const diffTotal = statsOntemHoje.totalHoje - statsOntemHoje.totalOntem;
-  const pctTotal = statsOntemHoje.totalOntem > 0 ? (diffTotal / statsOntemHoje.totalOntem) * 100 : 0;
-  const diffStr = `${diffTotal >= 0 ? "+" : ""}${diffTotal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg (${pctTotal >= 0 ? "+" : ""}${pctTotal.toFixed(1)}%)`;
+  autoTable(doc, {
+    startY: currentY + 2.5,
+    head: [["Viveiro", "Dias", "Povoada", "Hoje", "Ontem", "Acum.", "Custo", "Peso", "FCA"]],
+    body: rows.map((r) => [
+      r.nome + (r.ativo ? "" : " (inativo)"),
+      r.dias != null ? String(r.dias) : "—",
+      r.povoada != null ? n(r.povoada, 0) : "—",
+      n(r.hoje),
+      n(r.ontem),
+      n(r.acum),
+      r.custo > 0 ? brl(r.custo) : "—",
+      r.peso != null ? `${n(r.peso, 1)} g` : "—",
+      r.fca > 0 ? n(r.fca, 2) : "—",
+    ]),
+    foot: [["TOTAL", "", "", n(tHoje), n(tOntem), n(tAcum), tCusto > 0 ? brl(tCusto) : "—", "", ""]],
+    styles: { fontSize: 7.5, cellPadding: 1.6 },
+    headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
+    footStyles: { fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 30 },
+      1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" },
+      4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" },
+      7: { halign: "right" }, 8: { halign: "center" },
+    },
+    margin: { left: 14, right: 14 },
+  });
+  currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
-  // Box Hoje
-  doc.setFillColor(241, 245, 249);
-  doc.roundedRect(14, 34, 58, 18, 2, 2, "F");
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text("TOTAL HOJE", 18, 40);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(16, 185, 129);
-  doc.text(`${statsOntemHoje.totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 18, 47);
+  // Legenda das colunas
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(120, 130, 145);
+  doc.text("Quantidades em kg. Peso = último peso médio da biometria. FCA = ração acumulada ÷ biomassa.", 14, currentY - 4);
 
-  // Box Ontem
-  doc.setFillColor(241, 245, 249);
-  doc.roundedRect(76, 34, 58, 18, 2, 2, "F");
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text("TOTAL ONTEM", 80, 40);
-  doc.setFontSize(11);
+  // ===== Tabela 2: Lançamentos de hoje =====
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 41, 59);
-  doc.text(`${statsOntemHoje.totalOntem.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`, 80, 47);
-
-  // Box Variação
-  doc.setFillColor(241, 245, 249);
-  doc.roundedRect(138, 34, 58, 18, 2, 2, "F");
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text("VARIAÇÃO (HOJE x ONTEM)", 142, 40);
-  doc.setFontSize(9.5);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(diffTotal >= 0 ? 16 : 225, diffTotal >= 0 ? 185 : 29, diffTotal >= 0 ? 129 : 72);
-  doc.text(diffStr, 142, 47);
-
-  let currentY = 58;
-
-  // Tabela 1: Comparativo por Viveiro
-  if (statsOntemHoje.porViveiro.length > 0) {
-    doc.setFontSize(9.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(30, 41, 59);
-    doc.text("1. COMPARATIVO POR VIVEIRO (ONTEM x HOJE)", 14, currentY);
-
-    autoTable(doc, {
-      startY: currentY + 3,
-      head: [["Viveiro", "Ontem (kg)", "Hoje (kg)", "Diferença (kg)", "Variação (%)"]],
-      body: statsOntemHoje.porViveiro.map((v) => {
-        const d = v.hoje - v.ontem;
-        const p = v.ontem > 0 ? (d / v.ontem) * 100 : 0;
-        return [
-          v.nome,
-          `${v.ontem.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
-          `${v.hoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
-          `${d >= 0 ? "+" : ""}${d.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
-          `${p >= 0 ? "+" : ""}${p.toFixed(1)}%`,
-        ];
-      }),
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-    });
-
-    currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
-  }
-
-  // Tabela 2: Lançamentos de Hoje
-  doc.setFontSize(9.5);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 41, 59);
-  doc.text(`2. LANÇAMENTOS DE RAÇÃO EFETUADOS HOJE (${ultimosHoje.length})`, 14, currentY);
+  doc.text(`LANÇAMENTOS DE HOJE (${ultimosHoje.length})`, 14, currentY);
 
   if (ultimosHoje.length === 0) {
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 116, 139);
-    doc.text("Nenhum lançamento efetuado hoje ainda.", 14, currentY + 5);
+    doc.text("Nenhum lançamento efetuado hoje ainda.", 14, currentY + 6);
   } else {
     autoTable(doc, {
-      startY: currentY + 3,
-      head: [["Viveiro", "Ração / Produto", "Quantidade (kg)", "Custo Unitário", "Custo Total"]],
+      startY: currentY + 2.5,
+      head: [["Viveiro", "Produto", "Tipo", "Quantidade", "Custo"]],
       body: ultimosHoje.map((l) => [
         relName(l.viveiros) || "—",
         l.produto_nome,
-        `${Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
-        l.preco_unidade != null ? `R$ ${Number(l.preco_unidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—",
-        l.custo_total != null ? `R$ ${Number(l.custo_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—",
+        l.tipo === "racao" ? "Ração" : l.tipo === "probiotico" ? "Probiótico" : l.tipo === "medicamento" ? "Medicamento" : l.tipo === "fertilizante" ? "Fertilizante" : "Outro",
+        `${Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${l.unidade ?? "kg"}`,
+        l.custo_total != null && Number(l.custo_total) > 0 ? brl(Number(l.custo_total)) : "—",
       ]),
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+      styles: { fontSize: 7.5, cellPadding: 1.6 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
       alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 14, right: 14 },
     });
   }
 
-  // Footer em 1 página
+  // ===== Rodapé =====
   const pageCount = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Viveiros App · Relatório gerado em ${dataHojeStr} às ${horaStr}`, 14, 287);
-    doc.text(`Página ${i} de ${pageCount}`, 196, 287, { align: "right" });
+    doc.text(`Viveiros App · ${dataHojeStr} às ${horaStr}`, 14, 289);
+    doc.text(`Página ${i} de ${pageCount}`, 196, 289, { align: "right" });
   }
 
-  const pdfBlob = doc.output("blob") as Blob;
-  const pdfUrl = URL.createObjectURL(pdfBlob);
-  window.open(pdfUrl, "_blank");
-  toast.success("PDF do relatório gerado com sucesso!");
+  // Download (funciona no iPhone: doc.save usa link de download, não popup)
+  const nome = `relatorio-inicio-${dataHojeStr.replace(/\//g, "-")}.pdf`;
+  doc.save(nome);
+  toast.success("PDF gerado!");
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
