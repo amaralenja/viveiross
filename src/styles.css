@@ -140,6 +140,9 @@
 @layer components {
   .app-input {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
     height: 48px;
     border-radius: 0.75rem;
     border: 1px solid var(--color-border);
@@ -148,6 +151,18 @@
     font-size: 16px;
     outline: none;
     transition: box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
+  }
+
+  /* iOS: inputs de data/hora tendem a estourar o container — força ficar dentro */
+  .app-input[type="date"],
+  .app-input[type="month"],
+  .app-input[type="time"],
+  .app-input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .app-input:hover {
