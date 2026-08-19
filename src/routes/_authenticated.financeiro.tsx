@@ -96,6 +96,12 @@ function PessoalTab() {
       return sb - sa || a.localeCompare(b);
     });
   }, [cats, tot.contas]);
+  useEffect(() => {
+    if (sub === "relatorio" && openConta) {
+      const el = document.getElementById(`fp-conta-${openConta}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [sub, openConta]);
   const toggleSel = (id: string) => { const n = new Set(sel); n.has(id) ? n.delete(id) : n.add(id); setSel(n); };
   const toggleAll = () => setSel(sel.size === filtrados.length ? new Set() : new Set(filtrados.map((l) => l.id)));
   const toExport = sel.size > 0 ? filtrados.filter((l) => sel.has(l.id)) : filtrados;
@@ -219,7 +225,7 @@ function PessoalTab() {
           <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="app-input h-9 w-auto text-xs"><option value="todas">Todas</option>{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
           <button onClick={pdf} className="h-9 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1 hover:bg-muted"><FileDown className="size-3.5" />PDF{sel.size > 0 ? ` (${sel.size})` : ""}</button>
           <button onClick={toggleAll} className="h-9 px-2 rounded-lg border text-xs font-semibold hover:bg-muted">{sel.size === filtrados.length && filtrados.length > 0 ? "Limpar" : "Todos"}</button>
-          <button onClick={() => setSub("categorias")} className="h-9 px-2 rounded-lg border text-xs font-semibold hover:bg-muted flex items-center gap-1"><Tag className="size-3.5" />Contas</button>
+          <button onClick={() => setSub("categorias")} className="h-9 px-2 rounded-lg border text-xs font-semibold hover:bg-muted flex items-center gap-1"><Tag className="size-3.5" />Categorias</button>
         </div>
         {!showForm && (
           <button onClick={() => { reset(); setShowForm(true); }} className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
@@ -261,7 +267,23 @@ function PessoalTab() {
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1"><button type="button" onClick={reset} className="h-11 rounded-xl border text-sm font-semibold hover:bg-muted">Cancelar</button><button type="submit" disabled={saveFpMut.isPending} className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50">{saveFpMut.isPending ? "Salvando..." : "Salvar"}</button></div>
         </form>}
-        {filtrados.length === 0 ? <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div> : <div className="space-y-1">{filtrados.map((l) => <div key={l.id} className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 p-2.5 rounded-lg bg-card border text-xs"><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="size-3.5 shrink-0 mt-0.5" /><span className="text-muted-foreground w-16 shrink-0">{fmtDate(l.data)}</span><span className={`font-bold w-28 shrink-0 text-right tabular-nums ${l.tipo === "receita" ? "text-emerald-600" : "text-rose-600"}`}>{l.tipo === "receita" ? "+" : "-"}{brl(Number(l.valor))}</span><span className="truncate flex-1 min-w-0 font-medium">{l.descricao}{l.observacao ? <span className="ml-1 text-[9px] font-bold text-muted-foreground/80">· {l.observacao}</span> : null}</span><span className="text-muted-foreground bg-muted px-1.5 py-0.5 rounded text-[10px] shrink-0">{l.categoria}</span><button onClick={() => edit(l)} className="size-6 rounded hover:bg-muted flex items-center justify-center shrink-0"><Pencil className="size-3" /></button><button onClick={() => { if (confirm("Apagar?")) delFpMut.mutate(l.id); }} className="size-6 rounded hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"><Trash2 className="size-3" /></button></div>)}</div>}
+        {filtrados.length === 0 ? <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div> : <div className="space-y-2">{filtrados.map((l) => (
+          <div key={l.id} className="p-3 rounded-xl bg-card border space-y-2">
+            <div className="flex items-start gap-2.5">
+              <input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="size-4 shrink-0 mt-0.5" />
+              <p className="font-semibold text-sm flex-1 min-w-0 break-words leading-snug">{l.descricao}</p>
+              <p className={`font-black text-sm tabular-nums shrink-0 ${l.tipo === "receita" ? "text-emerald-600" : "text-rose-600"}`}>{l.tipo === "receita" ? "+" : "−"}{brl(Number(l.valor))}</p>
+            </div>
+            <div className="flex items-center gap-2 pl-[26px] flex-wrap">
+              <span className="text-[11px] text-muted-foreground">{fmtDate(l.data)}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{l.categoria}</span>
+              {l.observacao ? <span className="text-[10px] text-muted-foreground">· {l.observacao}</span> : null}
+              <div className="flex-1" />
+              <button onClick={() => edit(l)} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center shrink-0" title="Editar"><Pencil className="size-3.5" /></button>
+              <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delFpMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0" title="Apagar"><Trash2 className="size-3.5" /></button>
+            </div>
+          </div>
+        ))}</div>}
       </>}
 
       {sub === "pessoas" && (() => {
@@ -316,8 +338,9 @@ function PessoalTab() {
           <div><p className="text-[10px] uppercase text-muted-foreground font-bold">Saldo geral</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Débito {brl(tot.desp)} · Crédito {brl(tot.rec)}</p></div>
           <span className={`text-2xl font-black tabular-nums ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</span>
         </div>
-        <div className="space-y-2">
-          {Object.entries(tot.contas).sort((a, b) => Math.abs(b[1].credito - b[1].debito) - Math.abs(a[1].credito - a[1].debito)).map(([c, x]) => {
+        <div className="space-y-2.5">
+          {pessoasList.filter((c) => fCat === "todas" || c === fCat).map((c) => {
+            const x = tot.contas[c] ?? { debito: 0, credito: 0 };
             const saldo = x.credito - x.debito;
             const aberta = openConta === c;
             const totalConta = Math.max(x.debito, x.credito);
@@ -327,12 +350,12 @@ function PessoalTab() {
             const entries = filtrados.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
             let run = 0;
             return (
-              <div key={c} className="rounded-2xl border bg-card overflow-hidden">
-                <button onClick={() => setOpenConta(aberta ? null : c)} className="w-full flex items-center gap-2 p-3 text-left hover:bg-muted/40 transition">
+              <div key={c} id={`fp-conta-${c}`} className={`rounded-2xl border bg-card overflow-hidden ${aberta ? "ring-1 ring-primary/30" : ""}`}>
+                <button onClick={() => setOpenConta(aberta ? null : c)} className="w-full flex items-center gap-2.5 p-3.5 text-left hover:bg-muted/40 transition">
                   <ChevronRight className={`size-4 shrink-0 text-muted-foreground transition ${aberta ? "rotate-90" : ""}`} />
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-sm truncate">{c}</p>
-                    <p className="text-[11px] mt-0.5 tabular-nums"><span className="text-rose-600">Déb {brl(x.debito)}</span> <span className="text-muted-foreground">·</span> <span className="text-emerald-600">Créd {brl(x.credito)}</span></p>
+                    <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`text-lg font-black tabular-nums leading-none ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</p>
@@ -340,44 +363,48 @@ function PessoalTab() {
                   </div>
                 </button>
                 {falta > 0 && (
-                  <div className="px-3 pb-2.5 -mt-1">
-                    <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
+                  <div className="px-3.5 pb-3 -mt-1">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
                     <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(totalConta)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
                   </div>
                 )}
                 {aberta && (
-                  <div className="border-t bg-muted/20 p-2.5 space-y-2">
+                  <div className="border-t bg-muted/20 p-3 space-y-2.5">
                     <div className="grid grid-cols-3 gap-2">
-                      <button onClick={() => novoNaConta(c, "despesa")} className="h-9 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/30 text-[11px] font-bold flex items-center justify-center gap-1"><Plus className="size-3" />Débito</button>
-                      <button onClick={() => novoNaConta(c, "receita")} className="h-9 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[11px] font-bold flex items-center justify-center gap-1"><Plus className="size-3" />Recebi</button>
-                      <button onClick={() => pdfPessoa(c)} className="h-9 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-3" />PDF</button>
+                      <button onClick={() => novoNaConta(c, "despesa")} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><Plus className="size-3.5" />Débito</button>
+                      <button onClick={() => novoNaConta(c, "receita")} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><Plus className="size-3.5" />Recebi</button>
+                      <button onClick={() => pdfPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-3.5" />PDF</button>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       {entries.map((l) => {
                         const v = Number(l.valor);
                         const isCred = l.tipo === "receita";
                         run += isCred ? v : -v;
                         return (
-                          <div key={l.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-card border">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium truncate">{l.descricao}{l.observacao ? <span className="ml-1 text-[9px] font-bold text-muted-foreground bg-muted px-1 py-0.5 rounded">{l.observacao}</span> : null}</p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">{fmtDate(l.data)}</p>
+                          <div key={l.id} className="p-3 rounded-xl bg-card border space-y-2">
+                            <div className="flex items-start gap-2">
+                              <p className="text-sm font-medium flex-1 min-w-0 break-words leading-snug">{l.descricao}</p>
+                              <p className={`text-sm font-bold tabular-nums shrink-0 ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(v)}</p>
                             </div>
-                            <div className="text-right shrink-0 tabular-nums">
-                              <p className={`text-sm font-bold ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(v)}</p>
-                              <p className={`text-[10px] font-semibold ${run >= 0 ? "text-blue-600" : "text-rose-600"}`}>saldo {brl(run)}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] text-muted-foreground">{fmtDate(l.data)}</span>
+                              {l.observacao ? <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{l.observacao}</span> : null}
+                              <span className="text-[11px] text-muted-foreground tabular-nums">saldo {brl(run)}</span>
+                              <div className="flex-1" />
+                              <button onClick={() => edit(l)} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center" title="Editar"><Pencil className="size-3.5" /></button>
+                              <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delFpMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" title="Apagar"><Trash2 className="size-3.5" /></button>
                             </div>
                           </div>
                         );
                       })}
-                      {entries.length === 0 && <p className="py-2 text-center text-xs text-muted-foreground">Sem lançamentos.</p>}
+                      {entries.length === 0 && <p className="py-3 text-center text-xs text-muted-foreground">Nenhum lançamento ainda. Use os botões acima.</p>}
                     </div>
                   </div>
                 )}
               </div>
             );
           })}
-          {Object.keys(tot.contas).length === 0 && <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div>}
+          {pessoasList.length === 0 && <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhuma pessoa ainda. Cadastre em "Pessoas".</div>}
         </div>
       </>}
 
