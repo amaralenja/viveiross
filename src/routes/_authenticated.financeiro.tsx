@@ -59,6 +59,7 @@ function PessoalTab() {
   const [novaCat, setNovaCat] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [openConta, setOpenConta] = useState<string | null>(null);
+  const [reportPessoa, setReportPessoa] = useState<string | null>(null);
 
   const { data: lancs = [] } = useQuery({ queryKey: ["fp"], queryFn: async () => { const r = await supabase.from("financeiro_pessoal").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }); if (r.error) throw r.error; return (r.data ?? []) as FpLanc[]; } });
   const { data: cats = [] } = useQuery({ queryKey: ["fp_cats"], queryFn: async () => { const r = await supabase.from("categorias_financeiro").select("*").order("nome"); if (r.error) throw r.error; return (r.data ?? []) as FpCat[]; } });
@@ -156,8 +157,8 @@ function PessoalTab() {
   const delCatMut = useMutation({ mutationFn: async ({ id, nome }: { id?: string; nome: string }) => { if (id) { await supabase.from("categorias_financeiro").delete().eq("id", id); } else { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, excluida: true, icone: "🚫" }); } }, onSuccess: () => { toast.success("Removida"); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
 
   function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setDesc(""); setVal(""); setCat("geral"); setDt(todayISO()); setObs(""); setForma(""); setFuncionarioId(""); }
-  function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setShowForm(true); setSub("lancamentos"); }
-  function novoNaConta(c: string, t: "despesa" | "receita") { reset(); setTipo(t); setCat(c); setDt(todayISO()); setShowForm(true); setSub("lancamentos"); }
+  function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setShowForm(true); }
+  function novoNaConta(c: string, t: "despesa" | "receita") { reset(); setTipo(t); setCat(c); setDt(todayISO()); setShowForm(true); }
 
   async function pdf() {
     const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
@@ -227,46 +228,9 @@ function PessoalTab() {
           <button onClick={toggleAll} className="h-9 px-2 rounded-lg border text-xs font-semibold hover:bg-muted">{sel.size === filtrados.length && filtrados.length > 0 ? "Limpar" : "Todos"}</button>
           <button onClick={() => setSub("categorias")} className="h-9 px-2 rounded-lg border text-xs font-semibold hover:bg-muted flex items-center gap-1"><Tag className="size-3.5" />Categorias</button>
         </div>
-        {!showForm && (
-          <button onClick={() => { reset(); setShowForm(true); }} className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
-            <Plus className="size-6" /> Novo lançamento
-          </button>
-        )}
-        {showForm && <form onSubmit={(e) => { e.preventDefault(); saveFpMut.mutate(); }} className="rounded-2xl bg-card border p-4 space-y-3 shadow-sm">
-          <p className="font-bold text-sm">{editing ? "Editar lançamento" : "Novo lançamento"}</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setTipo("despesa")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Débito<span className="text-[10px] font-medium opacity-80 mt-0.5">ele te deve / você deu</span></button>
-            <button type="button" onClick={() => setTipo("receita")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Crédito<span className="text-[10px] font-medium opacity-80 mt-0.5">pagamento recebido</span></button>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-muted-foreground font-bold">Pessoa / conta</label>
-            <div className="flex gap-2">
-              <select value={cat} onChange={(e) => setCat(e.target.value)} className="app-input h-11 text-sm flex-1 min-w-0">{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-              <button type="button" onClick={() => { const nome = window.prompt("Nome da pessoa / conta:")?.trim(); if (nome) { addCatMut.mutate(nome); setCat(nome); } }} className="h-11 px-3 rounded-xl border text-sm font-bold text-primary hover:bg-primary/5 shrink-0 flex items-center gap-1"><Plus className="size-4" />Nova</button>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-muted-foreground font-bold">Valor</label>
-            <input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="R$ 0,00" className="app-input h-12 text-lg font-bold w-full" inputMode="decimal" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-muted-foreground font-bold">O que foi (especificação)</label>
-            <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ex: comprou ração / me pagou" className="app-input h-11 text-sm w-full" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-muted-foreground font-bold">Forma</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[{ v: "Pix", ic: "📱" }, { v: "Dinheiro", ic: "💵" }, { v: "Outro", ic: "🔁" }].map((f) => (
-                <button key={f.v} type="button" onClick={() => setForma(forma === f.v ? "" : f.v)} className={`h-10 rounded-xl text-xs font-bold border transition ${forma === f.v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-transparent"}`}>{f.ic} {f.v}</button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-muted-foreground font-bold">Data</label>
-            <input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-11 text-sm w-full" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 pt-1"><button type="button" onClick={reset} className="h-11 rounded-xl border text-sm font-semibold hover:bg-muted">Cancelar</button><button type="submit" disabled={saveFpMut.isPending} className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50">{saveFpMut.isPending ? "Salvando..." : "Salvar"}</button></div>
-        </form>}
+        <button onClick={() => { reset(); setShowForm(true); }} className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
+          <Plus className="size-6" /> Novo lançamento
+        </button>
         {filtrados.length === 0 ? <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div> : <div className="space-y-2">{filtrados.map((l) => (
           <div key={l.id} className="p-3 rounded-xl bg-card border space-y-2">
             <div className="flex items-start gap-2.5">
@@ -338,21 +302,22 @@ function PessoalTab() {
           <div><p className="text-[10px] uppercase text-muted-foreground font-bold">Saldo geral</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Débito {brl(tot.desp)} · Crédito {brl(tot.rec)}</p></div>
           <span className={`text-2xl font-black tabular-nums ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</span>
         </div>
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {pessoasList.filter((c) => fCat === "todas" || c === fCat).map((c) => {
             const x = tot.contas[c] ?? { debito: 0, credito: 0 };
             const saldo = x.credito - x.debito;
-            const aberta = openConta === c;
             const totalConta = Math.max(x.debito, x.credito);
             const pago = Math.min(x.debito, x.credito);
             const falta = Math.abs(x.debito - x.credito);
             const pct = totalConta > 0 ? Math.round((pago / totalConta) * 100) : 0;
             const entries = filtrados.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
             let run = 0;
+            const withRun = entries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return { l, v, isCred, run }; });
+            const ultimos = withRun.slice(-4).reverse();
             return (
-              <div key={c} id={`fp-conta-${c}`} className={`rounded-2xl border bg-card overflow-hidden ${aberta ? "ring-1 ring-primary/30" : ""}`}>
-                <button onClick={() => setOpenConta(aberta ? null : c)} className="w-full flex items-center gap-2.5 p-3.5 text-left hover:bg-muted/40 transition">
-                  <ChevronRight className={`size-4 shrink-0 text-muted-foreground transition ${aberta ? "rotate-90" : ""}`} />
+              <div key={c} id={`fp-conta-${c}`} className="rounded-2xl border bg-card p-3.5 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-10 rounded-full bg-muted flex items-center justify-center font-black text-muted-foreground shrink-0">{c.charAt(0).toUpperCase()}</div>
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-sm truncate">{c}</p>
                     <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
@@ -361,46 +326,37 @@ function PessoalTab() {
                     <p className={`text-lg font-black tabular-nums leading-none ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</p>
                     <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">{saldo < 0 ? "te deve" : saldo > 0 ? "você deve" : "quitado"}</p>
                   </div>
-                </button>
+                </div>
                 {falta > 0 && (
-                  <div className="px-3.5 pb-3 -mt-1">
+                  <div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
                     <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(totalConta)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
                   </div>
                 )}
-                {aberta && (
-                  <div className="border-t bg-muted/20 p-3 space-y-2.5">
-                    <div className="grid grid-cols-3 gap-2">
-                      <button onClick={() => novoNaConta(c, "despesa")} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><Plus className="size-3.5" />Débito</button>
-                      <button onClick={() => novoNaConta(c, "receita")} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><Plus className="size-3.5" />Recebi</button>
-                      <button onClick={() => pdfPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-3.5" />PDF</button>
+                <div className="border-t pt-3 space-y-2">
+                  {ultimos.map(({ l, v, isCred, run: r }) => (
+                    <div key={l.id} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{l.descricao}</p>
+                        <p className="text-[10px] text-muted-foreground">{fmtDate(l.data)}{l.observacao ? ` · ${l.observacao}` : ""}</p>
+                      </div>
+                      <div className="text-right shrink-0 tabular-nums">
+                        <p className={`text-sm font-bold ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(v)}</p>
+                        <p className="text-[10px] text-muted-foreground">saldo {brl(r)}</p>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      {entries.map((l) => {
-                        const v = Number(l.valor);
-                        const isCred = l.tipo === "receita";
-                        run += isCred ? v : -v;
-                        return (
-                          <div key={l.id} className="p-3 rounded-xl bg-card border space-y-2">
-                            <div className="flex items-start gap-2">
-                              <p className="text-sm font-medium flex-1 min-w-0 break-words leading-snug">{l.descricao}</p>
-                              <p className={`text-sm font-bold tabular-nums shrink-0 ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(v)}</p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[11px] text-muted-foreground">{fmtDate(l.data)}</span>
-                              {l.observacao ? <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{l.observacao}</span> : null}
-                              <span className="text-[11px] text-muted-foreground tabular-nums">saldo {brl(run)}</span>
-                              <div className="flex-1" />
-                              <button onClick={() => edit(l)} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center" title="Editar"><Pencil className="size-3.5" /></button>
-                              <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delFpMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" title="Apagar"><Trash2 className="size-3.5" /></button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {entries.length === 0 && <p className="py-3 text-center text-xs text-muted-foreground">Nenhum lançamento ainda. Use os botões acima.</p>}
-                    </div>
-                  </div>
-                )}
+                  ))}
+                  {entries.length === 0 && <p className="py-1 text-center text-xs text-muted-foreground">Nenhum lançamento ainda.</p>}
+                  {entries.length > 4 && <button onClick={() => setReportPessoa(c)} className="text-[11px] font-semibold text-primary hover:underline">+ {entries.length - 4} lançamento(s) — ver tudo</button>}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => novoNaConta(c, "despesa")} className="h-11 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-rose-500/20"><Plus className="size-4" />Débito</button>
+                  <button onClick={() => novoNaConta(c, "receita")} className="h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-500/20"><Plus className="size-4" />Recebi</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setReportPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-muted"><BarChart3 className="size-3.5" />Ver relatório completo</button>
+                  <button onClick={() => pdfPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-muted"><FileDown className="size-3.5" />PDF</button>
+                </div>
               </div>
             );
           })}
@@ -414,6 +370,101 @@ function PessoalTab() {
         <p className="text-[10px] text-muted-foreground">Categorias disponíveis — delete qualquer uma, exceto Geral</p>
         <div className="grid grid-cols-2 gap-1.5">{catsUnificadas.filter((c) => c !== "geral").map((c) => { const padrao = CAT_PADRAO.includes(c); const catObj = cats.find((x) => x.nome === c && !x.excluida); return <div key={c} className="flex items-center gap-2 p-2 rounded-lg bg-card border text-xs"><span className="font-medium truncate flex-1">{c}</span><span className="text-muted-foreground text-[10px] shrink-0">{padrao ? "padrão" : "custom"}</span><button onClick={() => { if (confirm(`Remover "${c}"?`)) delCatMut.mutate({ id: catObj?.id, nome: c }); }} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="size-3" /></button></div>; })}</div>
       </>}
+
+      <Dialog open={showForm} onOpenChange={(o) => { if (!o) reset(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editing ? "Editar lançamento" : "Novo lançamento"}</DialogTitle></DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); saveFpMut.mutate(); }} className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setTipo("despesa")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Débito<span className="text-[10px] font-medium opacity-80 mt-0.5">ele te deve / você deu</span></button>
+              <button type="button" onClick={() => setTipo("receita")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Crédito<span className="text-[10px] font-medium opacity-80 mt-0.5">pagamento recebido</span></button>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Pessoa / conta</label>
+              <div className="flex gap-2">
+                <select value={cat} onChange={(e) => setCat(e.target.value)} className="app-input h-11 text-sm flex-1 min-w-0">{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+                <button type="button" onClick={() => { const nome = window.prompt("Nome da pessoa / conta:")?.trim(); if (nome) { addCatMut.mutate(nome); setCat(nome); } }} className="h-11 px-3 rounded-xl border text-sm font-bold text-primary hover:bg-primary/5 shrink-0 flex items-center gap-1"><Plus className="size-4" />Nova</button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Valor</label>
+              <input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="R$ 0,00" className="app-input h-12 text-lg font-bold w-full" inputMode="decimal" autoFocus />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">O que foi (especificação)</label>
+              <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ex: comprou ração / me pagou" className="app-input h-11 text-sm w-full" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Forma</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[{ v: "Pix", ic: "📱" }, { v: "Dinheiro", ic: "💵" }, { v: "Outro", ic: "🔁" }].map((f) => (
+                  <button key={f.v} type="button" onClick={() => setForma(forma === f.v ? "" : f.v)} className={`h-10 rounded-xl text-xs font-bold border transition ${forma === f.v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-transparent"}`}>{f.ic} {f.v}</button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Data</label>
+              <input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-11 text-sm w-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1"><button type="button" onClick={reset} className="h-11 rounded-xl border text-sm font-semibold hover:bg-muted">Cancelar</button><button type="submit" disabled={saveFpMut.isPending} className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50">{saveFpMut.isPending ? "Salvando..." : "Salvar"}</button></div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reportPessoa} onOpenChange={(o) => { if (!o) setReportPessoa(null); }}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          {reportPessoa && (() => {
+            const c = reportPessoa;
+            const allEntries = lancs.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
+            let debito = 0, credito = 0;
+            allEntries.forEach((l) => { if (l.tipo === "receita") credito += Number(l.valor); else debito += Number(l.valor); });
+            const saldo = credito - debito;
+            const total = Math.max(debito, credito), pago = Math.min(debito, credito), falta = Math.abs(debito - credito);
+            const pct = total > 0 ? Math.round((pago / total) * 100) : 0;
+            let run = 0;
+            const withRun = allEntries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return { l, v, isCred, run }; }).reverse();
+            return (
+              <>
+                <DialogHeader><DialogTitle className="truncate">{c}</DialogTitle></DialogHeader>
+                <div className={`rounded-2xl border p-3 flex items-center justify-between ${saldo < 0 ? "bg-rose-500/5 border-rose-500/30" : saldo > 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-muted/40"}`}>
+                  <div><p className="text-[10px] uppercase text-muted-foreground font-bold">{saldo < 0 ? "Te deve" : saldo > 0 ? "Você deve" : "Saldo"}</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Déb {brl(debito)} · Créd {brl(credito)}</p></div>
+                  <span className={`text-2xl font-black tabular-nums ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</span>
+                </div>
+                {falta > 0 && (
+                  <div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} /></div>
+                    <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(total)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => { setReportPessoa(null); novoNaConta(c, "despesa"); }} className="h-10 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-rose-500/20"><Plus className="size-3.5" />Débito</button>
+                  <button onClick={() => { setReportPessoa(null); novoNaConta(c, "receita"); }} className="h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-emerald-500/20"><Plus className="size-3.5" />Recebi</button>
+                  <button onClick={() => pdfPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-3.5" />PDF</button>
+                </div>
+                <div className="space-y-2">
+                  {withRun.map(({ l, v, isCred, run: r }) => (
+                    <div key={l.id} className="p-3 rounded-xl bg-card border space-y-2">
+                      <div className="flex items-start gap-2">
+                        <p className="text-sm font-medium flex-1 min-w-0 break-words leading-snug">{l.descricao}</p>
+                        <p className={`text-sm font-bold tabular-nums shrink-0 ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(v)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] text-muted-foreground">{fmtDate(l.data)}</span>
+                        {l.observacao ? <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{l.observacao}</span> : null}
+                        <span className="text-[11px] text-muted-foreground tabular-nums">saldo {brl(r)}</span>
+                        <div className="flex-1" />
+                        <button onClick={() => { setReportPessoa(null); edit(l); }} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center" title="Editar"><Pencil className="size-3.5" /></button>
+                        <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delFpMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" title="Apagar"><Trash2 className="size-3.5" /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {allEntries.length === 0 && <p className="py-3 text-center text-xs text-muted-foreground">Nenhum lançamento ainda.</p>}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
