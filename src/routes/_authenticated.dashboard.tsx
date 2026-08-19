@@ -617,7 +617,7 @@ function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-foreground block">Quantidade</label>
               <div className="flex gap-2">
@@ -627,7 +627,7 @@ function Dashboard() {
                   inputMode="decimal"
                   value={quantidade}
                   onChange={(e) => setQuantidade(e.target.value.replace(/[^0-9.,]/g, ""))}
-                  className="app-input flex-1 h-12 text-lg font-bold"
+                  className="app-input flex-1 min-w-0 h-12 text-lg font-bold"
                   placeholder="Ex: 50"
                 />
                 {embInfo?.temEmbalagem ? (
@@ -674,7 +674,7 @@ function Dashboard() {
                 type="date"
                 value={data}
                 onChange={(e) => setData(e.target.value)}
-                className="app-input h-12"
+                className="app-input h-12 w-full"
               />
             </div>
           </div>
