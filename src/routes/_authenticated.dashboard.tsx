@@ -438,8 +438,11 @@ function Dashboard() {
       const ontemDate = new Date();
       ontemDate.setDate(ontemDate.getDate() - 1);
       const ontem = ymd(ontemDate);
+      const anteDate = new Date();
+      anteDate.setDate(anteDate.getDate() - 2);
+      const anteontem = ymd(anteDate);
 
-      const [vivRes, racRes, bioRes] = await Promise.all([
+      const [vivRes, racRes, bioRes, detRes] = await Promise.all([
         supabase.from("viveiros").select("id, nome, status, data_povoamento, qtd_povoada, biomassa_manual"),
         supabase.from("lancamentos")
           .select("viveiro_id, data_lancamento, quantidade, unidade, custo_total, preco_unidade, produtos(preco_unidade, unidade)")
@@ -447,6 +450,11 @@ function Dashboard() {
         supabase.from("biometrias")
           .select("viveiro_id, peso_medio_g, sobrevivencia_percent, data_biometria")
           .order("data_biometria", { ascending: false }),
+        supabase.from("lancamentos")
+          .select("id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, tipo, custo_total, viveiros(nome)")
+          .in("data_lancamento", [hoje, ontem, anteontem])
+          .order("data_lancamento", { ascending: false })
+          .order("created_at", { ascending: false }),
       ]);
 
       type Viv = { id: string; nome: string; status: string | null; data_povoamento: string | null; qtd_povoada: number | null; biomassa_manual: number | null };
@@ -497,8 +505,9 @@ function Dashboard() {
         };
       });
       const sorted = sortByViveiroNome(rows, (r) => r.nome);
+      const detalhe = (detRes.data ?? []) as Lanc[];
 
-      await gerarPdfInicio(ultimos, { hoje, ontem, rows: sorted });
+      await gerarPdfInicio(detalhe, { hoje, ontem, rows: sorted });
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -1078,31 +1087,38 @@ async function gerarPdfInicio(
   doc.setTextColor(120, 130, 145);
   doc.text("Quantidades em kg. Peso = último peso médio da biometria. FCA = ração acumulada ÷ biomassa.", 14, currentY - 4);
 
-  // ===== Tabela 2: Lançamentos de hoje =====
+  // ===== Tabela 2: Lançamentos dos últimos 3 dias =====
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 41, 59);
-  doc.text(`LANÇAMENTOS DE HOJE (${ultimosHoje.length})`, 14, currentY);
+  doc.text(`LANÇAMENTOS DOS ÚLTIMOS 3 DIAS (${ultimosHoje.length})`, 14, currentY);
 
   if (ultimosHoje.length === 0) {
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 116, 139);
-    doc.text("Nenhum lançamento efetuado hoje ainda.", 14, currentY + 6);
+    doc.text("Nenhum lançamento nos últimos 3 dias.", 14, currentY + 6);
   } else {
+    const diaLabel = (d: string) => (d === dados.hoje ? "Hoje" : d === dados.ontem ? "Ontem" : "Anteontem");
     autoTable(doc, {
       startY: currentY + 2.5,
-      head: [["Viveiro", "Produto", "Tipo", "Quantidade", "Custo"]],
-      body: ultimosHoje.map((l) => [
-        relName(l.viveiros) || "—",
-        l.produto_nome,
-        l.tipo === "racao" ? "Ração" : l.tipo === "probiotico" ? "Probiótico" : l.tipo === "medicamento" ? "Medicamento" : l.tipo === "fertilizante" ? "Fertilizante" : "Outro",
-        `${Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${l.unidade ?? "kg"}`,
-        l.custo_total != null && Number(l.custo_total) > 0 ? brl(Number(l.custo_total)) : "—",
-      ]),
+      head: [["Dia", "Data", "Viveiro", "Produto", "Tipo", "Quantidade", "Custo"]],
+      body: ultimosHoje.map((l) => {
+        const [y, m, d] = l.data_lancamento.split("-");
+        return [
+          diaLabel(l.data_lancamento),
+          `${d}/${m}`,
+          relName(l.viveiros) || "—",
+          l.produto_nome,
+          l.tipo === "racao" ? "Ração" : l.tipo === "probiotico" ? "Probiótico" : l.tipo === "medicamento" ? "Medicamento" : l.tipo === "fertilizante" ? "Fertilizante" : "Outro",
+          `${Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${l.unidade ?? "kg"}`,
+          l.custo_total != null && Number(l.custo_total) > 0 ? brl(Number(l.custo_total)) : "—",
+        ];
+      }),
       styles: { fontSize: 7.5, cellPadding: 1.6 },
       headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
       alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: { 5: { halign: "right" }, 6: { halign: "right" } },
       margin: { left: 14, right: 14 },
     });
   }
