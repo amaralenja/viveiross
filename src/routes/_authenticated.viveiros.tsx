@@ -376,42 +376,49 @@ function ViveirosPage() {
                 const ultima = (biometriasPorViveiro[v.id] ?? [])[0];
                 const desp = despescasPorViveiro[v.id];
                 const despescadoKg = desp?.kg ?? 0;
+                const racaoKg = racaoPorViveiro[v.id] ?? 0;
                 const fmt = (n: number, d = 2) => n.toLocaleString("pt-BR", { maximumFractionDigits: d });
 
-                if (!ultima && !desp) return null;
+                if (!ultima && !desp && racaoKg <= 0) return null;
 
                 const sobrev = ultima?.sobrevivencia_percent != null ? Number(ultima.sobrevivencia_percent) / 100 : 1;
-                const vivos = Number(v.qtd_povoada) * sobrev;
+                const vivos = Number(v.qtd_povoada ?? 0) * sobrev;
                 const biomassaCalc = ((Number(ultima?.peso_medio_g ?? 0) * vivos) / 1000) + despescadoKg;
                 const biomassaKg = v.biomassa_manual != null ? Number(v.biomassa_manual) : biomassaCalc;
-                const racaoKg = racaoPorViveiro[v.id] ?? 0;
                 const fca = racaoKg > 0 && biomassaKg > 0 ? racaoKg / biomassaKg : 0;
+                const mostraFca = racaoKg > 0 || !!ultima || v.biomassa_manual != null;
 
                 return (
                   <div className="mt-3 p-3 rounded-xl border bg-gradient-to-br from-primary/10 to-primary/5 space-y-2">
-                    {ultima && v.qtd_povoada && biomassaKg > 0 && (
+                    {mostraFca && (
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">FCA — Conversão Alimentar</p>
-                          <span className="text-[10px] text-muted-foreground">{formatDateBR(ultima.data_biometria)}</span>
+                          {ultima && <span className="text-[10px] text-muted-foreground">{formatDateBR(ultima.data_biometria)}</span>}
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <div className="rounded-lg bg-background/60 p-2">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setEditarBiomassa(v); }} className="rounded-lg bg-background/60 p-2 text-left hover:bg-background/90 transition">
                             <div className="flex items-center justify-between">
                               <p className="text-[9px] uppercase text-muted-foreground">Biomassa</p>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); setEditarBiomassa(v); }}
-                                className="text-primary hover:text-primary/70"><Pencil className="size-3" /></button>
+                              <Pencil className="size-3 text-primary" />
                             </div>
-                            <p className="text-sm font-bold">{fmt(biomassaKg, 1)} kg</p>
-                            {v.biomassa_manual != null && <p className="text-[9px] text-primary">editado</p>}
-                          </div>
+                            <p className="text-sm font-bold">{biomassaKg > 0 ? `${fmt(biomassaKg, 1)} kg` : "—"}</p>
+                            {v.biomassa_manual != null ? <p className="text-[9px] text-primary">editado</p> : (biomassaKg <= 0 ? <p className="text-[9px] text-primary">toque p/ ajustar</p> : null)}
+                          </button>
                           <div className="rounded-lg bg-background/60 p-2"><p className="text-[9px] uppercase text-muted-foreground">Ração total</p><p className="text-sm font-bold">{fmt(racaoKg, 1)} kg</p></div>
-                          <div className="rounded-lg bg-primary/15 p-2"><p className="text-[9px] uppercase text-muted-foreground">FCA</p><p className="text-sm font-bold text-primary">{fca > 0 ? fmt(fca) : "—"}</p></div>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setEditarBiomassa(v); }} className="rounded-lg bg-primary/15 p-2 text-left hover:bg-primary/25 transition">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[9px] uppercase text-muted-foreground">FCA</p>
+                              <Pencil className="size-3 text-primary" />
+                            </div>
+                            <p className="text-sm font-bold text-primary">{fca > 0 ? fmt(fca) : "—"}</p>
+                          </button>
                         </div>
+                        {biomassaKg <= 0 && <p className="text-[10px] text-muted-foreground mt-1">Toque na Biomassa ou no FCA pra ajustar — o cálculo é automático.</p>}
                         {despescadoKg > 0 && <p className="text-[10px] text-muted-foreground mt-1">Já despescado: {fmt(despescadoKg, 1)} kg</p>}
                       </div>
                     )}
-                    {despescadoKg > 0 && <p className="text-[10px] text-muted-foreground">📦 Despescado: {fmt(despescadoKg, 1)} kg</p>}
+                    {despescadoKg > 0 && !mostraFca && <p className="text-[10px] text-muted-foreground">📦 Despescado: {fmt(despescadoKg, 1)} kg</p>}
                   </div>
                 );
               })()}
@@ -484,7 +491,7 @@ function ViveirosPage() {
       )}
 
       {editarBiomassa && (
-        <BiomassaEditModal viveiro={editarBiomassa} onClose={() => setEditarBiomassa(null)}
+        <BiomassaEditModal viveiro={editarBiomassa} racaoKg={racaoPorViveiro[editarBiomassa.id] ?? 0} onClose={() => setEditarBiomassa(null)}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["viveiros"] }); setEditarBiomassa(null); }} />
       )}
 
@@ -1486,24 +1493,49 @@ function HistoricoModal({
   );
 }
 
-function BiomassaEditModal({ viveiro, onClose, onSaved }: { viveiro: Viveiro; onClose: () => void; onSaved: () => void }) {
+function BiomassaEditModal({ viveiro, racaoKg, onClose, onSaved }: { viveiro: Viveiro; racaoKg: number; onClose: () => void; onSaved: () => void }) {
   const [valor, setValor] = useState(viveiro.biomassa_manual != null ? String(viveiro.biomassa_manual) : "");
+  const [fcaInput, setFcaInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const fmt = (n: number, d = 2) => n.toLocaleString("pt-BR", { maximumFractionDigits: d });
+
+  const biomassaNum = valor.trim() === "" ? null : Number(valor.replace(",", "."));
+  const fcaCalc = biomassaNum && biomassaNum > 0 && racaoKg > 0 ? racaoKg / biomassaNum : null;
+
+  // Editar Biomassa -> recalcula o FCA
+  function onBiomassa(s: string) {
+    setValor(s.replace(/[^0-9.,]/g, ""));
+    setFcaInput("");
+  }
+  // Editar FCA -> recalcula a biomassa (biomassa = ração / FCA)
+  function onFca(s: string) {
+    const clean = s.replace(/[^0-9.,]/g, "");
+    setFcaInput(clean);
+    const f = Number(clean.replace(",", "."));
+    if (racaoKg > 0 && f > 0 && !isNaN(f)) setValor(String(Math.round((racaoKg / f) * 100) / 100));
+    else if (clean === "") setValor("");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setLoading(true);
     try {
       const v = valor.trim() === "" ? null : Number(valor.replace(",", "."));
       if (v != null && (isNaN(v) || v < 0)) throw new Error("Valor inválido");
       await supabase.from("viveiros").update({ biomassa_manual: v }).eq("id", viveiro.id);
-      toast.success("Biomassa atualizada!"); onSaved();
+      toast.success("Atualizado!"); onSaved();
     } catch (err) { toast.error(err instanceof Error ? err.message : "Erro"); }
     finally { setLoading(false); }
   }
   return (
-    <ModalShell title={`Biomassa · ${viveiro.nome}`} onClose={onClose}>
+    <ModalShell title={`FCA / Biomassa · ${viveiro.nome}`} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <p className="text-xs text-muted-foreground">Valor manual (kg). Vazio = automático.</p>
-        <Field label="Biomassa (kg)"><input type="text" inputMode="decimal" value={valor} onChange={e => setValor(e.target.value.replace(/[^0-9.,]/g,""))} placeholder="Automático" className="input" autoFocus /></Field>
+        <div className="rounded-xl bg-muted/40 border p-3 text-xs text-muted-foreground">
+          Ração total lançada: <span className="font-bold text-foreground">{fmt(racaoKg, 1)} kg</span><br />
+          Edite a <span className="font-semibold">Biomassa</span> ou o <span className="font-semibold">FCA</span> — o outro é calculado sozinho (FCA = ração ÷ biomassa). Deixe vazio pra voltar ao automático.
+        </div>
+        <Field label="Biomassa (kg)"><input type="text" inputMode="decimal" value={valor} onChange={e => onBiomassa(e.target.value)} placeholder="Automático" className="input" autoFocus /></Field>
+        <Field label="FCA"><input type="text" inputMode="decimal" value={fcaInput} onChange={e => onFca(e.target.value)} placeholder={fcaCalc != null ? fmt(fcaCalc) : "—"} className="input" /></Field>
+        {fcaCalc != null && <p className="text-[11px] text-primary font-medium">FCA atual: {fmt(fcaCalc)} · Biomassa {fmt(biomassaNum ?? 0, 1)} kg</p>}
         <button type="submit" disabled={loading} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold">{loading ? "Salvando..." : "Salvar"}</button>
       </form>
       <ModalStyle />
