@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils, ChevronRight, Pencil, CalendarDays, Share2, Ruler, History } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, ChevronRight, Pencil, CalendarDays, Share2, Ruler, History, FileDown, Printer } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { quantidadeEmKg } from "@/lib/embalagem";
 import { BtnTutorial } from "@/components/BtnTutorial";
@@ -192,6 +192,59 @@ function ViveirosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  function metricasViveiro(v: Viveiro): LinhaPdfViveiro {
+    const ultima = (biometriasPorViveiro[v.id] ?? [])[0];
+    const desp = despescasPorViveiro[v.id];
+    const despescadoKg = desp?.kg ?? 0;
+    const racaoKg = racaoPorViveiro[v.id] ?? 0;
+    const custo = custoPorViveiro[v.id] ?? 0;
+    const receita = receitasPorViveiro[v.id] ?? 0;
+    const sobrev = ultima?.sobrevivencia_percent != null ? Number(ultima.sobrevivencia_percent) / 100 : 1;
+    const vivos = Number(v.qtd_povoada ?? 0) * sobrev;
+    const biomassa = v.biomassa_manual != null ? Number(v.biomassa_manual) : (Number(ultima?.peso_medio_g ?? 0) * vivos) / 1000 + despescadoKg;
+    const fca = racaoKg > 0 && biomassa > 0 ? racaoKg / biomassa : 0;
+    return {
+      nome: v.nome,
+      fase: v.data_povoamento ? "Cultivo" : v.data_preparacao ? "Preparação" : v.status === "ativo" ? "Ativo" : "Inativo",
+      fazenda: relName(v.fazendas) || "—",
+      fornecedor: v.fornecedor ?? "—",
+      dataPrep: v.data_preparacao,
+      dataPov: v.data_povoamento,
+      dias: v.data_povoamento ? diasDeCultivo(v.data_povoamento) : null,
+      povoada: v.qtd_povoada != null ? Number(v.qtd_povoada) : null,
+      biomassa,
+      racao: racaoKg,
+      custo,
+      receita,
+      despescado: despescadoKg,
+      fca,
+      ultimoPeso: ultima?.peso_medio_g != null ? Number(ultima.peso_medio_g) : null,
+    };
+  }
+
+  const [pdfBusy, setPdfBusy] = useState(false);
+  async function handleGerarPdf(alvo: Viveiro | Viveiro[], print: boolean) {
+    try {
+      setPdfBusy(true);
+      const lista = Array.isArray(alvo) ? alvo : [alvo];
+      const single = !Array.isArray(alvo);
+      const linhas = lista.map(metricasViveiro);
+      let biometrias: BioPdf[] = [];
+      if (single) {
+        const { data } = await supabase
+          .from("biometrias")
+          .select("data_biometria, peso_medio_g, amostras, crescimento_semanal_g")
+          .eq("viveiro_id", lista[0].id)
+          .order("data_biometria", { ascending: false });
+        biometrias = (data ?? []) as BioPdf[];
+      }
+      await buildViveirosPdf(linhas, { print, single, biometrias, titulo: single ? lista[0].nome : null });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -202,12 +255,32 @@ function ViveirosPage() {
         </div>
         <div className="flex items-center gap-2">
           <BtnTutorial videoId="EIvub9T9ED4" label="Viveiros" />
-        <button
-          onClick={() => setOpen(true)}
-          className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
-        >
-          <Plus className="size-5" /> Novo
-        </button>
+          {viveiros.length > 0 && (
+            <div className="flex items-center rounded-xl border overflow-hidden shrink-0">
+              <button
+                onClick={() => handleGerarPdf(viveiros, false)}
+                disabled={pdfBusy}
+                title="Gerar PDF de todos os viveiros"
+                className="h-12 px-3 sm:px-4 font-semibold text-sm flex items-center gap-1.5 hover:bg-muted disabled:opacity-50"
+              >
+                <FileDown className="size-4" /> <span className="hidden sm:inline">PDF</span>
+              </button>
+              <button
+                onClick={() => handleGerarPdf(viveiros, true)}
+                disabled={pdfBusy}
+                title="Imprimir todos os viveiros"
+                className="h-12 px-3 border-l hover:bg-muted disabled:opacity-50 flex items-center justify-center"
+              >
+                <Printer className="size-4" />
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
+          >
+            <Plus className="size-5" /> Novo
+          </button>
         </div>
       </div>
 
@@ -436,6 +509,15 @@ function ViveirosPage() {
                   <History className="size-4" /> Ver histórico
                 </button>
               </div>
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <span className="text-[11px] text-muted-foreground mr-auto">Relatório deste viveiro:</span>
+                <button type="button" onClick={() => handleGerarPdf(v, false)} disabled={pdfBusy} className="h-9 px-3 rounded-lg border text-xs font-semibold flex items-center gap-1.5 hover:bg-muted disabled:opacity-50">
+                  <FileDown className="size-3.5" /> PDF
+                </button>
+                <button type="button" onClick={() => handleGerarPdf(v, true)} disabled={pdfBusy} title="Imprimir este viveiro" className="size-9 rounded-lg border flex items-center justify-center hover:bg-muted disabled:opacity-50">
+                  <Printer className="size-4" />
+                </button>
+              </div>
             </li>
             );
           })}
@@ -521,6 +603,140 @@ function diasDeCultivo(data: string) {
 function formatDateBR(data: string) {
   const [y, m, d] = data.split("-");
   return `${d}/${m}/${y}`;
+}
+
+type LinhaPdfViveiro = {
+  nome: string; fase: string; fazenda: string; fornecedor: string;
+  dataPrep: string | null; dataPov: string | null; dias: number | null; povoada: number | null;
+  biomassa: number; racao: number; custo: number; receita: number; despescado: number; fca: number; ultimoPeso: number | null;
+};
+type BioPdf = { data_biometria: string; peso_medio_g: number; amostras: number | null; crescimento_semanal_g: number | null };
+
+async function buildViveirosPdf(
+  linhas: LinhaPdfViveiro[],
+  opts: { print: boolean; single: boolean; biometrias: BioPdf[]; titulo: string | null },
+) {
+  const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const jsPDF = pdfModule.default;
+  const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const dataStr = new Date().toLocaleDateString("pt-BR");
+  const horaStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const n = (x: number, d = 1) => x.toLocaleString("pt-BR", { maximumFractionDigits: d });
+  const brl = (x: number) => `R$ ${x.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fdate = (s: string | null) => (s ? formatDateBR(s) : "—");
+
+  // Cabeçalho
+  doc.setFillColor(16, 185, 129);
+  doc.rect(0, 0, 210, 24, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text(opts.single ? `VIVEIRO · ${opts.titulo ?? ""}` : "RELATÓRIO DE VIVEIROS", 14, 11);
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Emitido em ${dataStr} às ${horaStr}${opts.single ? "" : `  ·  ${linhas.length} viveiro(s)`}`, 14, 18);
+
+  if (opts.single) {
+    const v = linhas[0];
+    let y = 32;
+    const info: Array<[string, string]> = [
+      ["Fazenda", v.fazenda], ["Laboratório", v.fornecedor], ["Fase", v.fase],
+      ["Preparação", fdate(v.dataPrep)], ["Povoamento", fdate(v.dataPov)],
+      ["Dias de cultivo", v.dias != null ? String(v.dias) : "—"],
+      ["Pós-larvas povoadas", v.povoada != null ? n(v.povoada, 0) : "—"],
+    ];
+    doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 41, 59);
+    doc.text("DADOS DO VIVEIRO", 14, y); y += 4;
+    autoTable(doc, {
+      startY: y,
+      body: info,
+      styles: { fontSize: 9, cellPadding: 2 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 55, textColor: [100, 116, 139] } },
+      theme: "plain",
+      margin: { left: 14, right: 14 },
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+
+    doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 41, 59);
+    doc.text("MÉTRICAS", 14, y); y += 4;
+    autoTable(doc, {
+      startY: y,
+      head: [["Biomassa", "Ração total", "Custo ração", "Receita", "Despescado", "FCA"]],
+      body: [[`${n(v.biomassa, 1)} kg`, `${n(v.racao, 1)} kg`, v.custo > 0 ? brl(v.custo) : "—", v.receita > 0 ? brl(v.receita) : "—", `${n(v.despescado, 1)} kg`, v.fca > 0 ? n(v.fca, 2) : "—"]],
+      styles: { fontSize: 8.5, cellPadding: 2, halign: "center" },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
+      margin: { left: 14, right: 14 },
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+
+    doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 41, 59);
+    doc.text(`BIOMETRIAS (${opts.biometrias.length})`, 14, y); y += 4;
+    if (opts.biometrias.length === 0) {
+      doc.setFontSize(8.5); doc.setFont("helvetica", "italic"); doc.setTextColor(100, 116, 139);
+      doc.text("Nenhuma biometria registrada.", 14, y + 4);
+    } else {
+      autoTable(doc, {
+        startY: y,
+        head: [["Data", "Peso médio (g)", "Crescimento (g/sem)", "Camarões"]],
+        body: opts.biometrias.map((b) => [
+          formatDateBR(b.data_biometria),
+          n(Number(b.peso_medio_g), 2),
+          b.crescimento_semanal_g != null ? `+${n(Number(b.crescimento_semanal_g), 2)}` : "—",
+          b.amostras != null ? String(b.amostras) : "—",
+        ]),
+        styles: { fontSize: 8.5, cellPadding: 2 },
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+        margin: { left: 14, right: 14 },
+      });
+    }
+  } else {
+    const tBio = linhas.reduce((s, r) => s + r.biomassa, 0);
+    const tRac = linhas.reduce((s, r) => s + r.racao, 0);
+    autoTable(doc, {
+      startY: 30,
+      head: [["Viveiro", "Fase", "Dias", "Povoada", "Biomassa", "Ração", "FCA", "Peso"]],
+      body: linhas.map((r) => [
+        r.nome, r.fase,
+        r.dias != null ? String(r.dias) : "—",
+        r.povoada != null ? n(r.povoada, 0) : "—",
+        `${n(r.biomassa, 1)} kg`,
+        `${n(r.racao, 1)} kg`,
+        r.fca > 0 ? n(r.fca, 2) : "—",
+        r.ultimoPeso != null ? `${n(r.ultimoPeso, 1)} g` : "—",
+      ]),
+      foot: [["TOTAL", "", "", "", `${n(tBio, 1)} kg`, `${n(tRac, 1)} kg`, "", ""]],
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
+      footStyles: { fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: { 4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "center" }, 7: { halign: "right" } },
+      margin: { left: 14, right: 14 },
+    });
+    const fy = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+    doc.setFontSize(6.5); doc.setFont("helvetica", "italic"); doc.setTextColor(120, 130, 145);
+    doc.text("Biomassa e ração em kg. Peso = último peso médio da biometria. FCA = ração ÷ biomassa.", 14, fy);
+  }
+
+  // Rodapé
+  const pageCount = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7.5); doc.setTextColor(148, 163, 184);
+    doc.text(`Viveiros App · ${dataStr} às ${horaStr}`, 14, 289);
+    doc.text(`Página ${i} de ${pageCount}`, 196, 289, { align: "right" });
+  }
+
+  if (opts.print) {
+    (doc as unknown as { autoPrint: () => void }).autoPrint();
+    const url = doc.output("bloburl");
+    window.open(url as unknown as string, "_blank");
+  } else {
+    const nome = opts.single ? `viveiro-${(opts.titulo ?? "").replace(/\s+/g, "-")}.pdf` : `viveiros-${dataStr.replace(/\//g, "-")}.pdf`;
+    doc.save(nome);
+  }
 }
 
 function InfoBlock({
