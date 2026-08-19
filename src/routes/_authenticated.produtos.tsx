@@ -8,7 +8,7 @@ import { todayLocal } from "@/lib/date";
 import { parseProdutoEmbalagem, formatUnidadeDb, getUnidadeBase } from "@/lib/embalagem";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
-  head: () => ({ meta: [{ title: "Produtos & Funcionários" }] }),
+  head: () => ({ meta: [{ title: "Produtos" }] }),
   component: ProdutosPage,
   errorComponent: ({ error }) => (
     <div className="p-6 max-w-xl mx-auto text-center space-y-4 my-8 rounded-2xl border bg-card shadow-sm">
@@ -381,7 +381,7 @@ function ProdutosPage() {
         <div className="min-w-0">
           <h1 className="text-3xl font-bold">Cadastros</h1>
           <p className="text-muted-foreground mt-1">
-            {produtos.length} produtos · {funcionarios.length} funcionários
+            {produtos.length} produtos
           </p>
         </div>
         <button
@@ -394,7 +394,7 @@ function ProdutosPage() {
       </div>
 
       <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
-        {(["produtos", "funcionarios", "estoque", "compras"] as const).map((t) => (
+        {(["produtos", "estoque", "compras"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
