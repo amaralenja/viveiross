@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils, Power, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { quantidadeEmKg } from "@/lib/embalagem";
 import { BtnTutorial } from "@/components/BtnTutorial";
@@ -164,31 +164,6 @@ function ViveirosPage() {
     },
   });
 
-  type LancItem = {
-    id: string;
-    viveiro_id: string;
-    data_lancamento: string;
-    quantidade: number | null;
-    tipo: string | null;
-    produtos: { nome: string } | { nome: string }[] | null;
-  };
-  const { data: lancamentosPorViveiro = {} } = useQuery({
-    queryKey: ["viveiros", "lancamentos-recentes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lancamentos")
-        .select("id, viveiro_id, data_lancamento, quantidade, tipo, produtos(nome)")
-        .order("data_lancamento", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const map: Record<string, LancItem[]> = {};
-      for (const l of (data ?? []) as LancItem[]) {
-        if (!map[l.viveiro_id]) map[l.viveiro_id] = [];
-        if (map[l.viveiro_id].length < 3) map[l.viveiro_id].push(l);
-      }
-      return map;
-    },
-  });
 
   const delMut = useMutation({
     mutationFn: async (id: string) => {
@@ -275,15 +250,32 @@ function ViveirosPage() {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    if (confirm(`Remover "${v.nome}"?`)) delMut.mutate(v.id);
-                  }}
-                  className="size-10 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"
-                  aria-label="Remover viveiro"
-                >
-                  <Trash2 className="size-5" />
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const acao = ativo ? "desativar" : "ativar";
+                      if (confirm(`Tem certeza que deseja ${acao} o "${v.nome}"?`)) {
+                        statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" });
+                      }
+                    }}
+                    role="switch"
+                    aria-checked={ativo}
+                    title={ativo ? "Ativo — tocar para desativar" : "Inativo — tocar para ativar"}
+                    className={`relative h-6 w-11 rounded-full transition-colors shrink-0 ${ativo ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${ativo ? "left-[22px]" : "left-0.5"}`} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Remover "${v.nome}"?`)) delMut.mutate(v.id);
+                    }}
+                    className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0"
+                    aria-label="Remover viveiro"
+                  >
+                    <Trash2 className="size-5" />
+                  </button>
+                </div>
               </div>
               <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 min-w-0">
                 <button
@@ -463,39 +455,6 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
-              {(() => {
-                const lancs = lancamentosPorViveiro[v.id] ?? [];
-                if (lancs.length === 0) return null;
-                return (
-                  <div className="mt-3 p-3 rounded-xl border bg-muted/30">
-                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground mb-2">
-                      Últimos lançamentos
-                    </p>
-                    <ul className="space-y-1.5">
-                      {lancs.map((l) => {
-                        const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
-                        return (
-                          <li key={l.id} className="flex items-center justify-between gap-2 text-sm">
-                            <span className="text-muted-foreground flex items-center gap-1 shrink-0">
-                              <CalendarDays className="size-3.5" />
-                              {formatDateBR(l.data_lancamento)}
-                            </span>
-                            <span className="font-medium text-foreground truncate flex-1 text-right">
-                              {prod?.nome ?? l.tipo ?? "—"}
-                            </span>
-                            <span className="text-xs font-semibold text-primary shrink-0">
-                              {Number(l.quantidade ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })()}
-              <div className="mt-3">
-                <button onClick={() => statusMut.mutate({ id: v.id, status: ativo ? "inativo" : "ativo" })} className={`w-full h-11 rounded-xl font-semibold flex items-center justify-center gap-2 ${ativo ? "bg-muted text-foreground hover:bg-muted/70" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}><Power className="size-5" />{ativo ? "Desativar" : "Ativar"}</button>
-              </div>
             </li>
             );
           })}
