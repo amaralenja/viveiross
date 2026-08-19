@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils, ChevronRight, Pencil, CalendarDays, Share2 } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, ChevronRight, Pencil, CalendarDays, Share2, Ruler, History } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { quantidadeEmKg } from "@/lib/embalagem";
 import { BtnTutorial } from "@/components/BtnTutorial";
@@ -40,6 +40,8 @@ function ViveirosPage() {
   const [historicoViveiro, setHistoricoViveiro] = useState<Viveiro | null>(null);
   const [editarViveiro, setEditarViveiro] = useState<Viveiro | null>(null);
   const [editarBiomassa, setEditarBiomassa] = useState<Viveiro | null>(null);
+  const [biometriaViveiro, setBiometriaViveiro] = useState<Viveiro | null>(null);
+  const [histBiometriaViveiro, setHistBiometriaViveiro] = useState<Viveiro | null>(null);
 
   const { data: fazendas = [] } = useQuery({
     queryKey: ["fazendas"],
@@ -426,35 +428,14 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
-              {(() => {
-                const bios = biometriasPorViveiro[v.id] ?? [];
-                if (bios.length === 0) return null;
-                return (
-                  <div className="mt-3 p-3 rounded-xl border bg-muted/30">
-                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground mb-2">
-                      Últimas biometrias
-                    </p>
-                    <ul className="space-y-1.5">
-                      {bios.map((b) => (
-                        <li key={b.id} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="text-muted-foreground flex items-center gap-1 shrink-0">
-                            <CalendarDays className="size-3.5" />
-                            {formatDateBR(b.data_biometria)}
-                          </span>
-                          <span className="font-semibold text-foreground">
-                            {Number(b.peso_medio_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g
-                          </span>
-                          {b.crescimento_semanal_g != null && (
-                            <span className="text-xs text-primary font-medium">
-                              +{Number(b.crescimento_semanal_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g/sem
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })()}
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setBiometriaViveiro(v)} className="h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/90">
+                  <Ruler className="size-4" /> Fazer biometria
+                </button>
+                <button type="button" onClick={() => setHistBiometriaViveiro(v)} className="h-10 rounded-xl border text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-muted">
+                  <History className="size-4" /> Ver histórico
+                </button>
+              </div>
             </li>
             );
           })}
@@ -464,6 +445,16 @@ function ViveirosPage() {
       {editarBiomassa && (
         <BiomassaEditModal viveiro={editarBiomassa} racaoKg={racaoPorViveiro[editarBiomassa.id] ?? 0} onClose={() => setEditarBiomassa(null)}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["viveiros"] }); setEditarBiomassa(null); }} />
+      )}
+
+      {biometriaViveiro && (
+        <BiometriaModal viveiro={biometriaViveiro} onClose={() => setBiometriaViveiro(null)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["viveiros"] }); setBiometriaViveiro(null); }} />
+      )}
+
+      {histBiometriaViveiro && (
+        <BiometriaHistoricoModal viveiro={histBiometriaViveiro} onClose={() => setHistBiometriaViveiro(null)}
+          onNova={() => { const v = histBiometriaViveiro; setHistBiometriaViveiro(null); setBiometriaViveiro(v); }} />
       )}
 
       {open && (
@@ -1529,6 +1520,155 @@ function BiomassaEditModal({ viveiro, racaoKg, onClose, onSaved }: { viveiro: Vi
         {fcaCalc != null && <p className="text-[11px] text-primary font-medium">FCA atual: {fmt(fcaCalc)} · Biomassa {fmt(biomassaNum ?? 0, 1)} kg</p>}
         <button type="submit" disabled={loading} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold">{loading ? "Salvando..." : "Salvar"}</button>
       </form>
+      <ModalStyle />
+    </ModalShell>
+  );
+}
+
+function BiometriaModal({ viveiro, onClose, onSaved }: { viveiro: Viveiro; onClose: () => void; onSaved: () => void }) {
+  const qc = useQueryClient();
+  const [data, setData] = useState(todayLocal());
+  const [pesoTotal, setPesoTotal] = useState("");
+  const [qtd, setQtd] = useState("");
+  const [cresc, setCresc] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const { data: anteriores = [] } = useQuery({
+    queryKey: ["biometrias", "viveiro", viveiro.id],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("biometrias")
+        .select("id, data_biometria, peso_medio_g, amostras, crescimento_semanal_g")
+        .eq("viveiro_id", viveiro.id)
+        .order("data_biometria", { ascending: false });
+      if (error) throw error;
+      return (rows ?? []) as { id: string; data_biometria: string; peso_medio_g: number; amostras: number | null; crescimento_semanal_g: number | null }[];
+    },
+  });
+
+  const pt = Number(pesoTotal.replace(",", "."));
+  const nq = Number(qtd.replace(",", "."));
+  const pesoMedio = pt > 0 && nq > 0 ? pt / nq : 0;
+  const ultima = anteriores.find((b) => b.data_biometria < data);
+  const crescAuto = (() => {
+    if (!ultima || pesoMedio <= 0) return null;
+    const dias = Math.max(1, Math.round((new Date(`${data}T00:00:00`).getTime() - new Date(`${ultima.data_biometria}T00:00:00`).getTime()) / 86400000));
+    return ((pesoMedio - Number(ultima.peso_medio_g)) / dias) * 7;
+  })();
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (pesoMedio <= 0) throw new Error("Informe o peso total e a quantidade de camarões.");
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Sessão expirada.");
+      const crescimento = cresc.trim() !== "" ? Number(cresc.replace(",", ".")) : (crescAuto != null ? Math.round(crescAuto * 100) / 100 : null);
+      const { error } = await supabase.from("biometrias").insert({
+        user_id: uid,
+        viveiro_id: viveiro.id,
+        data_biometria: data,
+        peso_medio_g: Math.round(pesoMedio * 100) / 100,
+        amostras: Math.round(nq),
+        crescimento_semanal_g: crescimento,
+      });
+      if (error) throw error;
+      toast.success("Biometria salva!");
+      qc.invalidateQueries({ queryKey: ["viveiros"] });
+      qc.invalidateQueries({ queryKey: ["biometrias"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ModalShell title={`Nova biometria · ${viveiro.nome}`} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Data da biometria">
+          <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="input" />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Peso total da amostra (g)">
+            <input type="text" inputMode="decimal" value={pesoTotal} onChange={(e) => setPesoTotal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="Ex: 250" className="input" autoFocus />
+          </Field>
+          <Field label="Qtd de camarões">
+            <input type="text" inputMode="numeric" value={qtd} onChange={(e) => setQtd(e.target.value.replace(/[^0-9]/g, ""))} placeholder="Ex: 30" className="input" />
+          </Field>
+        </div>
+        <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 flex items-center justify-between">
+          <span className="text-xs font-semibold text-muted-foreground">Peso médio</span>
+          <span className="text-xl font-black text-primary tabular-nums">{pesoMedio > 0 ? `${pesoMedio.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g` : "—"}</span>
+        </div>
+        <Field label="Crescimento semanal (g/sem) — opcional">
+          <input type="text" inputMode="decimal" value={cresc} onChange={(e) => setCresc(e.target.value.replace(/[^0-9.,-]/g, ""))} placeholder={crescAuto != null ? `Automático: ${crescAuto.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}` : "Automático"} className="input" />
+        </Field>
+        <button type="submit" disabled={loading} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50">{loading ? "Salvando..." : "Salvar biometria"}</button>
+      </form>
+      <ModalStyle />
+    </ModalShell>
+  );
+}
+
+function BiometriaHistoricoModal({ viveiro, onClose, onNova }: { viveiro: Viveiro; onClose: () => void; onNova: () => void }) {
+  const qc = useQueryClient();
+  const { data: bios = [], isLoading } = useQuery({
+    queryKey: ["biometrias", "viveiro", viveiro.id],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("biometrias")
+        .select("id, data_biometria, peso_medio_g, amostras, crescimento_semanal_g")
+        .eq("viveiro_id", viveiro.id)
+        .order("data_biometria", { ascending: false });
+      if (error) throw error;
+      return (rows ?? []) as { id: string; data_biometria: string; peso_medio_g: number; amostras: number | null; crescimento_semanal_g: number | null }[];
+    },
+  });
+  const delMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("biometrias").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Biometria removida");
+      qc.invalidateQueries({ queryKey: ["biometrias"] });
+      qc.invalidateQueries({ queryKey: ["viveiros"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <ModalShell title={`Histórico de biometrias · ${viveiro.nome}`} onClose={onClose}>
+      <div className="space-y-3">
+        <button type="button" onClick={onNova} className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/90"><Plus className="size-4" /> Nova biometria</button>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        ) : bios.length === 0 ? (
+          <div className="p-6 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma biometria ainda. Toque em "Nova biometria".</div>
+        ) : (
+          <ul className="space-y-2">
+            {bios.map((b) => (
+              <li key={b.id} className="flex items-center justify-between gap-2 p-3 rounded-xl bg-card border">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold flex items-center gap-1.5"><CalendarDays className="size-3.5 text-muted-foreground" />{formatDateBR(b.data_biometria)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {b.crescimento_semanal_g != null ? `+${Number(b.crescimento_semanal_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g/sem` : "—"}
+                    {b.amostras ? ` · ${b.amostras} camarões` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-lg font-black text-primary tabular-nums">{Number(b.peso_medio_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g</span>
+                  <button type="button" onClick={() => { if (confirm("Apagar esta biometria?")) delMut.mutate(b.id); }} className="size-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"><Trash2 className="size-4" /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <ModalStyle />
     </ModalShell>
   );
