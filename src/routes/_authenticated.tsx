@@ -207,7 +207,7 @@ function AuthLayout() {
       <CalculadoraPopup />
 
       <nav className="fixed bottom-0 inset-x-0 z-10 bg-card/95 backdrop-blur border-t">
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-6">
+        <div className="mx-auto grid w-full max-w-5xl" style={{ gridTemplateColumns: `repeat(${NAV.length + 1}, minmax(0, 1fr))` }}>
           {NAV.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
@@ -216,12 +216,12 @@ function AuthLayout() {
                 key={item.to}
                 to={item.to}
                 onClick={(e) => handleNav(item.to, e)}
-                className={`flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition ${
+                className={`flex flex-col items-center gap-1 py-3 text-xs font-medium transition ${
                   active ? "text-primary" : "text-muted-foreground"
                 } min-w-0`}
               >
-                <Icon className={`size-5 ${active ? "stroke-[2.5]" : ""}`} />
-                <span className="max-w-full truncate px-0.5 text-[9px] sm:text-[11px] leading-none">{item.label}</span>
+                <Icon className={`size-6 ${active ? "stroke-[2.5]" : ""}`} />
+                <span className="max-w-full truncate px-0.5 text-[11px] sm:text-xs leading-none">{item.label}</span>
               </Link>
             );
           })}
@@ -231,12 +231,12 @@ function AuthLayout() {
               <button
                 type="button"
                 onClick={() => setMaisOpen(true)}
-                className={`flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition ${
+                className={`flex flex-col items-center gap-1 py-3 text-xs font-medium transition ${
                   active ? "text-primary" : "text-muted-foreground"
                 } min-w-0`}
               >
-                <Plus className={`size-5 ${active ? "stroke-[2.5]" : ""}`} />
-                <span className="max-w-full truncate px-0.5 text-[9px] sm:text-[11px] leading-none">Mais</span>
+                <Plus className={`size-6 ${active ? "stroke-[2.5]" : ""}`} />
+                <span className="max-w-full truncate px-0.5 text-[11px] sm:text-xs leading-none">Mais</span>
               </button>
             );
           })()}
