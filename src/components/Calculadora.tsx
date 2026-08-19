@@ -169,7 +169,7 @@ export function CalculadoraPopup() {
     "h-11 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition text-base font-bold flex items-center justify-center shadow-sm";
 
   return (
-    <div className="fixed bottom-16 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-16 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end">
       {/* Botão Flutuante quando fechado ou minimizado */}
       {(!isOpen || isMinimized) && (
         <button
