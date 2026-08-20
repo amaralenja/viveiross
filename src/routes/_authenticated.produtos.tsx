@@ -983,37 +983,6 @@ function EstoqueView({
 
   return (
     <div className="space-y-5">
-      {/* Cards de Resumo Geral - redesign */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-gradient-to-br from-card to-muted/50 border p-4 shadow-xs space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <Boxes className="size-4" />
-            </div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Saldo em Estoque</p>
-          </div>
-          <p className="text-2xl font-black text-foreground tabular-nums pl-10">{formatNumber(totalEstoqueGlobal)} kg</p>
-        </div>
-        <div className="rounded-2xl bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 border border-emerald-500/20 p-4 shadow-xs space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
-              <ArrowDownToLine className="size-4" />
-            </div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Abastecido (+)</p>
-          </div>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums pl-10">+ {formatNumber(totalEntradasGlobal)} kg</p>
-        </div>
-        <div className="rounded-2xl bg-gradient-to-br from-rose-500/5 to-rose-500/10 border border-rose-500/20 p-4 shadow-xs space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-rose-500/15 text-rose-600 flex items-center justify-center shrink-0">
-              <ArrowDownToLine className="size-4 rotate-180" />
-            </div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-400">Consumido (-)</p>
-          </div>
-          <p className="text-2xl font-black text-rose-700 dark:text-rose-400 tabular-nums pl-10">- {formatNumber(totalSaidasGlobal)} kg</p>
-        </div>
-      </div>
-
       {/* Barra de Ações */}
       <div className="flex items-center justify-between gap-3 flex-wrap bg-gradient-to-r from-muted/40 to-muted/20 p-3 px-4 rounded-2xl border shadow-xs">
         <div>
