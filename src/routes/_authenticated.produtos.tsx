@@ -155,6 +155,7 @@ function ProdutosPage() {
   const [openFunc, setOpenFunc] = useState(false);
   const [editandoFunc, setEditandoFunc] = useState<Funcionario | null>(null);
   const [openEntrada, setOpenEntrada] = useState(false);
+  const [entradaProdutoPre, setEntradaProdutoPre] = useState<string | null>(null);
   const [editandoEntrada, setEditandoEntrada] = useState<EstoqueEntrada | null>(null);
   const [openBaixa, setOpenBaixa] = useState(false);
   const [openDesp, setOpenDesp] = useState(false);
@@ -549,6 +550,7 @@ function ProdutosPage() {
           viveiros={viveiros}
           saldoPorProduto={saldoPorProduto}
           onNovaEntrada={() => setOpenEntrada(true)}
+          onNovaEntradaProduto={(id) => { setEntradaProdutoPre(id); setOpenEntrada(true); }}
           onNovaBaixa={() => setOpenBaixa(true)}
           onCadastrarProduto={() => setOpenProd(true)}
           onEditEntrada={(e) => setEditandoEntrada(e)}
@@ -625,16 +627,19 @@ function ProdutosPage() {
       {(openEntrada || editandoEntrada) && (
         <EntradaEstoqueModal
           entrada={editandoEntrada}
+          defaultProdutoId={entradaProdutoPre}
           produtos={produtos}
           onClose={() => {
             setOpenEntrada(false);
             setEditandoEntrada(null);
+            setEntradaProdutoPre(null);
           }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
             qc.invalidateQueries({ queryKey: ["produtos"] });
             setOpenEntrada(false);
             setEditandoEntrada(null);
+            setEntradaProdutoPre(null);
           }}
 
         />
@@ -852,6 +857,7 @@ function EstoqueView({
   viveiros,
   saldoPorProduto,
   onNovaEntrada,
+  onNovaEntradaProduto,
   onNovaBaixa,
   onCadastrarProduto,
   onEditEntrada,
@@ -866,6 +872,7 @@ function EstoqueView({
   viveiros: ViveiroOpt[];
   saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
   onNovaEntrada: () => void;
+  onNovaEntradaProduto: (produtoId: string) => void;
   onNovaBaixa: () => void;
   onCadastrarProduto: () => void;
   onEditEntrada: (e: EstoqueEntrada) => void;
@@ -1126,6 +1133,13 @@ function EstoqueView({
 
                 {aberto && (
                   <div className="border-t bg-muted/20 p-4 space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => onNovaEntradaProduto(p.id)}
+                      className="w-full h-10 rounded-xl bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition"
+                    >
+                      <ArrowDownToLine className="size-4" /> Adicionar entrada / compra de {p.nome}
+                    </button>
                     <div className="grid sm:grid-cols-2 gap-4">
                       {/* Entradas */}
                       <div className="space-y-2">
@@ -1624,16 +1638,18 @@ function ComprasView({
 
 function EntradaEstoqueModal({
   entrada,
+  defaultProdutoId,
   produtos,
   onClose,
   onSaved,
 }: {
   entrada: EstoqueEntrada | null;
+  defaultProdutoId?: string | null;
   produtos: Produto[];
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [produtoId, setProdutoId] = useState(entrada?.produto_id ?? produtos[0]?.id ?? "");
+  const [produtoId, setProdutoId] = useState(entrada?.produto_id ?? defaultProdutoId ?? produtos[0]?.id ?? "");
   const [novoNome, setNovoNome] = useState("");
   const isNovo = produtoId === "__novo__";
   const [quantidade, setQuantidade] = useState(
