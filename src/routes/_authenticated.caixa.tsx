@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/caixa")({
   component: CaixaPage,
 });
 
-type ViveiroOpt = { id: string; nome: string };
+type ViveiroOpt = { id: string; nome: string; data_povoamento?: string | null; qtd_povoada?: number | null };
 type Lanc = {
   id: string;
   viveiro_id: string | null;
@@ -78,8 +78,20 @@ type ViveiroRel = {
   despesaTotal: number;
   receitaTotal: number;
   saldo: number;
+  dataPovoamento?: string | null;
+  qtdPovoada?: number | null;
   historico: { l: Lanc; rateado: boolean; valorMostrado: number }[];
 };
+
+function diasCultivoCaixa(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const inicio = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const hoje = new Date();
+  const h = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  return Math.max(1, Math.floor((h.getTime() - inicio.getTime()) / 86400000) + 1);
+}
 
 function buildViveiroPDF(doc: jsPDF, v: ViveiroRel, startY = 20): number {
   const pageW = doc.internal.pageSize.getWidth();
@@ -532,7 +544,7 @@ function CaixaPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, status")
+        .select("id, nome, status, data_povoamento, qtd_povoada")
         .eq("status", "ativo")
         .order("nome");
       if (error) throw error;
@@ -785,6 +797,8 @@ function CaixaPage() {
         despesaTotal,
         receitaTotal,
         saldo: receitaTotal - despesaTotal,
+        dataPovoamento: v.data_povoamento,
+        qtdPovoada: v.qtd_povoada,
         historico,
       };
     });
@@ -984,6 +998,21 @@ function CaixaPage() {
                     >
                       <FileSpreadsheet className="size-4" />
                     </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg bg-muted/50 p-2 text-center min-w-0">
+                    <p className="text-[9px] uppercase text-muted-foreground font-bold">Dias cultivo</p>
+                    <p className="text-sm font-black tabular-nums">{diasCultivoCaixa(v.dataPovoamento) ?? "—"}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-2 text-center min-w-0">
+                    <p className="text-[9px] uppercase text-muted-foreground font-bold">Pós-larvas</p>
+                    <p className="text-sm font-black tabular-nums truncate">{v.qtdPovoada != null ? Number(v.qtdPovoada).toLocaleString("pt-BR") : "—"}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-2 text-center min-w-0">
+                    <p className="text-[9px] uppercase text-muted-foreground font-bold">Início</p>
+                    <p className="text-sm font-black tabular-nums truncate">{v.dataPovoamento ? fmtDate(v.dataPovoamento) : "—"}</p>
                   </div>
                 </div>
 
