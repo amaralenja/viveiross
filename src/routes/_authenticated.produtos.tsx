@@ -850,6 +850,80 @@ async function gerarPdfEstoque(
   toast.success("PDF do estoque gerado com sucesso!");
 }
 
+async function gerarPdfProduto(
+  produto: Produto,
+  saldo: { entradas: number; saidas: number },
+  entradasProduto: EstoqueEntrada[],
+  saidasProduto: ConsumoRow[],
+  viveiros: ViveiroOpt[],
+) {
+  const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const jsPDF = pdfModule.default;
+  const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const un = produto.unidade || "kg";
+  const dataHojeStr = new Date().toLocaleDateString("pt-BR");
+  const saldoAtual = saldo.entradas - saldo.saidas;
+
+  doc.setFillColor(16, 185, 129); doc.rect(0, 0, 210, 24, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+  doc.text(`ESTOQUE - ${produto.nome}`, 14, 11);
+  doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.text(`Emitido em ${dataHojeStr}`, 14, 18);
+
+  const boxes: Array<[string, string, [number, number, number]]> = [
+    ["ABASTECIDO (+)", `+ ${formatNumber(saldo.entradas)} ${un}`, [16, 185, 129]],
+    ["CONSUMIDO (-)", `- ${formatNumber(saldo.saidas)} ${un}`, [225, 29, 72]],
+    ["SALDO ATUAL", `${formatNumber(saldoAtual)} ${un}`, [30, 41, 59]],
+  ];
+  const bw = 60, bx0 = 14, gap = 3, by = 30;
+  boxes.forEach(([label, valor, color], i) => {
+    const bxx = bx0 + i * (bw + gap);
+    doc.setFillColor(245, 247, 250); doc.roundedRect(bxx, by, bw, 18, 2, 2, "F");
+    doc.setFontSize(7); doc.setTextColor(100, 116, 139); doc.setFont("helvetica", "bold");
+    doc.text(label, bxx + 3, by + 6);
+    doc.setFontSize(12); doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(valor, bxx + 3, by + 14);
+  });
+
+  doc.setTextColor(30, 41, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text(`ENTRADAS / COMPRAS (${entradasProduto.length})`, 14, 58);
+  autoTable(doc, {
+    startY: 61,
+    head: [["Data", "Quantidade", "Custo", "Fornecedor"]],
+    body: entradasProduto.slice().sort((a, b) => String(b.data_entrada).localeCompare(String(a.data_entrada))).map((e) => [
+      formatDateSafe(e.data_entrada),
+      `${formatNumber(Number(e.quantidade))} ${e.unidade || un}`,
+      e.custo_total != null ? formatBRL(Number(e.custo_total)) : "-",
+      e.fornecedor || "-",
+    ]),
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+    margin: { left: 14, right: 14 },
+  });
+  let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
+  doc.text(`SAIDAS / CONSUMO (${saidasProduto.length})`, 14, y);
+  autoTable(doc, {
+    startY: y + 3,
+    head: [["Data", "Quantidade", "Viveiro"]],
+    body: saidasProduto.slice().sort((a, b) => String(b.data_lancamento).localeCompare(String(a.data_lancamento))).map((c) => {
+      const viv = viveiros.find((v) => v?.id === c.viveiro_id);
+      return [formatDateSafe(c.data_lancamento), `${formatNumber(Number(c.quantidade))} ${c.unidade || un}`, viv ? viv.nome : "Geral"];
+    }),
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { halign: "right" } },
+    margin: { left: 14, right: 14 },
+  });
+
+  doc.save(`estoque-${produto.nome.replace(/\s+/g, "-")}.pdf`);
+  toast.success("PDF gerado!");
+}
+
 function EstoqueView({
   produtos,
   entradas,
@@ -1102,13 +1176,23 @@ function EstoqueView({
 
                 {aberto && (
                   <div className="border-t bg-muted/20 p-4 space-y-4">
-                    <button
-                      type="button"
-                      onClick={() => onNovaEntradaProduto(p.id)}
-                      className="w-full h-10 rounded-xl bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition"
-                    >
-                      <ArrowDownToLine className="size-4" /> Adicionar entrada / compra de {p.nome}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onNovaEntradaProduto(p.id)}
+                        className="flex-1 h-10 rounded-xl bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition"
+                      >
+                        <ArrowDownToLine className="size-4" /> Entrada / compra
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => gerarPdfProduto(p, s, entradasProduto, saidasProduto, viveiros)}
+                        className="h-10 px-4 rounded-xl border font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-muted transition shrink-0"
+                        title={`PDF de ${p.nome}`}
+                      >
+                        <FileDown className="size-4" /> PDF
+                      </button>
+                    </div>
                     <div className="grid sm:grid-cols-2 gap-4">
                       {/* Entradas */}
                       <div className="space-y-2">
