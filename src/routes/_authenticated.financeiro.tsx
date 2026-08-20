@@ -117,6 +117,7 @@ function PessoalTab() {
 
   function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); }
   function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
+  function novoLancGlobal() { setEditing(null); setPessoaForm(pessoasList[0] ?? ""); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
   function editLanc(l: FpLanc) { setEditing(l); setPessoaForm(l.categoria); setTipo(l.tipo === "receita" ? "receita" : "despesa"); setVal(String(l.valor)); setDesc(l.descricao); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setDt(l.data); setReportPessoa(null); setShowForm(true); }
   function novaPessoa() { const nome = window.prompt("Nome da pessoa (quem te deve ou quem você deve):")?.trim(); if (nome) addPessoaMut.mutate(nome); }
 
@@ -189,15 +190,16 @@ function PessoalTab() {
       </div>
 
       <div className="flex gap-2">
-        <button onClick={novaPessoa} className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
-          <Plus className="size-6" /> Nova pessoa
+        <button onClick={() => novoLancGlobal()} className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
+          <Plus className="size-5" /> Novo lançamento
         </button>
+        <button onClick={novaPessoa} className="h-14 px-4 rounded-2xl border font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-muted shrink-0"><Users className="size-5" /><span className="hidden sm:inline">Nova pessoa</span></button>
         {pessoasList.length > 0 && (
-          <button onClick={pdfGeral} title="PDF geral" className="h-14 px-4 rounded-2xl border font-bold flex items-center justify-center gap-1.5 hover:bg-muted shrink-0"><FileDown className="size-5" /></button>
+          <button onClick={pdfGeral} title="PDF geral" className="h-14 px-4 rounded-2xl border font-bold flex items-center justify-center hover:bg-muted shrink-0"><FileDown className="size-5" /></button>
         )}
       </div>
 
-      <p className="text-[11px] text-muted-foreground px-0.5">Toque numa pessoa pra ver e lançar. <span className="text-rose-600 font-semibold">Vermelho</span> = está te devendo · <span className="text-blue-600 font-semibold">azul</span> = você deve.</p>
+      <p className="text-[11px] text-muted-foreground px-0.5">Toque numa pessoa pra ver o histórico. <span className="text-rose-600 font-semibold">Vermelho</span> = está te devendo · <span className="text-blue-600 font-semibold">azul</span> = você deve.</p>
 
       <div className="space-y-2.5">
         {pessoasList.map((nome) => {
@@ -205,6 +207,7 @@ function PessoalTab() {
           const saldo = x.credito - x.debito;
           const total = Math.max(x.debito, x.credito), pago = Math.min(x.debito, x.credito), falta = Math.abs(x.debito - x.credito);
           const pct = total > 0 ? Math.round((pago / total) * 100) : 0;
+          const recentes = lancs.filter((l) => l.categoria === nome).slice(0, 3);
           return (
             <button key={nome} onClick={() => setReportPessoa(nome)} className="w-full text-left rounded-2xl border bg-card p-3.5 space-y-2.5 hover:bg-muted/30 transition">
               <div className="flex items-center gap-3">
@@ -222,6 +225,21 @@ function PessoalTab() {
                 <div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
                   <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(total)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
+                </div>
+              )}
+              {recentes.length > 0 && (
+                <div className="border-t pt-2 space-y-1">
+                  {recentes.map((l) => {
+                    const isCred = l.tipo === "receita";
+                    return (
+                      <div key={l.id} className="flex items-center gap-2 text-[11px]">
+                        <span className="text-muted-foreground shrink-0 tabular-nums">{fmtDate(l.data)}</span>
+                        <span className="truncate flex-1 min-w-0 text-muted-foreground">{l.descricao}</span>
+                        <span className={`font-bold shrink-0 tabular-nums ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(Number(l.valor))}</span>
+                      </div>
+                    );
+                  })}
+                  <p className="text-[10px] text-primary font-semibold pt-0.5">Ver histórico completo →</p>
                 </div>
               )}
             </button>
@@ -256,9 +274,9 @@ function PessoalTab() {
                   </div>
                 )}
                 <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => novoLanc(c, "despesa")} className="h-11 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-sm font-bold flex items-center justify-center gap-1 hover:bg-rose-500/20"><Plus className="size-4" />Débito</button>
-                  <button onClick={() => novoLanc(c, "receita")} className="h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-sm font-bold flex items-center justify-center gap-1 hover:bg-emerald-500/20"><Plus className="size-4" />Recebi</button>
-                  <button onClick={() => pdfPessoa(c)} className="h-11 rounded-xl border text-sm font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-4" />PDF</button>
+                  <button onClick={() => novoLanc(c, "receita")} className="h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-emerald-500/20">💰 Recebi</button>
+                  <button onClick={() => novoLanc(c, "despesa")} className="h-11 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-rose-500/20">💸 Dei/paguei</button>
+                  <button onClick={() => pdfPessoa(c)} className="h-11 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-4" />PDF</button>
                 </div>
                 <div className="space-y-2">
                   {withRun.map(({ l, v, isCred, run: r }) => (
@@ -290,9 +308,19 @@ function PessoalTab() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo lançamento"}{pessoaForm ? ` · ${pessoaForm}` : ""}</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); saveMut.mutate(); }} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Pessoa</label>
+              <div className="flex gap-2">
+                <select value={pessoaForm} onChange={(e) => setPessoaForm(e.target.value)} className="app-input h-11 text-sm flex-1 min-w-0">
+                  <option value="">— escolha —</option>
+                  {pessoasList.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <button type="button" onClick={() => { const nome = window.prompt("Nome da pessoa:")?.trim(); if (nome) { addPessoaMut.mutate(nome); setPessoaForm(nome); } }} className="h-11 px-3 rounded-xl border text-sm font-bold text-primary hover:bg-primary/5 shrink-0 flex items-center gap-1"><Plus className="size-4" />Nova</button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setTipo("despesa")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Débito<span className="text-[10px] font-medium opacity-80 mt-0.5">passou a dever / você deu</span></button>
-              <button type="button" onClick={() => setTipo("receita")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Crédito<span className="text-[10px] font-medium opacity-80 mt-0.5">pagamento</span></button>
+              <button type="button" onClick={() => setTipo("receita")} className={`h-16 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>💰 Recebi<span className="text-[10px] font-medium opacity-80 mt-0.5">entrou dinheiro pra você</span></button>
+              <button type="button" onClick={() => setTipo("despesa")} className={`h-16 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>💸 Dei / paguei<span className="text-[10px] font-medium opacity-80 mt-0.5">saiu dinheiro de você</span></button>
             </div>
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-muted-foreground font-bold">Valor</label>
