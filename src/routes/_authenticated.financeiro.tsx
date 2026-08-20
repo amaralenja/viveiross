@@ -46,6 +46,7 @@ type FpCat = { id: string; nome: string; icone: string; excluida: boolean };
 function PessoalTab() {
   const qc = useQueryClient();
   const [reportPessoa, setReportPessoa] = useState<string | null>(null);
+  const [transferTo, setTransferTo] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<FpLanc | null>(null);
   const [pessoaForm, setPessoaForm] = useState("");
@@ -114,6 +115,25 @@ function PessoalTab() {
   });
   const delMut = useMutation({ mutationFn: (id: string) => supabase.from("financeiro_pessoal").delete().eq("id", id), onSuccess: () => { toast.success("Removido"); qc.invalidateQueries({ queryKey: ["fp"] }); }, onError: (e: Error) => toast.error(e.message) });
   const addPessoaMut = useMutation({ mutationFn: async (nome: string) => { const { data: u } = await supabase.auth.getUser(); const { error } = await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, icone: "👤" }); if (error) throw error; }, onSuccess: () => { toast.success("Pessoa cadastrada"); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
+  const delPessoaMut = useMutation({
+    mutationFn: async (nome: string) => {
+      const { error } = await supabase.from("financeiro_pessoal").delete().eq("categoria", nome);
+      if (error) throw error;
+      const cat = cats.find((c) => c.nome === nome && !c.excluida);
+      if (cat) await supabase.from("categorias_financeiro").delete().eq("id", cat.id);
+    },
+    onSuccess: () => { toast.success("Pessoa apagada"); setReportPessoa(null); qc.invalidateQueries({ queryKey: ["fp"] }); qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const transferPessoaMut = useMutation({
+    mutationFn: async ({ from, to }: { from: string; to: string }) => {
+      if (!to) throw new Error("Escolha a pessoa destino.");
+      const { error } = await supabase.from("financeiro_pessoal").update({ categoria: to }).eq("categoria", from);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => { toast.success(`Movido para ${v.to}`); setTransferTo(""); setReportPessoa(v.to); qc.invalidateQueries({ queryKey: ["fp"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); }
   function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
@@ -295,7 +315,18 @@ function PessoalTab() {
                       </div>
                     </div>
                   ))}
-                  {entries.length === 0 && <p className="py-3 text-center text-xs text-muted-foreground">Nenhum lançamento ainda. Use Débito ou Recebi acima.</p>}
+                  {entries.length === 0 && <p className="py-3 text-center text-xs text-muted-foreground">Nenhum lançamento ainda. Use Recebi ou Dei/paguei acima.</p>}
+                </div>
+                <div className="border-t pt-3 space-y-2">
+                  <p className="text-[10px] uppercase text-muted-foreground font-bold">Gerenciar</p>
+                  <div className="flex gap-2">
+                    <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} className="app-input h-10 text-xs flex-1 min-w-0">
+                      <option value="">Transferir tudo para…</option>
+                      {pessoasList.filter((p) => p !== c).map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <button onClick={() => { if (transferTo && confirm(`Mover TODOS os lançamentos de "${c}" para "${transferTo}"?`)) transferPessoaMut.mutate({ from: c, to: transferTo }); }} disabled={!transferTo || transferPessoaMut.isPending} className="h-10 px-3 rounded-lg border text-xs font-bold hover:bg-muted disabled:opacity-40 shrink-0">Transferir</button>
+                  </div>
+                  <button onClick={() => { if (confirm(`APAGAR "${c}" e todos os lançamentos dela? Isso não dá pra desfazer.`)) delPessoaMut.mutate(c); }} disabled={delPessoaMut.isPending} className="w-full h-10 rounded-lg border border-destructive/40 text-destructive text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-destructive/10 disabled:opacity-40"><Trash2 className="size-3.5" />Apagar pessoa</button>
                 </div>
               </>
             );
