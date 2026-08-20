@@ -45,156 +45,102 @@ type FpCat = { id: string; nome: string; icone: string; excluida: boolean };
 
 function PessoalTab() {
   const qc = useQueryClient();
-  const [sub, setSub] = useState<"lancamentos" | "pessoas" | "relatorio" | "categorias">("lancamentos");
-  const [editing, setEditing] = useState<FpLanc | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [tipo, setTipo] = useState<"despesa" | "receita" | "vale" | "a_pagar" | "a_receber">("despesa");
-  const [desc, setDesc] = useState(""); const [val, setVal] = useState("");
-  const [cat, setCat] = useState("geral"); const [dt, setDt] = useState(todayISO());
-  const [obs, setObs] = useState("");
-  const [forma, setForma] = useState("");
-  const [funcionarioId, setFuncionarioId] = useState("");
-  const [fMes, setFMes] = useState(todayISO().slice(0, 7));
-  const [fCat, setFCat] = useState("todas");
-  const [novaCat, setNovaCat] = useState("");
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  const [openConta, setOpenConta] = useState<string | null>(null);
   const [reportPessoa, setReportPessoa] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<FpLanc | null>(null);
+  const [pessoaForm, setPessoaForm] = useState("");
+  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
+  const [val, setVal] = useState("");
+  const [desc, setDesc] = useState("");
+  const [forma, setForma] = useState("");
+  const [dt, setDt] = useState(todayISO());
 
   const { data: lancs = [] } = useQuery({ queryKey: ["fp"], queryFn: async () => { const r = await supabase.from("financeiro_pessoal").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }); if (r.error) throw r.error; return (r.data ?? []) as FpLanc[]; } });
   const { data: cats = [] } = useQuery({ queryKey: ["fp_cats"], queryFn: async () => { const r = await supabase.from("categorias_financeiro").select("*").order("nome"); if (r.error) throw r.error; return (r.data ?? []) as FpCat[]; } });
-  const { data: funcionarios = [] } = useQuery({ queryKey: ["funcionarios", "ativos"], queryFn: async () => { const { data, error } = await supabase.from("funcionarios").select("id, nome").eq("ativo", true).order("nome"); if (error) throw error; return (data ?? []) as { id: string; nome: string }[]; } });
 
-  const excludedNames = useMemo(() => new Set(cats.filter((c) => c.excluida).map((c) => c.nome)), [cats]);
-  const catsUnificadas = useMemo(() => {
-    const set = new Set<string>(["geral"]);
-    CAT_PADRAO.forEach((c) => { if (!excludedNames.has(c)) set.add(c); });
-    cats.filter((c) => !c.excluida).forEach((c) => set.add(c.nome));
-    lancs.forEach((l) => set.add(l.categoria));
-    return Array.from(set).sort();
-  }, [cats, lancs, excludedNames]);
-
-  const filtrados = useMemo(() => lancs.filter((l) => { if (fMes && !l.data.startsWith(fMes)) return false; if (fCat !== "todas" && l.categoria !== fCat) return false; return true; }), [lancs, fMes, fCat]);
-  const tot = useMemo(() => {
-    let rec = 0, desp = 0;
-    const contas: Record<string, { debito: number; credito: number }> = {};
-    for (const l of filtrados) {
-      const v = Number(l.valor);
-      const c = contas[l.categoria] ?? { debito: 0, credito: 0 };
-      if (l.tipo === "receita") { rec += v; c.credito += v; } else { desp += v; c.debito += v; }
-      contas[l.categoria] = c;
+  const contas = useMemo(() => {
+    const m: Record<string, { debito: number; credito: number }> = {};
+    for (const l of lancs) {
+      const c = m[l.categoria] ?? { debito: 0, credito: 0 };
+      if (l.tipo === "receita") c.credito += Number(l.valor); else c.debito += Number(l.valor);
+      m[l.categoria] = c;
     }
-    return { rec, desp, saldo: rec - desp, contas };
-  }, [filtrados]);
+    return m;
+  }, [lancs]);
+
   const pessoasList = useMemo(() => {
-    const nomes = new Set<string>();
-    cats.filter((c) => !c.excluida).forEach((c) => nomes.add(c.nome));
-    Object.keys(tot.contas).forEach((n) => nomes.add(n));
-    nomes.delete("geral");
-    return Array.from(nomes).sort((a, b) => {
-      const sa = Math.abs((tot.contas[a]?.credito ?? 0) - (tot.contas[a]?.debito ?? 0));
-      const sb = Math.abs((tot.contas[b]?.credito ?? 0) - (tot.contas[b]?.debito ?? 0));
-      return sb - sa || a.localeCompare(b);
-    });
-  }, [cats, tot.contas]);
-  useEffect(() => {
-    if (sub === "relatorio" && openConta) {
-      const el = document.getElementById(`fp-conta-${openConta}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const s = new Set<string>();
+    cats.filter((c) => !c.excluida).forEach((c) => s.add(c.nome));
+    Object.keys(contas).forEach((n) => s.add(n));
+    return Array.from(s)
+      .filter((n) => n !== "geral" || contas[n])
+      .sort((a, b) => {
+        const sa = Math.abs((contas[a]?.credito ?? 0) - (contas[a]?.debito ?? 0));
+        const sb = Math.abs((contas[b]?.credito ?? 0) - (contas[b]?.debito ?? 0));
+        return sb - sa || a.localeCompare(b);
+      });
+  }, [cats, contas]);
+
+  const { aReceber, aPagar } = useMemo(() => {
+    let r = 0, p = 0;
+    for (const nome of pessoasList) {
+      const x = contas[nome] ?? { debito: 0, credito: 0 };
+      const saldo = x.credito - x.debito;
+      if (saldo < 0) r += -saldo; else p += saldo;
     }
-  }, [sub, openConta]);
-  const toggleSel = (id: string) => { const n = new Set(sel); n.has(id) ? n.delete(id) : n.add(id); setSel(n); };
-  const toggleAll = () => setSel(sel.size === filtrados.length ? new Set() : new Set(filtrados.map((l) => l.id)));
-  const toExport = sel.size > 0 ? filtrados.filter((l) => sel.has(l.id)) : filtrados;
+    return { aReceber: r, aPagar: p };
+  }, [pessoasList, contas]);
 
-  const saveFpMut = useMutation({ mutationFn: async () => {
-    const v = Number(val.replace(",", "."));
-    if (!v || v <= 0) throw new Error("Informe o valor.");
-    const { data: u } = await supabase.auth.getUser();
-    const uid = u.user?.id;
-    if (!uid) throw new Error("Sessão expirada.");
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const v = Number(val.replace(",", "."));
+      if (!v || v <= 0) throw new Error("Informe o valor.");
+      if (!desc.trim()) throw new Error("Diga o que foi (especificação).");
+      if (!pessoaForm.trim()) throw new Error("Escolha a pessoa.");
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Sessão expirada.");
+      const obsFinal = forma.trim() || null;
+      if (editing) {
+        const { error } = await supabase.from("financeiro_pessoal").update({ tipo, descricao: desc.trim(), valor: v, categoria: pessoaForm, data: dt, observacao: obsFinal }).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("financeiro_pessoal").insert({ user_id: uid, tipo, descricao: desc.trim(), valor: v, categoria: pessoaForm, data: dt, observacao: obsFinal });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { toast.success(editing ? "Atualizado" : "Registrado"); reset(); qc.invalidateQueries({ queryKey: ["fp"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const delMut = useMutation({ mutationFn: (id: string) => supabase.from("financeiro_pessoal").delete().eq("id", id), onSuccess: () => { toast.success("Removido"); qc.invalidateQueries({ queryKey: ["fp"] }); }, onError: (e: Error) => toast.error(e.message) });
+  const addPessoaMut = useMutation({ mutationFn: async (nome: string) => { const { data: u } = await supabase.auth.getUser(); const { error } = await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, icone: "👤" }); if (error) throw error; }, onSuccess: () => { toast.success("Pessoa cadastrada"); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
 
-    if (!editing && tipo === "vale") {
-      if (!funcionarioId) throw new Error("Selecione o funcionário.");
-      const func = funcionarios.find((f) => f.id === funcionarioId);
-      const motivo = desc.trim() || "Vale";
-      const { data: valeData, error: vErr } = await supabase.from("vales").insert({ user_id: uid, funcionario_id: funcionarioId, valor: v, motivo, data_vale: dt }).select("id").single();
-      if (vErr) throw vErr;
-      const { error: cErr } = await supabase.from("caixa_lancamentos").insert({ user_id: uid, data_lancamento: dt, descricao: `Pagamento funcionário: ${func?.nome ?? ""}`, categoria: "folha_pagamento", valor: v, tipo: "despesa", observacao: `${CS_TAG} [VALE:${valeData.id}] ${motivo}`.trim() });
-      if (cErr) throw cErr;
-      return;
-    }
-
-    if (!editing && (tipo === "a_pagar" || tipo === "a_receber")) {
-      if (!desc.trim()) throw new Error("Informe a descrição.");
-      const { error } = await supabase.from("contas_pagar").insert({ user_id: uid, descricao: desc.trim(), valor: v, data_vencimento: dt, categoria: "geral", observacao: obs.trim() || null, tipo_operacao: tipo === "a_receber" ? "receber" : "pagar", recorrencia: "none" });
-      if (error) throw error;
-      return;
-    }
-
-    // Despesa / Receita -> financeiro pessoal
-    if (!desc.trim()) throw new Error("Preencha descrição e valor.");
-    const tipoFp = tipo === "receita" ? "receita" : "despesa";
-    const obsFinal = forma.trim() || obs.trim() || null;
-    if (editing) {
-      await supabase.from("financeiro_pessoal").update({ tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obsFinal }).eq("id", editing.id);
-    } else {
-      await supabase.from("financeiro_pessoal").insert({ user_id: uid, tipo: tipoFp, descricao: desc.trim(), valor: v, categoria: cat, data: dt, observacao: obsFinal });
-    }
-  }, onSuccess: () => {
-    const msg = tipo === "vale" ? "Vale registrado" : tipo === "a_pagar" ? "Conta a pagar registrada" : tipo === "a_receber" ? "Conta a receber registrada" : (editing ? "Atualizado" : "Registrado");
-    toast.success(msg);
-    reset();
-    qc.invalidateQueries({ queryKey: ["fp"] });
-    qc.invalidateQueries({ queryKey: ["vales"] });
-    qc.invalidateQueries({ queryKey: ["contas-pagar"] });
-    qc.invalidateQueries({ queryKey: ["contas-receber"] });
-    qc.invalidateQueries({ queryKey: ["caixa-simples", "lancamentos"] });
-    qc.invalidateQueries({ queryKey: ["caixa"] });
-  }, onError: (e: Error) => toast.error(e.message) });
-  const delFpMut = useMutation({ mutationFn: (id: string) => supabase.from("financeiro_pessoal").delete().eq("id", id), onSuccess: () => { toast.success("Removido"); qc.invalidateQueries({ queryKey: ["fp"] }); }, onError: (e: Error) => toast.error(e.message) });
-  const addCatMut = useMutation({ mutationFn: async (nome: string) => { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, icone: "📌" }); }, onSuccess: () => { toast.success("Categoria adicionada"); setNovaCat(""); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
-  const delCatMut = useMutation({ mutationFn: async ({ id, nome }: { id?: string; nome: string }) => { if (id) { await supabase.from("categorias_financeiro").delete().eq("id", id); } else { const { data: u } = await supabase.auth.getUser(); await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, excluida: true, icone: "🚫" }); } }, onSuccess: () => { toast.success("Removida"); qc.invalidateQueries({ queryKey: ["fp_cats"] }); }, onError: (e: Error) => toast.error(e.message) });
-
-  function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setDesc(""); setVal(""); setCat("geral"); setDt(todayISO()); setObs(""); setForma(""); setFuncionarioId(""); }
-  function edit(l: FpLanc) { setEditing(l); setTipo(l.tipo as "despesa" | "receita"); setDesc(l.descricao); setVal(String(l.valor)); setCat(l.categoria); setDt(l.data); setObs(l.observacao || ""); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setShowForm(true); }
-  function novoNaConta(c: string, t: "despesa" | "receita") { reset(); setTipo(t); setCat(c); setDt(todayISO()); setShowForm(true); }
-
-  async function pdf() {
-    const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
-    const jsPDF = pdfModule.default; const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
-    const doc = new jsPDF(); doc.setFontSize(16); doc.text("Financeiro Pessoal", 14, 20); doc.setFontSize(9); doc.text(`Período: ${fMes || "Todos"} · ${fmtDate(todayISO())}`, 14, 27);
-    const r = toExport.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
-    const d = toExport.filter((l) => l.tipo !== "receita").reduce((s, l) => s + Number(l.valor), 0);
-    doc.setFontSize(12); doc.setTextColor(0, 130, 70); doc.text(`Receitas: ${brl(r)}`, 14, 36);
-    doc.setTextColor(180, 30, 30); doc.text(`Despesas: ${brl(d)}`, 14, 43); doc.setTextColor(0); doc.text(`Saldo: ${brl(r - d)}`, 14, 50);
-    autoTable(doc, { startY: 56, head: [["Data", "Tipo", "Descrição", "Categoria", "Valor"]], body: toExport.map((l) => [fmtDate(l.data), l.tipo === "receita" ? "Receita" : "Despesa", l.descricao, l.categoria, `${l.tipo === "receita" ? "+" : "-"}${brl(Number(l.valor))}`]), styles: { fontSize: 8 }, headStyles: { fillColor: [30, 41, 59] } });
-    window.open(URL.createObjectURL(doc.output("blob"))); toast.success("PDF gerado!");
-  }
+  function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); }
+  function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
+  function editLanc(l: FpLanc) { setEditing(l); setPessoaForm(l.categoria); setTipo(l.tipo === "receita" ? "receita" : "despesa"); setVal(String(l.valor)); setDesc(l.descricao); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setDt(l.data); setReportPessoa(null); setShowForm(true); }
+  function novaPessoa() { const nome = window.prompt("Nome da pessoa (quem te deve ou quem você deve):")?.trim(); if (nome) addPessoaMut.mutate(nome); }
 
   async function pdfPessoa(nome: string) {
-    const x = tot.contas[nome] ?? { debito: 0, credito: 0 };
-    const entries = filtrados.filter((l) => l.categoria === nome).slice().sort((a, b) => a.data.localeCompare(b.data) || String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
+    const x = contas[nome] ?? { debito: 0, credito: 0 };
+    const entries = lancs.filter((l) => l.categoria === nome).slice().sort((a, b) => a.data.localeCompare(b.data) || String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
     const saldo = x.credito - x.debito;
-    const total = Math.max(x.debito, x.credito);
-    const pago = Math.min(x.debito, x.credito);
-    const falta = Math.abs(x.debito - x.credito);
+    const total = Math.max(x.debito, x.credito), pago = Math.min(x.debito, x.credito), falta = Math.abs(x.debito - x.credito);
     const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
     const jsPDF = pdfModule.default; const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     doc.setFillColor(16, 185, 129); doc.rect(0, 0, 210, 22, "F");
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-    doc.text(`EXTRATO · ${nome}`, 14, 11);
+    doc.text(`EXTRATO - ${nome}`, 14, 11);
     doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.text(`Emitido em ${fmtDate(todayISO())}`, 14, 18);
     doc.setTextColor(30, 41, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(13);
-    doc.text(`Saldo: ${brl(Math.abs(saldo))} ${saldo < 0 ? "(te deve)" : saldo > 0 ? "(você deve)" : "(quitado)"}`, 14, 32);
+    doc.text(`Saldo: ${brl(Math.abs(saldo))} ${saldo < 0 ? "(te deve)" : saldo > 0 ? "(voce deve)" : "(quitado)"}`, 14, 32);
     doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 116, 139);
-    doc.text(`Débito ${brl(x.debito)}   ·   Crédito ${brl(x.credito)}   ·   Pago ${brl(pago)} de ${brl(total)}   ·   Falta ${brl(falta)}`, 14, 39);
+    doc.text(`Debito ${brl(x.debito)}   -   Credito ${brl(x.credito)}   -   Pago ${brl(pago)} de ${brl(total)}   -   Falta ${brl(falta)}`, 14, 39);
     let run = 0;
     autoTable(doc, {
       startY: 45,
-      head: [["Data", "Especificação", "Débito", "Crédito", "Saldo"]],
-      body: entries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return [fmtDate(l.data), l.descricao + (l.observacao ? ` (${l.observacao})` : ""), isCred ? "—" : brl(v), isCred ? brl(v) : "—", brl(run)]; }),
+      head: [["Data", "Especificacao", "Debito", "Credito", "Saldo"]],
+      body: entries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return [fmtDate(l.data), l.descricao + (l.observacao ? ` (${l.observacao})` : ""), isCred ? "-" : brl(v), isCred ? brl(v) : "-", brl(run)]; }),
       styles: { fontSize: 8.5, cellPadding: 2 },
       headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -205,229 +151,102 @@ function PessoalTab() {
     toast.success("PDF gerado!");
   }
 
+  async function pdfGeral() {
+    const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const jsPDF = pdfModule.default; const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    doc.setFillColor(16, 185, 129); doc.rect(0, 0, 210, 22, "F");
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+    doc.text("FINANCEIRO - PESSOAS", 14, 11);
+    doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.text(`Emitido em ${fmtDate(todayISO())}`, 14, 18);
+    doc.setTextColor(30, 41, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+    doc.text(`Te devem: ${brl(aReceber)}    Voce deve: ${brl(aPagar)}`, 14, 30);
+    autoTable(doc, {
+      startY: 35,
+      head: [["Pessoa", "Debito", "Credito", "Saldo", "Situacao"]],
+      body: pessoasList.map((nome) => { const x = contas[nome] ?? { debito: 0, credito: 0 }; const saldo = x.credito - x.debito; return [nome, brl(x.debito), brl(x.credito), brl(Math.abs(saldo)), saldo < 0 ? "te deve" : saldo > 0 ? "voce deve" : "quitado"]; }),
+      styles: { fontSize: 8.5, cellPadding: 2 },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+      margin: { left: 14, right: 14 },
+    });
+    doc.save(`financeiro-pessoas-${fmtDate(todayISO()).replace(/\//g, "-")}.pdf`);
+    toast.success("PDF gerado!");
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 p-1 rounded-xl bg-muted">
-        {(["lancamentos", "pessoas", "relatorio"] as const).map((t) => (
-          <button key={t} onClick={() => setSub(t)} className={`flex-1 h-10 rounded-lg font-semibold text-[11px] sm:text-xs transition flex items-center justify-center gap-1 ${sub === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-            {t === "lancamentos" ? <><List className="size-3.5" />Lançamentos</> : t === "pessoas" ? <><Users className="size-3.5" />Pessoas</> : <><BarChart3 className="size-3.5" />Relatório</>}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-3.5">
+          <p className="text-[10px] uppercase text-rose-600 font-bold">Te devem</p>
+          <p className="text-xl sm:text-2xl font-black text-rose-600 tabular-nums leading-tight break-words">{brl(aReceber)}</p>
+        </div>
+        <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3.5">
+          <p className="text-[10px] uppercase text-blue-600 font-bold">Você deve</p>
+          <p className="text-xl sm:text-2xl font-black text-blue-600 tabular-nums leading-tight break-words">{brl(aPagar)}</p>
+        </div>
       </div>
 
-      {sub === "lancamentos" && <>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-rose-600 font-bold truncate">Débito</p><p className="text-sm sm:text-lg font-black text-rose-600 tabular-nums leading-tight break-words">{brl(tot.desp)}</p></div>
-          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 min-w-0 overflow-hidden"><p className="text-[10px] uppercase text-emerald-600 font-bold truncate">Crédito</p><p className="text-sm sm:text-lg font-black text-emerald-600 tabular-nums leading-tight break-words">{brl(tot.rec)}</p></div>
-          <div className={`rounded-xl border p-2.5 min-w-0 overflow-hidden ${tot.saldo >= 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-rose-500/5 border-rose-500/30"}`}><p className="text-[10px] uppercase text-muted-foreground font-bold truncate">Saldo</p><p className={`text-sm sm:text-lg font-black tabular-nums leading-tight break-words ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</p></div>
-        </div>
-        <div className="flex gap-2 flex-wrap items-center">
-          <input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className="app-input h-9 w-auto text-xs" />
-          <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="app-input h-9 w-auto text-xs"><option value="todas">Todas</option>{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-          <button onClick={pdf} className="h-9 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1 hover:bg-muted"><FileDown className="size-3.5" />PDF{sel.size > 0 ? ` (${sel.size})` : ""}</button>
-          <button onClick={toggleAll} className="h-9 px-2 rounded-lg border text-xs font-semibold hover:bg-muted">{sel.size === filtrados.length && filtrados.length > 0 ? "Limpar" : "Todos"}</button>
-          <button onClick={() => setSub("categorias")} className="h-9 px-2 rounded-lg border text-xs font-semibold hover:bg-muted flex items-center gap-1"><Tag className="size-3.5" />Categorias</button>
-        </div>
-        <button onClick={() => { reset(); setShowForm(true); }} className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
-          <Plus className="size-6" /> Novo lançamento
+      <div className="flex gap-2">
+        <button onClick={novaPessoa} className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
+          <Plus className="size-6" /> Nova pessoa
         </button>
-        {filtrados.length === 0 ? <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhum lançamento no período.</div> : <div className="space-y-2">{filtrados.map((l) => (
-          <div key={l.id} className="p-3 rounded-xl bg-card border space-y-2">
-            <div className="flex items-start gap-2.5">
-              <input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="size-4 shrink-0 mt-0.5" />
-              <p className="font-semibold text-sm flex-1 min-w-0 break-words leading-snug">{l.descricao}</p>
-              <p className={`font-black text-sm tabular-nums shrink-0 ${l.tipo === "receita" ? "text-emerald-600" : "text-rose-600"}`}>{l.tipo === "receita" ? "+" : "−"}{brl(Number(l.valor))}</p>
-            </div>
-            <div className="flex items-center gap-2 pl-[26px] flex-wrap">
-              <span className="text-[11px] text-muted-foreground">{fmtDate(l.data)}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{l.categoria}</span>
-              {l.observacao ? <span className="text-[10px] text-muted-foreground">· {l.observacao}</span> : null}
-              <div className="flex-1" />
-              <button onClick={() => edit(l)} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center shrink-0" title="Editar"><Pencil className="size-3.5" /></button>
-              <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delFpMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center shrink-0" title="Apagar"><Trash2 className="size-3.5" /></button>
-            </div>
-          </div>
-        ))}</div>}
-      </>}
+        {pessoasList.length > 0 && (
+          <button onClick={pdfGeral} title="PDF geral" className="h-14 px-4 rounded-2xl border font-bold flex items-center justify-center gap-1.5 hover:bg-muted shrink-0"><FileDown className="size-5" /></button>
+        )}
+      </div>
 
-      {sub === "pessoas" && (() => {
-        let aReceber = 0, aPagar = 0;
-        for (const nome of pessoasList) {
-          const x = tot.contas[nome] ?? { debito: 0, credito: 0 };
+      <p className="text-[11px] text-muted-foreground px-0.5">Toque numa pessoa pra ver e lançar. <span className="text-rose-600 font-semibold">Vermelho</span> = está te devendo · <span className="text-blue-600 font-semibold">azul</span> = você deve.</p>
+
+      <div className="space-y-2.5">
+        {pessoasList.map((nome) => {
+          const x = contas[nome] ?? { debito: 0, credito: 0 };
           const saldo = x.credito - x.debito;
-          if (saldo < 0) aReceber += -saldo; else aPagar += saldo;
-        }
-        return (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-3"><p className="text-[10px] uppercase text-rose-600 font-bold">Te devem</p><p className="text-lg sm:text-xl font-black text-rose-600 tabular-nums leading-tight break-words">{brl(aReceber)}</p></div>
-              <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3"><p className="text-[10px] uppercase text-blue-600 font-bold">Você deve</p><p className="text-lg sm:text-xl font-black text-blue-600 tabular-nums leading-tight break-words">{brl(aPagar)}</p></div>
-            </div>
-            <button onClick={() => { const nome = window.prompt("Nome da pessoa (funcionário, devedor, cliente...):")?.trim(); if (nome) addCatMut.mutate(nome); }} className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
-              <Plus className="size-6" /> Nova pessoa
+          const total = Math.max(x.debito, x.credito), pago = Math.min(x.debito, x.credito), falta = Math.abs(x.debito - x.credito);
+          const pct = total > 0 ? Math.round((pago / total) * 100) : 0;
+          return (
+            <button key={nome} onClick={() => setReportPessoa(nome)} className="w-full text-left rounded-2xl border bg-card p-3.5 space-y-2.5 hover:bg-muted/30 transition">
+              <div className="flex items-center gap-3">
+                <div className="size-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-lg shrink-0">{nome.charAt(0).toUpperCase()}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-base truncate">{nome}</p>
+                  <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className={`text-xl font-black tabular-nums leading-none ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</p>
+                  <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">{saldo < 0 ? "te deve" : saldo > 0 ? "você deve" : "quitado"}</p>
+                </div>
+              </div>
+              {falta > 0 && (
+                <div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
+                  <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(total)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
+                </div>
+              )}
             </button>
-            <p className="text-[11px] text-muted-foreground px-0.5">Cada pessoa tem débito, crédito e saldo. <span className="text-rose-600 font-semibold">Vermelho</span> = está te devendo · <span className="text-blue-600 font-semibold">azul</span> = você deve. Toque para ver o relatório.</p>
-            <div className="space-y-2">
-              {pessoasList.map((nome) => {
-                const x = tot.contas[nome] ?? { debito: 0, credito: 0 };
-                const saldo = x.credito - x.debito;
-                return (
-                  <button key={nome} onClick={() => { setOpenConta(nome); setSub("relatorio"); }} className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-card border text-left hover:bg-muted/40 transition">
-                    <div className="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black shrink-0">{nome.charAt(0).toUpperCase()}</div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-sm truncate">{nome}</p>
-                      <p className="text-[11px] mt-0.5 tabular-nums"><span className="text-rose-600">Déb {brl(x.debito)}</span> · <span className="text-emerald-600">Créd {brl(x.credito)}</span></p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-base font-black tabular-nums leading-none ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</p>
-                      <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">{saldo < 0 ? "te deve" : saldo > 0 ? "você deve" : "quitado"}</p>
-                    </div>
-                    <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                  </button>
-                );
-              })}
-              {pessoasList.length === 0 && <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhuma pessoa ainda. Toque em "Nova pessoa".</div>}
-            </div>
-          </>
-        );
-      })()}
+          );
+        })}
+        {pessoasList.length === 0 && <div className="p-8 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma pessoa ainda.<br />Toque em <span className="font-semibold text-foreground">"Nova pessoa"</span> pra começar.</div>}
+      </div>
 
-      {sub === "relatorio" && <>
-        <div className="flex gap-2 flex-wrap items-center">
-          <input type="month" value={fMes} onChange={(e) => setFMes(e.target.value)} className="app-input h-9 w-auto text-xs" />
-          <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="app-input h-9 w-auto text-xs"><option value="todas">Todas as pessoas</option>{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-          <button onClick={pdf} className="h-9 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1"><FileDown className="size-3.5" />PDF de tudo</button>
-        </div>
-        <div className={`rounded-2xl border p-3 flex items-center justify-between ${tot.saldo >= 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-rose-500/5 border-rose-500/30"}`}>
-          <div><p className="text-[10px] uppercase text-muted-foreground font-bold">Saldo geral</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Débito {brl(tot.desp)} · Crédito {brl(tot.rec)}</p></div>
-          <span className={`text-2xl font-black tabular-nums ${tot.saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(tot.saldo)}</span>
-        </div>
-        <div className="space-y-3">
-          {pessoasList.filter((c) => fCat === "todas" || c === fCat).map((c) => {
-            const x = tot.contas[c] ?? { debito: 0, credito: 0 };
-            const saldo = x.credito - x.debito;
-            const totalConta = Math.max(x.debito, x.credito);
-            const pago = Math.min(x.debito, x.credito);
-            const falta = Math.abs(x.debito - x.credito);
-            const pct = totalConta > 0 ? Math.round((pago / totalConta) * 100) : 0;
-            const entries = filtrados.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
-            let run = 0;
-            const withRun = entries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return { l, v, isCred, run }; });
-            const ultimos = withRun.slice(-4).reverse();
-            return (
-              <div key={c} id={`fp-conta-${c}`} className="rounded-2xl border bg-card p-3.5 space-y-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="size-10 rounded-full bg-muted flex items-center justify-center font-black text-muted-foreground shrink-0">{c.charAt(0).toUpperCase()}</div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm truncate">{c}</p>
-                    <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className={`text-lg font-black tabular-nums leading-none ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</p>
-                    <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">{saldo < 0 ? "te deve" : saldo > 0 ? "você deve" : "quitado"}</p>
-                  </div>
-                </div>
-                {falta > 0 && (
-                  <div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
-                    <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(totalConta)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
-                  </div>
-                )}
-                <div className="border-t pt-3 space-y-2">
-                  {ultimos.map(({ l, v, isCred, run: r }) => (
-                    <div key={l.id} className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{l.descricao}</p>
-                        <p className="text-[10px] text-muted-foreground">{fmtDate(l.data)}{l.observacao ? ` · ${l.observacao}` : ""}</p>
-                      </div>
-                      <div className="text-right shrink-0 tabular-nums">
-                        <p className={`text-sm font-bold ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(v)}</p>
-                        <p className="text-[10px] text-muted-foreground">saldo {brl(r)}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {entries.length === 0 && <p className="py-1 text-center text-xs text-muted-foreground">Nenhum lançamento ainda.</p>}
-                  {entries.length > 4 && <button onClick={() => setReportPessoa(c)} className="text-[11px] font-semibold text-primary hover:underline">+ {entries.length - 4} lançamento(s) — ver tudo</button>}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => novoNaConta(c, "despesa")} className="h-11 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-rose-500/20"><Plus className="size-4" />Débito</button>
-                  <button onClick={() => novoNaConta(c, "receita")} className="h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-500/20"><Plus className="size-4" />Recebi</button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setReportPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-muted"><BarChart3 className="size-3.5" />Ver relatório completo</button>
-                  <button onClick={() => pdfPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-muted"><FileDown className="size-3.5" />PDF</button>
-                </div>
-              </div>
-            );
-          })}
-          {pessoasList.length === 0 && <div className="p-6 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground">Nenhuma pessoa ainda. Cadastre em "Pessoas".</div>}
-        </div>
-      </>}
-
-      {sub === "categorias" && <>
-        <button onClick={() => setSub("lancamentos")} className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline"><List className="size-3.5" />Voltar aos lançamentos</button>
-        <div className="flex gap-2"><input value={novaCat} onChange={(e) => setNovaCat(e.target.value)} placeholder="Nova categoria" className="app-input h-9 flex-1 text-xs" onKeyDown={(e) => { if (e.key === "Enter" && novaCat.trim()) addCatMut.mutate(novaCat.trim()); }} /><button onClick={() => { if (novaCat.trim()) addCatMut.mutate(novaCat.trim()); }} disabled={addCatMut.isPending} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold"><Plus className="size-3.5" /></button></div>
-        <p className="text-[10px] text-muted-foreground">Categorias disponíveis — delete qualquer uma, exceto Geral</p>
-        <div className="grid grid-cols-2 gap-1.5">{catsUnificadas.filter((c) => c !== "geral").map((c) => { const padrao = CAT_PADRAO.includes(c); const catObj = cats.find((x) => x.nome === c && !x.excluida); return <div key={c} className="flex items-center gap-2 p-2 rounded-lg bg-card border text-xs"><span className="font-medium truncate flex-1">{c}</span><span className="text-muted-foreground text-[10px] shrink-0">{padrao ? "padrão" : "custom"}</span><button onClick={() => { if (confirm(`Remover "${c}"?`)) delCatMut.mutate({ id: catObj?.id, nome: c }); }} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="size-3" /></button></div>; })}</div>
-      </>}
-
-      <Dialog open={showForm} onOpenChange={(o) => { if (!o) reset(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editing ? "Editar lançamento" : "Novo lançamento"}</DialogTitle></DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); saveFpMut.mutate(); }} className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setTipo("despesa")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Débito<span className="text-[10px] font-medium opacity-80 mt-0.5">ele te deve / você deu</span></button>
-              <button type="button" onClick={() => setTipo("receita")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Crédito<span className="text-[10px] font-medium opacity-80 mt-0.5">pagamento recebido</span></button>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-muted-foreground font-bold">Pessoa / conta</label>
-              <div className="flex gap-2">
-                <select value={cat} onChange={(e) => setCat(e.target.value)} className="app-input h-11 text-sm flex-1 min-w-0">{catsUnificadas.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-                <button type="button" onClick={() => { const nome = window.prompt("Nome da pessoa / conta:")?.trim(); if (nome) { addCatMut.mutate(nome); setCat(nome); } }} className="h-11 px-3 rounded-xl border text-sm font-bold text-primary hover:bg-primary/5 shrink-0 flex items-center gap-1"><Plus className="size-4" />Nova</button>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-muted-foreground font-bold">Valor</label>
-              <input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="R$ 0,00" className="app-input h-12 text-lg font-bold w-full" inputMode="decimal" autoFocus />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-muted-foreground font-bold">O que foi (especificação)</label>
-              <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ex: comprou ração / me pagou" className="app-input h-11 text-sm w-full" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-muted-foreground font-bold">Forma</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[{ v: "Pix", ic: "📱" }, { v: "Dinheiro", ic: "💵" }, { v: "Outro", ic: "🔁" }].map((f) => (
-                  <button key={f.v} type="button" onClick={() => setForma(forma === f.v ? "" : f.v)} className={`h-10 rounded-xl text-xs font-bold border transition ${forma === f.v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-transparent"}`}>{f.ic} {f.v}</button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-muted-foreground font-bold">Data</label>
-              <input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-11 text-sm w-full" />
-            </div>
-            <div className="grid grid-cols-2 gap-2 pt-1"><button type="button" onClick={reset} className="h-11 rounded-xl border text-sm font-semibold hover:bg-muted">Cancelar</button><button type="submit" disabled={saveFpMut.isPending} className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50">{saveFpMut.isPending ? "Salvando..." : "Salvar"}</button></div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
+      {/* Detalhe da pessoa */}
       <Dialog open={!!reportPessoa} onOpenChange={(o) => { if (!o) setReportPessoa(null); }}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           {reportPessoa && (() => {
             const c = reportPessoa;
-            const allEntries = lancs.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
-            let debito = 0, credito = 0;
-            allEntries.forEach((l) => { if (l.tipo === "receita") credito += Number(l.valor); else debito += Number(l.valor); });
-            const saldo = credito - debito;
-            const total = Math.max(debito, credito), pago = Math.min(debito, credito), falta = Math.abs(debito - credito);
+            const entries = lancs.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
+            const x = contas[c] ?? { debito: 0, credito: 0 };
+            const saldo = x.credito - x.debito;
+            const total = Math.max(x.debito, x.credito), pago = Math.min(x.debito, x.credito), falta = Math.abs(x.debito - x.credito);
             const pct = total > 0 ? Math.round((pago / total) * 100) : 0;
             let run = 0;
-            const withRun = allEntries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return { l, v, isCred, run }; }).reverse();
+            const withRun = entries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return { l, v, isCred, run }; }).reverse();
             return (
               <>
                 <DialogHeader><DialogTitle className="truncate">{c}</DialogTitle></DialogHeader>
                 <div className={`rounded-2xl border p-3 flex items-center justify-between ${saldo < 0 ? "bg-rose-500/5 border-rose-500/30" : saldo > 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-muted/40"}`}>
-                  <div><p className="text-[10px] uppercase text-muted-foreground font-bold">{saldo < 0 ? "Te deve" : saldo > 0 ? "Você deve" : "Saldo"}</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Déb {brl(debito)} · Créd {brl(credito)}</p></div>
+                  <div><p className="text-[10px] uppercase text-muted-foreground font-bold">{saldo < 0 ? "Te deve" : saldo > 0 ? "Você deve" : "Saldo"}</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p></div>
                   <span className={`text-2xl font-black tabular-nums ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</span>
                 </div>
                 {falta > 0 && (
@@ -437,9 +256,9 @@ function PessoalTab() {
                   </div>
                 )}
                 <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => { setReportPessoa(null); novoNaConta(c, "despesa"); }} className="h-10 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-rose-500/20"><Plus className="size-3.5" />Débito</button>
-                  <button onClick={() => { setReportPessoa(null); novoNaConta(c, "receita"); }} className="h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-emerald-500/20"><Plus className="size-3.5" />Recebi</button>
-                  <button onClick={() => pdfPessoa(c)} className="h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-3.5" />PDF</button>
+                  <button onClick={() => novoLanc(c, "despesa")} className="h-11 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-sm font-bold flex items-center justify-center gap-1 hover:bg-rose-500/20"><Plus className="size-4" />Débito</button>
+                  <button onClick={() => novoLanc(c, "receita")} className="h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-sm font-bold flex items-center justify-center gap-1 hover:bg-emerald-500/20"><Plus className="size-4" />Recebi</button>
+                  <button onClick={() => pdfPessoa(c)} className="h-11 rounded-xl border text-sm font-bold flex items-center justify-center gap-1 hover:bg-muted"><FileDown className="size-4" />PDF</button>
                 </div>
                 <div className="space-y-2">
                   {withRun.map(({ l, v, isCred, run: r }) => (
@@ -453,16 +272,50 @@ function PessoalTab() {
                         {l.observacao ? <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{l.observacao}</span> : null}
                         <span className="text-[11px] text-muted-foreground tabular-nums">saldo {brl(r)}</span>
                         <div className="flex-1" />
-                        <button onClick={() => { setReportPessoa(null); edit(l); }} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center" title="Editar"><Pencil className="size-3.5" /></button>
-                        <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delFpMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" title="Apagar"><Trash2 className="size-3.5" /></button>
+                        <button onClick={() => editLanc(l)} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center" title="Editar"><Pencil className="size-3.5" /></button>
+                        <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" title="Apagar"><Trash2 className="size-3.5" /></button>
                       </div>
                     </div>
                   ))}
-                  {allEntries.length === 0 && <p className="py-3 text-center text-xs text-muted-foreground">Nenhum lançamento ainda.</p>}
+                  {entries.length === 0 && <p className="py-3 text-center text-xs text-muted-foreground">Nenhum lançamento ainda. Use Débito ou Recebi acima.</p>}
                 </div>
               </>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Novo / editar lançamento */}
+      <Dialog open={showForm} onOpenChange={(o) => { if (!o) reset(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo lançamento"}{pessoaForm ? ` · ${pessoaForm}` : ""}</DialogTitle></DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); saveMut.mutate(); }} className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setTipo("despesa")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Débito<span className="text-[10px] font-medium opacity-80 mt-0.5">passou a dever / você deu</span></button>
+              <button type="button" onClick={() => setTipo("receita")} className={`h-14 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>Crédito<span className="text-[10px] font-medium opacity-80 mt-0.5">pagamento</span></button>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Valor</label>
+              <input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="R$ 0,00" className="app-input h-12 text-lg font-bold w-full" inputMode="decimal" autoFocus />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">O que foi</label>
+              <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ex: emprestei / me pagou / comprou" className="app-input h-11 text-sm w-full" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Forma</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[{ v: "Pix", ic: "📱" }, { v: "Dinheiro", ic: "💵" }, { v: "Outro", ic: "🔁" }].map((f) => (
+                  <button key={f.v} type="button" onClick={() => setForma(forma === f.v ? "" : f.v)} className={`h-10 rounded-xl text-xs font-bold border transition ${forma === f.v ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-transparent"}`}>{f.ic} {f.v}</button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Data</label>
+              <input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-11 text-sm w-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1"><button type="button" onClick={reset} className="h-11 rounded-xl border text-sm font-semibold hover:bg-muted">Cancelar</button><button type="submit" disabled={saveMut.isPending} className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50">{saveMut.isPending ? "Salvando..." : "Salvar"}</button></div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
