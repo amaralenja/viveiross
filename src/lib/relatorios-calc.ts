@@ -252,7 +252,8 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
     // Caixa: receitas/despesas atribuídas a este viveiro + rateados (viveiro_id null)
     const caixaDoVivDireto = caixa.filter((c) => c.viveiro_id === v.id);
     const caixaDoViv = [...caixaDoVivDireto, ...(isAtivo ? caixaRateado.map((c) => ({ ...c, valor: Number(c.valor ?? 0) / nAtivos })) : [])];
-    const receitasLista = caixaDoViv.filter((c) => c.tipo === "receita");
+    // Receitas = só as vendas atribuídas a ESTE viveiro (não rateia entrada compartilhada).
+    const receitasLista = caixaDoVivDireto.filter((c) => c.tipo === "receita");
     const despesasCaixa = caixaDoViv.filter((c) => c.tipo !== "receita");
     const receitas = receitasLista.reduce((s, c) => s + Number(c.valor ?? 0), 0);
     const despesasCaixaTot = despesasCaixa.reduce((s, c) => s + Number(c.valor ?? 0), 0);

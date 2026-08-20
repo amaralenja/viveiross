@@ -921,9 +921,12 @@ function RelatoriosPage() {
                 <Info label="Lançamentos" value={String(l.nLancamentos)} />
                 <Info label="Biometrias" value={String(l.nBiometrias)} />
                 <Info label="Última biometria" value={l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"} />
-                <Info label="Receitas" value={formatBRL(l.receitas)} />
-                <Info label="Lucro estimado" value={formatBRL(l.lucro)} />
+                <Info label="Receitas (vendas)" value={formatBRL(l.receitas)} />
+                <Info label="Lucro (vendas − custos)" value={formatBRL(l.lucro)} />
               </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                <strong>Receitas</strong> = vendas de camarão lançadas no Caixa para este viveiro. <strong>Lucro</strong> = receitas − custo total (ração + despesas). Toque em "Receitas" abaixo para ver de onde vem cada valor.
+              </p>
 
               {l.receitasLista.length > 0 && (
                 <div className="mt-5">
