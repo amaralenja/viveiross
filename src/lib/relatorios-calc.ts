@@ -274,6 +274,8 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       custoOutros,
       custoDespRateio,
       custoDespIndiv,
+      custoCaixaRateio,
+      custoCaixaIndiv,
       custoTotal,
       custoPorKg,
       pesoMedio,

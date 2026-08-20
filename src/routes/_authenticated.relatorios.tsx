@@ -364,8 +364,8 @@ function RelatoriosPage() {
         ["Pós-larvas", l.qtdPovoada.toLocaleString("pt-BR")],
         ["Ração total", `${formatNumber(l.racaoKg)} kg`],
         ["Custo ração", formatBRL(l.custoRacao)],
-        ["Desp. rateadas", formatBRL(l.custoDespRateio)],
-        ["Desp. próprias", formatBRL(l.custoDespIndiv)],
+        ["Desp. rateadas", formatBRL(l.custoDespRateio + l.custoCaixaRateio)],
+        ["Desp. próprias", formatBRL(l.custoDespIndiv + l.custoCaixaIndiv)],
         ["Custo total", formatBRL(l.custoTotal)],
         ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
         ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
@@ -373,8 +373,6 @@ function RelatoriosPage() {
         ["Receitas", formatBRL(l.receitas)],
         ["Lucro est.", formatBRL(l.lucro)],
         ["Saldo caixa", formatBRL(l.saldoCaixa)],
-        ["Vales", formatBRL(l.totalValesViv)],
-        ["Vales", formatBRL(l.totalValesViv)],
         ["Lançamentos", String(l.nLancamentos)],
         ["Biometrias", String(l.nBiometrias)],
         ["Últ. biom.", l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"],
@@ -863,11 +861,8 @@ function RelatoriosPage() {
 
 
 
-      <div className="no-print grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="no-print">
         <ResumoCard icon={<FileText className="size-4" />} label="Viveiros" value={String(totais.viveiros)} />
-        <ResumoCard icon={<Utensils className="size-4" />} label="Ração" value={`${formatNumber(totais.racaoKg)} kg`} />
-        <ResumoCard icon={<Scale className="size-4" />} label="Biomassa" value={`${formatNumber(totais.biomassa)} kg`} />
-        <ResumoCard icon={<DollarSign className="size-4" />} label="Custo total" value={formatBRL(totais.custoTotal)} />
       </div>
 
       {linhas.length === 0 ? (
@@ -917,8 +912,8 @@ function RelatoriosPage() {
                 <Info label="Pós-larvas" value={l.qtdPovoada.toLocaleString("pt-BR")} />
                 <Info label="Ração total" value={`${formatNumber(l.racaoKg)} kg`} />
                 <Info label="Custo ração" value={formatBRL(l.custoRacao)} />
-                <Info label="Despesas (rateadas)" value={formatBRL(l.custoDespRateio)} />
-                <Info label="Despesas (próprias)" value={formatBRL(l.custoDespIndiv)} />
+                <Info label="Despesas (rateadas)" value={formatBRL(l.custoDespRateio + l.custoCaixaRateio)} />
+                <Info label="Despesas (próprias)" value={formatBRL(l.custoDespIndiv + l.custoCaixaIndiv)} />
                 <Info label="Custo total" value={formatBRL(l.custoTotal)} />
                 <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
                 <Info label="Biomassa" value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"} />
@@ -928,8 +923,6 @@ function RelatoriosPage() {
                 <Info label="Última biometria" value={l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"} />
                 <Info label="Receitas" value={formatBRL(l.receitas)} />
                 <Info label="Lucro estimado" value={formatBRL(l.lucro)} />
-                <Info label="Saldo caixa" value={formatBRL(l.saldoCaixa)} />
-                <Info label="Vales totais" value={formatBRL(l.totalValesViv)} />
               </div>
 
               {l.receitasLista.length > 0 && (
