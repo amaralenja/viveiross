@@ -134,10 +134,23 @@ function PessoalTab() {
     onSuccess: (_d, v) => { toast.success(`Movido para ${v.to}`); setTransferTo(""); setReportPessoa(v.to); qc.invalidateQueries({ queryKey: ["fp"] }); },
     onError: (e: Error) => toast.error(e.message),
   });
+  const renamePessoaMut = useMutation({
+    mutationFn: async ({ from, to }: { from: string; to: string }) => {
+      const novo = to.trim();
+      if (!novo) throw new Error("Nome inválido.");
+      if (novo === from) return;
+      const { error } = await supabase.from("financeiro_pessoal").update({ categoria: novo }).eq("categoria", from);
+      if (error) throw error;
+      const cat = cats.find((c) => c.nome === from && !c.excluida);
+      if (cat) { const { error: e2 } = await supabase.from("categorias_financeiro").update({ nome: novo }).eq("id", cat.id); if (e2) throw e2; }
+    },
+    onSuccess: (_d, v) => { toast.success("Nome atualizado"); setReportPessoa(v.to.trim()); qc.invalidateQueries({ queryKey: ["fp"] }); qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); }
   function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
-  function novoLancGlobal() { setEditing(null); setPessoaForm(pessoasList[0] ?? ""); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
+  function novoLancGlobal() { setEditing(null); if (!pessoaForm || !pessoasList.includes(pessoaForm)) setPessoaForm(lancs[0]?.categoria ?? pessoasList[0] ?? ""); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
   function editLanc(l: FpLanc) { setEditing(l); setPessoaForm(l.categoria); setTipo(l.tipo === "receita" ? "receita" : "despesa"); setVal(String(l.valor)); setDesc(l.descricao); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setDt(l.data); setReportPessoa(null); setShowForm(true); }
   function novaPessoa() { const nome = window.prompt("Nome da pessoa (quem te deve ou quem você deve):")?.trim(); if (nome) addPessoaMut.mutate(nome); }
 
@@ -307,7 +320,12 @@ function PessoalTab() {
             const withRun = entries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return { l, v, isCred, run }; }).reverse();
             return (
               <>
-                <DialogHeader><DialogTitle className="truncate">{c}</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <div className="flex items-center gap-2 pr-6">
+                    <DialogTitle className="truncate min-w-0">{c}</DialogTitle>
+                    <button type="button" onClick={() => { const novo = window.prompt("Novo nome da pessoa:", c)?.trim(); if (novo && novo !== c) renamePessoaMut.mutate({ from: c, to: novo }); }} className="size-7 rounded-lg border hover:bg-muted flex items-center justify-center shrink-0" title="Editar nome"><Pencil className="size-3.5" /></button>
+                  </div>
+                </DialogHeader>
                 <div className={`rounded-2xl border p-3 flex items-center justify-between ${saldo < 0 ? "bg-rose-500/5 border-rose-500/30" : saldo > 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-muted/40"}`}>
                   <div><p className="text-[10px] uppercase text-muted-foreground font-bold">{saldo < 0 ? "Te deve" : saldo > 0 ? "Você deve" : "Saldo"}</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p></div>
                   <span className={`text-2xl font-black tabular-nums ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</span>
