@@ -87,6 +87,10 @@ export const toggleAdminFn = createServerFn({ method: "POST" })
   .inputValidator((d: { user_id: string; is_admin: boolean }) => d)
   .handler(async ({ data, context }) => {
     const ctx = context as any;
+    // Um admin não pode remover o próprio acesso de administrador (evita se trancar fora).
+    if (data.user_id === ctx.userId && data.is_admin === false) {
+      throw new Error("Você não pode remover o seu próprio acesso de administrador.");
+    }
     const { error } = await ctx.supabase.rpc("admin_toggle_role", {
       _user_id: data.user_id,
       _is_admin: data.is_admin,
