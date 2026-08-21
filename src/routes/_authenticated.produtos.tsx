@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History, FileDown } from "lucide-react";
+import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History, FileDown, RotateCcw } from "lucide-react";
 import { todayLocal } from "@/lib/date";
 import { parseProdutoEmbalagem, formatUnidadeDb, getUnidadeBase } from "@/lib/embalagem";
 
@@ -356,6 +356,35 @@ function ProdutosPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const zerarEstoqueMut = useMutation({
+    mutationFn: async (produtoId: string) => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Sem sessão");
+      const prod = produtos.find((p) => p.id === produtoId);
+      const s = saldoPorProduto.get(produtoId) ?? { entradas: 0, saidas: 0 };
+      const saldo = s.entradas - s.saidas;
+      if (Math.abs(saldo) < 0.0001) throw new Error("Estoque já está zerado.");
+      const { error } = await supabase.from("estoque_entradas").insert({
+        user_id: uid,
+        produto_id: produtoId,
+        quantidade: -saldo,
+        unidade: getUnidadeBase(prod?.unidade || "kg"),
+        preco_unidade: 0,
+        custo_total: 0,
+        fornecedor: null,
+        data_entrada: new Date().toISOString().slice(0, 10),
+        observacao: "Zeragem de estoque (ajuste)",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
+      toast.success("Estoque zerado");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const delDespMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("despesas_gerais").delete().eq("id", id);
@@ -561,6 +590,9 @@ function ProdutosPage() {
           onEditProduto={(p) => setEditandoProd(p)}
           onDelProduto={(p) => {
             if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
+          }}
+          onZerarEstoque={(p) => {
+            if (confirm(`Zerar o estoque de "${p.nome}"? O saldo vai pra 0 (o histórico continua).`)) zerarEstoqueMut.mutate(p.id);
           }}
           onDelConsumo={(id) => delConsumoMut.mutate(id)}
         />
@@ -939,6 +971,7 @@ function EstoqueView({
   onDelConsumo,
   onEditProduto,
   onDelProduto,
+  onZerarEstoque,
 }: {
   produtos: Produto[];
   entradas: EstoqueEntrada[];
@@ -947,6 +980,7 @@ function EstoqueView({
   saldoPorProduto: Map<string, { entradas: number; saidas: number }>;
   onNovaEntrada: () => void;
   onNovaEntradaProduto: (produtoId: string) => void;
+  onZerarEstoque: (produto: Produto) => void;
   onNovaBaixa: () => void;
   onCadastrarProduto: () => void;
   onEditEntrada: (e: EstoqueEntrada) => void;
@@ -1191,6 +1225,14 @@ function EstoqueView({
                         title={`PDF de ${p.nome}`}
                       >
                         <FileDown className="size-4" /> PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onZerarEstoque(p)}
+                        className="h-10 px-4 rounded-xl border border-amber-500/40 text-amber-600 font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-amber-500/10 transition shrink-0"
+                        title={`Zerar estoque de ${p.nome}`}
+                      >
+                        <RotateCcw className="size-4" /> Zerar
                       </button>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
