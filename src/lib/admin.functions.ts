@@ -173,8 +173,8 @@ export const setViveiroLimitFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as any;
     const { error } = await ctx.supabase.rpc("admin_set_viveiro_limit", {
-      _user_id: data.user_id,
-      _limite: data.limite,
+      _uid: data.user_id,
+      _lim: data.limite,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
