@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History, FileDown, RotateCcw } from "lucide-react";
+import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History, FileDown, RotateCcw, ChevronUp, ChevronDown } from "lucide-react";
 import { todayLocal } from "@/lib/date";
 import { parseProdutoEmbalagem, formatUnidadeDb, getUnidadeBase } from "@/lib/embalagem";
 
@@ -31,6 +31,7 @@ type Produto = {
   categoria: string;
   unidade: string;
   preco_unidade: number | null;
+  ordem: number | null;
 };
 
 type Funcionario = {
@@ -167,7 +168,8 @@ function ProdutosPage() {
       try {
         const { data, error } = await supabase
           .from("produtos")
-          .select("id, nome, categoria, unidade, preco_unidade")
+          .select("id, nome, categoria, unidade, preco_unidade, ordem")
+          .order("ordem", { ascending: true, nullsFirst: false })
           .order("nome");
         if (error) {
           console.error("Erro ao buscar produtos:", error);
@@ -306,6 +308,22 @@ function ProdutosPage() {
     cur.saidas += Number.isNaN(qtyNorm) ? 0 : qtyNorm;
     saldoPorProduto.set(prod.id, cur);
   }
+
+  const moverProdMut = useMutation({
+    mutationFn: async ({ id, dir }: { id: string; dir: "up" | "down" }) => {
+      const lista = [...produtos];
+      const i = lista.findIndex((p) => p.id === id);
+      const j = dir === "up" ? i - 1 : i + 1;
+      if (i < 0 || j < 0 || j >= lista.length) return;
+      [lista[i], lista[j]] = [lista[j], lista[i]];
+      for (let k = 0; k < lista.length; k++) {
+        const { error } = await supabase.from("produtos").update({ ordem: k }).eq("id", lista[k].id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["produtos"] }); },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const delProdMut = useMutation({
     mutationFn: async (id: string) => {
@@ -449,7 +467,7 @@ function ProdutosPage() {
           />
         ) : (
           <ul className="space-y-3">
-            {produtos.map((p) => {
+            {produtos.map((p, idx) => {
               const emb = parseProdutoEmbalagem(p.unidade);
               const precoUnitBase = p.preco_unidade != null ? Number(p.preco_unidade) : null;
               const precoEmb = precoUnitBase != null && emb.temEmbalagem && emb.pesoEmbalagem ? precoUnitBase * emb.pesoEmbalagem : null;
@@ -516,12 +534,34 @@ function ProdutosPage() {
                       </div>
                     </div>
                   </div>
-                  <RowActions
-                    onEdit={() => setEditandoProd(p)}
-                    onDel={() => {
-                      if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
-                    }}
-                  />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex flex-col">
+                      <button
+                        type="button"
+                        onClick={() => moverProdMut.mutate({ id: p.id, dir: "up" })}
+                        disabled={idx === 0 || moverProdMut.isPending}
+                        className="size-6 rounded-md border flex items-center justify-center hover:bg-muted disabled:opacity-30"
+                        title="Mover para cima"
+                      >
+                        <ChevronUp className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moverProdMut.mutate({ id: p.id, dir: "down" })}
+                        disabled={idx === produtos.length - 1 || moverProdMut.isPending}
+                        className="size-6 rounded-md border flex items-center justify-center hover:bg-muted disabled:opacity-30 mt-0.5"
+                        title="Mover para baixo"
+                      >
+                        <ChevronDown className="size-3.5" />
+                      </button>
+                    </div>
+                    <RowActions
+                      onEdit={() => setEditandoProd(p)}
+                      onDel={() => {
+                        if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
+                      }}
+                    />
+                  </div>
                 </li>
               );
             })}

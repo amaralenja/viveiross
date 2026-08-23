@@ -300,10 +300,11 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, unidade, preco_unidade")
+        .select("id, nome, unidade, preco_unidade, ordem")
+        .order("ordem", { ascending: true, nullsFirst: false })
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null }[];
+      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null; ordem: number | null }[];
     },
   });
 
