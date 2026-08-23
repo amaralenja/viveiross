@@ -1,13 +1,17 @@
 import { todayLocal } from "@/lib/date";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Warehouse, Trash2, X, Utensils, ChevronRight, Pencil, CalendarDays, Share2, Ruler, History, FileDown, Printer } from "lucide-react";
+import { Plus, Warehouse, Trash2, X, Utensils, ChevronRight, Pencil, CalendarDays, Share2, Ruler, History, FileDown, Printer, Lock, MessageCircle } from "lucide-react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { quantidadeEmKg } from "@/lib/embalagem";
+import { getMyAccessFn } from "@/lib/admin.functions";
 import { BtnTutorial } from "@/components/BtnTutorial";
+
+const VITAL_WPP = "https://wa.me/5588972968298?text=" + encodeURIComponent("Vital, preciso liberar mais viveiros no sistema");
 
 export const Route = createFileRoute("/_authenticated/viveiros")({
   head: () => ({ meta: [{ title: "Viveiros" }] }),
@@ -22,6 +26,7 @@ type Viveiro = {
   data_povoamento: string | null;
   data_preparacao: string | null;
   qtd_povoada: number | null;
+  created_at?: string | null;
   fornecedor: string | null;
   biomassa_manual: number | null;
   fazendas: { nome: string } | { nome: string }[] | null;
@@ -60,12 +65,26 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, status, data_povoamento, data_preparacao, qtd_povoada, fornecedor, biomassa_manual, fazendas(nome)")
+        .select("id, nome, status, data_povoamento, data_preparacao, qtd_povoada, created_at, fornecedor, biomassa_manual, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as Viveiro[], (v) => v.nome);
     },
   });
+
+  const getMyAccess = useServerFn(getMyAccessFn);
+  const { data: acesso } = useQuery({ queryKey: ["my-access"], queryFn: () => getMyAccess(), staleTime: 60_000 });
+  const viveiroLimit = acesso?.is_admin ? null : (acesso?.viveiro_limit ?? null);
+  const bloqueados = useMemo(() => {
+    const set = new Set<string>();
+    if (viveiroLimit == null) return set;
+    const ativos = viveiros
+      .filter((v) => v.status === "ativo")
+      .slice()
+      .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
+    ativos.slice(viveiroLimit).forEach((v) => set.add(v.id));
+    return set;
+  }, [viveiros, viveiroLimit]);
 
   const { data: totaisPorViveiro = { racao: {}, custo: {} } } = useQuery({
     queryKey: ["viveiros", "totais"],
@@ -291,6 +310,23 @@ function ViveirosPage() {
       ) : (
         <ul className="space-y-3">
           {viveiros.map((v) => {
+            if (bloqueados.has(v.id)) {
+              return (
+                <li key={v.id} className="p-4 sm:p-5 rounded-2xl border-2 border-dashed border-amber-500/40 bg-amber-500/5">
+                  <div className="flex items-center gap-3">
+                    <div className="size-12 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0"><Lock className="size-6" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-lg truncate">{v.nome}</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-400 font-medium mt-0.5">Viveiro desativado pela sua quantidade de viveiros liberados. Entre em contato com o Vital.</p>
+                    </div>
+                  </div>
+                  <a href={VITAL_WPP} target="_blank" rel="noopener noreferrer"
+                    className="mt-3 w-full h-11 rounded-xl bg-green-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-green-700">
+                    <MessageCircle className="size-4" /> Falar com o Vital
+                  </a>
+                </li>
+              );
+            }
             const ativo = v.status === "ativo";
             const emCultivo = !!v.data_povoamento;
             const emPreparacao = !emCultivo && !!v.data_preparacao;

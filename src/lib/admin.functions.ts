@@ -211,7 +211,7 @@ export const getMyAccessFn = createServerFn({ method: "GET" })
     const ctx = context as any;
     const { data: access, error: accessError } = await ctx.supabase
       .from("user_access")
-      .select("expires_at")
+      .select("expires_at, viveiro_limit")
       .eq("user_id", ctx.userId)
       .maybeSingle();
     if (accessError) throw new Error(accessError.message);
@@ -224,5 +224,6 @@ export const getMyAccessFn = createServerFn({ method: "GET" })
       expires_at: (access?.expires_at as string | null) ?? null,
       is_admin: !!isAdmin,
       has_access: !!access,
+      viveiro_limit: (access?.viveiro_limit as number | null) ?? null,
     };
   });

@@ -366,22 +366,29 @@ function UserCard({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-1 border-t">
+      <div className="pt-1 border-t space-y-2">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">🐟 Viveiros:</span>
           <span className="font-bold">{u.viveiros_ativos ?? 0} ativo(s)</span>
-          {u.viveiro_limit != null && (
-            <span className="text-muted-foreground">/ {u.viveiro_limit} limite</span>
-          )}
+          {u.viveiro_limit != null
+            ? <span className="text-muted-foreground">/ limite {u.viveiro_limit}</span>
+            : <span className="text-muted-foreground">/ sem limite</span>}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Liberar:</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onViveiroLimit(Math.max(0, (u.viveiro_limit ?? (u.viveiros_ativos ?? 0)) - 1))}
+              className="size-9 rounded-lg border font-bold text-lg flex items-center justify-center hover:bg-muted">−</button>
+            <span className="w-12 text-center font-black text-lg tabular-nums">{u.viveiro_limit ?? "∞"}</span>
+            <button
+              onClick={() => onViveiroLimit((u.viveiro_limit ?? (u.viveiros_ativos ?? 0)) + 1)}
+              className="size-9 rounded-lg border font-bold text-lg flex items-center justify-center hover:bg-muted">+</button>
+          </div>
           <button onClick={() => onViveiroLimit(null)}
-            className="text-[10px] font-bold px-2 py-1 rounded border hover:bg-muted">Sem limite</button>
-          {[3, 5, 10, 20].map(n => (
-            <button key={n} onClick={() => onViveiroLimit(n)}
-              className={`text-[10px] font-bold px-2 py-1 rounded border ${u.viveiro_limit === n ? 'bg-primary/10 text-primary border-primary/30' : 'hover:bg-muted'}`}>{n}</button>
-          ))}
+            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border hover:bg-muted">Sem limite</button>
         </div>
+        <p className="text-[10px] text-muted-foreground">Diminuir o limite não apaga viveiros — os que passarem do limite ficam bloqueados até liberar de novo.</p>
       </div>
 
       {/* WhatsApp */}
