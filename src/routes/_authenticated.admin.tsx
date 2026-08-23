@@ -3,16 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, ShieldCheck, ShieldOff, Clock, AlertTriangle, Infinity as InfinityIcon, MessageCircle, Pencil, Check } from "lucide-react";
+import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, Clock, AlertTriangle, Infinity as InfinityIcon, MessageCircle, Pencil, Check, Send } from "lucide-react";
 import {
   listUsersFn,
   createUserFn,
   updatePasswordFn,
   setAccessFn,
-  toggleAdminFn,
   deleteUserFn,
   setViveiroLimitFn,
   setWhatsappFn,
+  resendAccessFn,
   type AdminUser,
 } from "@/lib/admin.functions";
 
@@ -46,9 +46,10 @@ function AdminPage() {
   const createUser = useServerFn(createUserFn);
   const updatePassword = useServerFn(updatePasswordFn);
   const setAccess = useServerFn(setAccessFn);
-  const toggleAdmin = useServerFn(toggleAdminFn);
   const deleteUser = useServerFn(deleteUserFn);
   const setViveiroLimit = useServerFn(setViveiroLimitFn);
+  const setWhatsapp = useServerFn(setWhatsappFn);
+  const resendAccess = useServerFn(resendAccessFn);
 
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ["admin", "users"],
@@ -56,11 +57,9 @@ function AdminPage() {
     retry: false,
   });
 
-  const setWhatsapp = useServerFn(setWhatsappFn);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [dias, setDias] = useState("30");
-  const [isAdminNew, setIsAdminNew] = useState(false);
   const [whatsapp, setWhatsappInput] = useState("");
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -71,14 +70,14 @@ function AdminPage() {
         data: {
           email: email.trim(),
           password,
-          dias: isAdminNew ? null : Number(dias) || 0,
-          isAdmin: isAdminNew,
+          dias: Number(dias) || 0,
+          isAdmin: false,
           whatsapp: whatsapp.trim() || null,
         },
       }),
     onSuccess: (res: { emailed?: boolean }) => {
       toast.success(res?.emailed ? "Usuário criado — e-mail enviado com a senha" : "Usuário criado (e-mail não enviado — configure a Resend)");
-      setEmail(""); setPassword(""); setDias("30"); setIsAdminNew(false); setWhatsappInput("");
+      setEmail(""); setPassword(""); setDias("30"); setWhatsappInput("");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -126,19 +125,14 @@ function AdminPage() {
           </label>
           <label className="block">
             <span className="text-sm font-medium block mb-1.5">Dias de acesso</span>
-            <input type="number" min="1" value={dias} disabled={isAdminNew}
+            <input type="number" min="1" value={dias}
               onChange={(e) => setDias(e.target.value)}
-              className="app-input disabled:opacity-50" placeholder="ex: 30" />
+              className="app-input" placeholder="ex: 30" />
           </label>
           <label className="block">
             <span className="text-sm font-medium block mb-1.5">WhatsApp (opcional)</span>
             <input type="tel" value={whatsapp} onChange={(e) => setWhatsappInput(e.target.value)}
               className="app-input" placeholder="ex: (88) 99999-9999" />
-          </label>
-          <label className="flex items-end gap-2 pb-2">
-            <input type="checkbox" checked={isAdminNew}
-              onChange={(e) => setIsAdminNew(e.target.checked)} className="size-5 accent-primary" />
-            <span className="text-sm font-medium">Criar como admin (ilimitado)</span>
           </label>
         </div>
         <button disabled={createMut.isPending}
@@ -176,9 +170,14 @@ function AdminPage() {
                     .then(() => { toast.success(`Acesso definido para ${n} dias`); invalidate(); })
                     .catch((e) => toast.error((e as Error).message))
                 }
-                onToggleAdmin={() =>
-                  toggleAdmin({ data: { user_id: u.user_id, is_admin: !u.is_admin } })
-                    .then(() => { toast.success(u.is_admin ? "Admin removido" : "Agora é admin"); invalidate(); })
+                onResend={() =>
+                  resendAccess({ data: { user_id: u.user_id, email: u.email } })
+                    .then((r: { emailed?: boolean; password?: string }) => {
+                      toast.success(r?.emailed
+                        ? "Nova senha gerada e enviada por e-mail"
+                        : `Nova senha: ${r?.password ?? "—"} (e-mail não enviado — configure a Resend)`,
+                        { duration: 12000 });
+                    })
                     .catch((e) => toast.error((e as Error).message))
                 }
                 onDelete={() =>
@@ -206,13 +205,13 @@ function AdminPage() {
 }
 
 function UserCard({
-  u, onPassword, onAddDays, onSetDays, onToggleAdmin, onDelete, onViveiroLimit, onSetWhatsapp,
+  u, onPassword, onAddDays, onSetDays, onResend, onDelete, onViveiroLimit, onSetWhatsapp,
 }: {
   u: AdminUser;
   onPassword: () => void;
   onAddDays: (n: number) => void;
   onSetDays: (n: number) => void;
-  onToggleAdmin: () => void;
+  onResend: () => void;
   onDelete: () => void;
   onViveiroLimit: (limite: number | null) => void;
   onSetWhatsapp: (wpp: string | null) => void;
@@ -283,16 +282,13 @@ function UserCard({
           </div>
         </div>
         <div className="flex gap-1">
-          <button onClick={onToggleAdmin}
-            title={u.is_admin ? "Remover admin" : "Tornar admin"}
-            className="size-9 rounded-lg border hover:bg-accent flex items-center justify-center">
-            {u.is_admin ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}
-          </button>
-          <button onClick={() => { if (confirm(`Remover ${u.email}?`)) onDelete(); }}
-            title="Remover usuário"
-            className="size-9 rounded-lg border text-destructive hover:bg-destructive/10 flex items-center justify-center">
-            <Trash2 className="size-4" />
-          </button>
+          {!u.is_admin && (
+            <button onClick={() => { if (confirm(`Remover ${u.email}?`)) onDelete(); }}
+              title="Remover usuário"
+              className="size-9 rounded-lg border text-destructive hover:bg-destructive/10 flex items-center justify-center">
+              <Trash2 className="size-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -327,7 +323,7 @@ function UserCard({
           {aguardando ? (
             <button onClick={() => onSetDays(30)}
               className="h-12 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-1">
-              <ShieldCheck className="size-4" /> Liberar conta por 30 dias
+              <Check className="size-4" /> Liberar conta por 30 dias
             </button>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
@@ -426,11 +422,18 @@ function UserCard({
         {u.whatsapp && !editWpp && <p className="text-[11px] text-muted-foreground pl-1">{u.whatsapp}</p>}
       </div>
 
-      <button
-        onClick={onPassword}
-        className="w-full h-10 px-3 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
-        <KeyRound className="size-4" /> Enviar reset de senha
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => { if (confirm(`Gerar uma NOVA senha para ${u.email} e enviar por e-mail?`)) onResend(); }}
+          className="h-10 px-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-1">
+          <Send className="size-4" /> Reenviar acesso
+        </button>
+        <button
+          onClick={onPassword}
+          className="h-10 px-3 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
+          <KeyRound className="size-4" /> Reset por link
+        </button>
+      </div>
     </div>
   );
 }

@@ -205,6 +205,31 @@ export const updatePasswordFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+function gerarSenha(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let s = "";
+  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// Reenvia o acesso: gera uma NOVA senha, define no usuário e manda por e-mail.
+export const resendAccessFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string; email: string }) => d)
+  .handler(async ({ data, context }) => {
+    const ctx = context as any;
+    const { data: isAdmin } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
+    if (!isAdmin) throw new Error("Acesso restrito ao administrador.");
+
+    const novaSenha = gerarSenha();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, { password: novaSenha });
+    if (error) throw new Error(error.message);
+
+    const emailed = await sendAccessEmail(data.email, novaSenha);
+    return { ok: true, emailed, password: novaSenha };
+  });
+
 export const getMyAccessFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
