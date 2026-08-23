@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, ShieldCheck, ShieldOff, Clock, AlertTriangle, Infinity as InfinityIcon } from "lucide-react";
+import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, ShieldCheck, ShieldOff, Clock, AlertTriangle, Infinity as InfinityIcon, MessageCircle, Pencil, Check } from "lucide-react";
 import {
   listUsersFn,
   createUserFn,
@@ -12,8 +12,18 @@ import {
   toggleAdminFn,
   deleteUserFn,
   setViveiroLimitFn,
+  setWhatsappFn,
   type AdminUser,
 } from "@/lib/admin.functions";
+
+// Monta link do WhatsApp a partir de um número livre (só dígitos; assume BR se faltar DDI)
+function waLink(raw: string | null): string | null {
+  if (!raw) return null;
+  let d = raw.replace(/\D/g, "");
+  if (!d) return null;
+  if (d.length <= 11) d = "55" + d; // adiciona DDI Brasil se veio só com DDD+numero
+  return `https://wa.me/${d}`;
+}
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Administrador" }] }),
@@ -46,10 +56,12 @@ function AdminPage() {
     retry: false,
   });
 
+  const setWhatsapp = useServerFn(setWhatsappFn);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [dias, setDias] = useState("30");
   const [isAdminNew, setIsAdminNew] = useState(false);
+  const [whatsapp, setWhatsappInput] = useState("");
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "users"] });
 
@@ -61,11 +73,12 @@ function AdminPage() {
           password,
           dias: isAdminNew ? null : Number(dias) || 0,
           isAdmin: isAdminNew,
+          whatsapp: whatsapp.trim() || null,
         },
       }),
-    onSuccess: () => {
-      toast.success("Usuário criado");
-      setEmail(""); setPassword(""); setDias("30"); setIsAdminNew(false);
+    onSuccess: (res: { emailed?: boolean }) => {
+      toast.success(res?.emailed ? "Usuário criado — e-mail enviado com a senha" : "Usuário criado (e-mail não enviado — configure a Resend)");
+      setEmail(""); setPassword(""); setDias("30"); setIsAdminNew(false); setWhatsappInput("");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -116,6 +129,11 @@ function AdminPage() {
             <input type="number" min="1" value={dias} disabled={isAdminNew}
               onChange={(e) => setDias(e.target.value)}
               className="app-input disabled:opacity-50" placeholder="ex: 30" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium block mb-1.5">WhatsApp (opcional)</span>
+            <input type="tel" value={whatsapp} onChange={(e) => setWhatsappInput(e.target.value)}
+              className="app-input" placeholder="ex: (88) 99999-9999" />
           </label>
           <label className="flex items-end gap-2 pb-2">
             <input type="checkbox" checked={isAdminNew}
@@ -173,6 +191,11 @@ function AdminPage() {
                     .then(() => { toast.success(limite ? `Limite de ${limite} viveiro(s)` : "Limite removido"); invalidate(); })
                     .catch((e) => toast.error((e as Error).message))
                 }
+                onSetWhatsapp={(wpp) =>
+                  setWhatsapp({ data: { user_id: u.user_id, whatsapp: wpp } })
+                    .then(() => { toast.success("WhatsApp salvo"); invalidate(); })
+                    .catch((e) => toast.error((e as Error).message))
+                }
               />
             ))}
           </div>
@@ -183,7 +206,7 @@ function AdminPage() {
 }
 
 function UserCard({
-  u, onPassword, onAddDays, onSetDays, onToggleAdmin, onDelete, onViveiroLimit,
+  u, onPassword, onAddDays, onSetDays, onToggleAdmin, onDelete, onViveiroLimit, onSetWhatsapp,
 }: {
   u: AdminUser;
   onPassword: () => void;
@@ -192,9 +215,13 @@ function UserCard({
   onToggleAdmin: () => void;
   onDelete: () => void;
   onViveiroLimit: (limite: number | null) => void;
+  onSetWhatsapp: (wpp: string | null) => void;
 }) {
   const [customDays, setCustomDays] = useState("");
   const [showCustom, setShowCustom] = useState(false);
+  const [editWpp, setEditWpp] = useState(false);
+  const [wppInput, setWppInput] = useState(u.whatsapp ?? "");
+  const wa = waLink(u.whatsapp);
   const dr = diasRestantes(u.expires_at);
   const aguardando = !u.is_admin && (!u.has_access || u.expires_at == null);
   const expirado = !aguardando && dr != null && dr <= 0;
@@ -355,6 +382,41 @@ function UserCard({
               className={`text-[10px] font-bold px-2 py-1 rounded border ${u.viveiro_limit === n ? 'bg-primary/10 text-primary border-primary/30' : 'hover:bg-muted'}`}>{n}</button>
           ))}
         </div>
+      </div>
+
+      {/* WhatsApp */}
+      <div className="pt-1 border-t space-y-2">
+        {editWpp ? (
+          <div className="flex gap-2">
+            <input value={wppInput} onChange={(e) => setWppInput(e.target.value)} type="tel" autoFocus
+              className="app-input" placeholder="(88) 99999-9999" />
+            <button onClick={() => { onSetWhatsapp(wppInput.trim() || null); setEditWpp(false); }}
+              className="h-11 px-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-1">
+              <Check className="size-4" /> Salvar
+            </button>
+            <button onClick={() => { setWppInput(u.whatsapp ?? ""); setEditWpp(false); }}
+              className="h-11 px-3 rounded-xl border text-sm">✕</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            {wa ? (
+              <a href={wa} target="_blank" rel="noopener noreferrer"
+                className="flex-1 h-10 px-3 rounded-xl bg-green-600 text-white text-sm font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-green-700">
+                <MessageCircle className="size-4" /> Chamar no WhatsApp
+              </a>
+            ) : (
+              <span className="flex-1 text-sm text-muted-foreground inline-flex items-center gap-1.5">
+                <MessageCircle className="size-4" /> Sem WhatsApp
+              </span>
+            )}
+            <button onClick={() => { setWppInput(u.whatsapp ?? ""); setEditWpp(true); }}
+              title="Editar WhatsApp"
+              className="size-10 rounded-xl border inline-flex items-center justify-center hover:bg-muted shrink-0">
+              <Pencil className="size-4" />
+            </button>
+          </div>
+        )}
+        {u.whatsapp && !editWpp && <p className="text-[11px] text-muted-foreground pl-1">{u.whatsapp}</p>}
       </div>
 
       <button
