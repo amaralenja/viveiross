@@ -15,9 +15,9 @@ export type AdminUser = {
 };
 
 // Envia e-mail via Resend (best-effort). Chave em env: RESEND_API_KEY.
-async function sendAccessEmail(to: string, password: string): Promise<boolean> {
+async function sendAccessEmail(to: string, password: string): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return false;
+  if (!key) return { ok: false, error: "RESEND_API_KEY não configurada no Vercel." };
   const from = process.env.RESEND_FROM || "Viveiros <onboarding@resend.dev>";
   const loginUrl = process.env.APP_URL || "https://viveiross.lovable.app";
   const html = `
@@ -41,9 +41,12 @@ async function sendAccessEmail(to: string, password: string): Promise<boolean> {
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, subject: "Seu acesso ao Viveiros", html }),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) return { ok: true };
+    let msg = `Resend retornou ${res.status}`;
+    try { const j = (await res.json()) as { message?: string }; if (j?.message) msg = j.message; } catch { /* ignore */ }
+    return { ok: false, error: msg };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Falha ao enviar e-mail." };
   }
 }
 
@@ -104,9 +107,9 @@ export const createUserFn = createServerFn({ method: "POST" })
     }
 
     // E-mail com as credenciais (best-effort)
-    const emailed = await sendAccessEmail(data.email, data.password);
+    const mail = await sendAccessEmail(data.email, data.password);
 
-    return { ok: true, user_id: uid, emailed };
+    return { ok: true, user_id: uid, emailed: mail.ok, emailError: mail.error ?? null };
   });
 
 export const setWhatsappFn = createServerFn({ method: "POST" })
@@ -228,8 +231,8 @@ export const resendAccessFn = createServerFn({ method: "POST" })
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, { password: novaSenha });
       if (error) throw new Error(error.message);
-      const emailed = await sendAccessEmail(data.email, novaSenha);
-      return { ok: true, mode: "senha" as const, emailed, password: novaSenha };
+      const mail = await sendAccessEmail(data.email, novaSenha);
+      return { ok: true, mode: "senha" as const, emailed: mail.ok, emailError: mail.error ?? null, password: novaSenha };
     } catch {
       const SUPABASE_URL = process.env.SUPABASE_URL!;
       const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;

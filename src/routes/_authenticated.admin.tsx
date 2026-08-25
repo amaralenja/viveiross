@@ -75,8 +75,9 @@ function AdminPage() {
           whatsapp: whatsapp.trim() || null,
         },
       }),
-    onSuccess: (res: { emailed?: boolean }) => {
-      toast.success(res?.emailed ? "Usuário criado — e-mail enviado com a senha" : "Usuário criado (e-mail não enviado — configure a Resend)");
+    onSuccess: (res: { emailed?: boolean; emailError?: string | null }) => {
+      toast.success(res?.emailed ? "Usuário criado — e-mail enviado com a senha" : "Usuário criado");
+      if (!res?.emailed && res?.emailError) toast.error(`E-mail não enviado: ${res.emailError}`, { duration: 15000 });
       setEmail(""); setPassword(""); setDias("30"); setWhatsappInput("");
       invalidate();
     },
@@ -172,13 +173,14 @@ function AdminPage() {
                 }
                 onResend={() =>
                   resendAccess({ data: { user_id: u.user_id, email: u.email } })
-                    .then((r: { mode?: "senha" | "link"; emailed?: boolean; password?: string | null }) => {
+                    .then((r: { mode?: "senha" | "link"; emailed?: boolean; emailError?: string | null; password?: string | null }) => {
                       if (r?.mode === "link") {
                         toast.success("Enviado link de redefinição por e-mail (para gerar nova senha automática, configure SUPABASE_SERVICE_ROLE_KEY no Vercel).", { duration: 12000 });
                       } else if (r?.emailed) {
                         toast.success("Nova senha gerada e enviada por e-mail");
                       } else {
-                        toast.success(`Nova senha: ${r?.password ?? "—"} (e-mail não saiu — configure a Resend)`, { duration: 12000 });
+                        toast.success(`Nova senha: ${r?.password ?? "—"} — copie e envie manualmente.`, { duration: 15000 });
+                        if (r?.emailError) toast.error(`E-mail não enviado: ${r.emailError}`, { duration: 15000 });
                       }
                     })
                     .catch((e) => toast.error((e as Error).message))
