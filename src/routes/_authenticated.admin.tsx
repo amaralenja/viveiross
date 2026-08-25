@@ -172,11 +172,14 @@ function AdminPage() {
                 }
                 onResend={() =>
                   resendAccess({ data: { user_id: u.user_id, email: u.email } })
-                    .then((r: { emailed?: boolean; password?: string }) => {
-                      toast.success(r?.emailed
-                        ? "Nova senha gerada e enviada por e-mail"
-                        : `Nova senha: ${r?.password ?? "—"} (e-mail não enviado — configure a Resend)`,
-                        { duration: 12000 });
+                    .then((r: { mode?: "senha" | "link"; emailed?: boolean; password?: string | null }) => {
+                      if (r?.mode === "link") {
+                        toast.success("Enviado link de redefinição por e-mail (para gerar nova senha automática, configure SUPABASE_SERVICE_ROLE_KEY no Vercel).", { duration: 12000 });
+                      } else if (r?.emailed) {
+                        toast.success("Nova senha gerada e enviada por e-mail");
+                      } else {
+                        toast.success(`Nova senha: ${r?.password ?? "—"} (e-mail não saiu — configure a Resend)`, { duration: 12000 });
+                      }
                     })
                     .catch((e) => toast.error((e as Error).message))
                 }

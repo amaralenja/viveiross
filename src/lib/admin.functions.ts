@@ -222,12 +222,26 @@ export const resendAccessFn = createServerFn({ method: "POST" })
     if (!isAdmin) throw new Error("Acesso restrito ao administrador.");
 
     const novaSenha = gerarSenha();
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, { password: novaSenha });
-    if (error) throw new Error(error.message);
-
-    const emailed = await sendAccessEmail(data.email, novaSenha);
-    return { ok: true, emailed, password: novaSenha };
+    // Tenta trocar a senha direto (precisa do service role). Se não tiver a chave,
+    // cai pro link de redefinição pra não travar.
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, { password: novaSenha });
+      if (error) throw new Error(error.message);
+      const emailed = await sendAccessEmail(data.email, novaSenha);
+      return { ok: true, mode: "senha" as const, emailed, password: novaSenha };
+    } catch {
+      const SUPABASE_URL = process.env.SUPABASE_URL!;
+      const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
+      const anon = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+      });
+      const { error } = await anon.auth.resetPasswordForEmail(data.email, {
+        redirectTo: (process.env.APP_URL || "https://viveiross.lovable.app") + "/reset-password",
+      });
+      if (error) throw new Error(error.message);
+      return { ok: true, mode: "link" as const, emailed: true, password: null };
+    }
   });
 
 export const getMyAccessFn = createServerFn({ method: "GET" })
