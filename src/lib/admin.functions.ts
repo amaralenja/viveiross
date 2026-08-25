@@ -18,7 +18,7 @@ export type AdminUser = {
 async function sendAccessEmail(to: string, password: string): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "RESEND_API_KEY não configurada no Vercel." };
-  const from = process.env.RESEND_FROM || "Viveiros <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM || "Viveiros <no-reply@nota1000.shop>";
   const loginUrl = process.env.APP_URL || "https://viveiross.lovable.app";
   const html = `
     <div style="font-family:system-ui,Arial,sans-serif;max-width:480px;margin:0 auto;color:#0f172a">
