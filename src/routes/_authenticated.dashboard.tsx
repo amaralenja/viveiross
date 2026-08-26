@@ -681,10 +681,15 @@ function Dashboard() {
                     onChange={(e) => setUnidadeLancamento(e.target.value)}
                     className="app-input w-28 h-12 font-semibold text-sm"
                   >
-                    <option value={embInfo.tipoEmbalagem}>{embInfo.tipoEmbalagem}</option>
-                    <option value={embInfo.unidadeBase}>{embInfo.unidadeBase}</option>
-                    {embInfo.unidadeBase === "kg" && <option value="g">g</option>}
-                    {embInfo.unidadeBase === "litro" && <option value="ml">ml</option>}
+                    {Array.from(new Set([
+                      embInfo.tipoEmbalagem,
+                      embInfo.unidadeBase,
+                      "kg",
+                      "g",
+                      ...(embInfo.unidadeBase === "litro" ? ["litro", "ml"] : []),
+                    ].filter(Boolean) as string[])).map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
                   </select>
                 ) : (
                   <select
