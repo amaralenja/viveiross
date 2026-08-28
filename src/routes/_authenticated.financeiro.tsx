@@ -32,7 +32,7 @@ function FinanceiroPage() {
           <h1 className="text-xl font-bold">Financeiro</h1>
           <p className="text-xs text-muted-foreground truncate">Sua conta pessoal — débito, crédito e saldo por pessoa</p>
         </div>
-        <BtnTutorial videoId="ibiUgxNT9xI" label="Financeiro" />
+        <BtnTutorial videoId="VrvKKymfpAE" label="Financeiro" />
       </div>
       <PessoalTab />
     </div>

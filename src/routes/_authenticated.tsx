@@ -299,7 +299,7 @@ function AuthLayout() {
                 { label: "Viveiros", id: "EIvub9T9ED4" },
                 { label: "Caixa", id: "WDe74R9yfes" },
                 { label: "Relatórios", id: "6ToxQuEVPAA" },
-                { label: "Financeiro", id: "ZaVvfYK5vmg" },
+                { label: "Financeiro", id: "VrvKKymfpAE" },
                 { label: "Senhas", id: "mgsGVqLeSM4" },
               ].map(t => (
                 <button key={t.id} onClick={() => { setTutorVideo(t.id); setTutorLabel(t.label); }}
