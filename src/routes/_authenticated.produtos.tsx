@@ -434,7 +434,7 @@ function ProdutosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <BtnTutorial videoId="D7GysoMWd-w" label="Produtos" />
+          <BtnTutorial videoId="LBYUg7FA3Mo" label="Produtos" />
           <button
             onClick={openNovo}
             className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"

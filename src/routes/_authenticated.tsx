@@ -297,6 +297,7 @@ function AuthLayout() {
               {[
                 { label: "Início", id: "D7GysoMWd-w" },
                 { label: "Viveiros", id: "EIvub9T9ED4" },
+                { label: "Produtos", id: "LBYUg7FA3Mo" },
                 { label: "Caixa", id: "WDe74R9yfes" },
                 { label: "Relatórios", id: "6ToxQuEVPAA" },
                 { label: "Financeiro", id: "VrvKKymfpAE" },
