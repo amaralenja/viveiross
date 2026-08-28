@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark, ChevronRight } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark, ChevronRight, Paperclip } from "lucide-react";
 import { BtnTutorial } from "@/components/BtnTutorial";
 
 
@@ -40,7 +40,7 @@ function FinanceiroPage() {
 }
 
 const CAT_PADRAO = ["Salário", "Alimentação", "Transporte", "Moradia", "Energia", "Água", "Internet", "Saúde", "Educação", "Lazer", "Freelance", "Compras", "Investimento", "Outros"];
-type FpLanc = { id: string; tipo: string; descricao: string; valor: number; categoria: string; data: string; observacao: string | null; created_at?: string };
+type FpLanc = { id: string; tipo: string; descricao: string; valor: number; categoria: string; data: string; observacao: string | null; anexo_url?: string | null; created_at?: string };
 type FpCat = { id: string; nome: string; icone: string; excluida: boolean };
 
 function PessoalTab() {
@@ -55,6 +55,8 @@ function PessoalTab() {
   const [desc, setDesc] = useState("");
   const [forma, setForma] = useState("");
   const [dt, setDt] = useState(todayISO());
+  const [anexoFile, setAnexoFile] = useState<File | null>(null);
+  const [anexoAtual, setAnexoAtual] = useState<string | null>(null);
 
   const { data: lancs = [] } = useQuery({ queryKey: ["fp"], queryFn: async () => { const r = await supabase.from("financeiro_pessoal").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }); if (r.error) throw r.error; return (r.data ?? []) as FpLanc[]; } });
   const { data: cats = [] } = useQuery({ queryKey: ["fp_cats"], queryFn: async () => { const r = await supabase.from("categorias_financeiro").select("*").order("nome"); if (r.error) throw r.error; return (r.data ?? []) as FpCat[]; } });
@@ -102,11 +104,22 @@ function PessoalTab() {
       const uid = u.user?.id;
       if (!uid) throw new Error("Sessão expirada.");
       const obsFinal = forma.trim() || null;
+      // Upload do comprovante (se anexado)
+      let anexoPath: string | null | undefined = undefined; // undefined = não mexe
+      if (anexoFile) {
+        const ext = anexoFile.name.split(".").pop() || "dat";
+        const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("comprovantes").upload(path, anexoFile, { upsert: false, contentType: anexoFile.type || undefined });
+        if (upErr) throw new Error("Falha ao enviar comprovante: " + upErr.message);
+        anexoPath = path;
+      }
       if (editing) {
-        const { error } = await supabase.from("financeiro_pessoal").update({ tipo, descricao: desc.trim(), valor: v, categoria: pessoaForm, data: dt, observacao: obsFinal }).eq("id", editing.id);
+        const patch: Record<string, unknown> = { tipo, descricao: desc.trim(), valor: v, categoria: pessoaForm, data: dt, observacao: obsFinal };
+        if (anexoPath !== undefined) patch.anexo_url = anexoPath;
+        const { error } = await supabase.from("financeiro_pessoal").update(patch).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("financeiro_pessoal").insert({ user_id: uid, tipo, descricao: desc.trim(), valor: v, categoria: pessoaForm, data: dt, observacao: obsFinal });
+        const { error } = await supabase.from("financeiro_pessoal").insert({ user_id: uid, tipo, descricao: desc.trim(), valor: v, categoria: pessoaForm, data: dt, observacao: obsFinal, anexo_url: anexoPath ?? null });
         if (error) throw error;
       }
     },
@@ -148,10 +161,15 @@ function PessoalTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); }
-  function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
-  function novoLancGlobal() { setEditing(null); if (!pessoaForm || !pessoasList.includes(pessoaForm)) setPessoaForm(lancs[0]?.categoria ?? pessoasList[0] ?? ""); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setReportPessoa(null); setShowForm(true); }
-  function editLanc(l: FpLanc) { setEditing(l); setPessoaForm(l.categoria); setTipo(l.tipo === "receita" ? "receita" : "despesa"); setVal(String(l.valor)); setDesc(l.descricao); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setDt(l.data); setReportPessoa(null); setShowForm(true); }
+  function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); }
+  function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); setReportPessoa(null); setShowForm(true); }
+  function novoLancGlobal() { setEditing(null); if (!pessoaForm || !pessoasList.includes(pessoaForm)) setPessoaForm(lancs[0]?.categoria ?? pessoasList[0] ?? ""); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); setReportPessoa(null); setShowForm(true); }
+  function editLanc(l: FpLanc) { setEditing(l); setPessoaForm(l.categoria); setTipo(l.tipo === "receita" ? "receita" : "despesa"); setVal(String(l.valor)); setDesc(l.descricao); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setDt(l.data); setAnexoFile(null); setAnexoAtual(l.anexo_url ?? null); setReportPessoa(null); setShowForm(true); }
+  async function abrirComprovante(path: string) {
+    const { data, error } = await supabase.storage.from("comprovantes").createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) { toast.error("Não foi possível abrir o comprovante."); return; }
+    window.open(data.signedUrl, "_blank");
+  }
   function novaPessoa() { const nome = window.prompt("Nome da pessoa (quem te deve ou quem você deve):")?.trim(); if (nome) addPessoaMut.mutate(nome); }
 
   async function pdfPessoa(nome: string) {
@@ -292,7 +310,7 @@ function PessoalTab() {
                     return (
                       <div key={l.id} className="flex items-center gap-2 text-[11px]">
                         <span className="text-muted-foreground shrink-0 tabular-nums">{fmtDate(l.data)}</span>
-                        <span className="truncate flex-1 min-w-0 text-muted-foreground">{l.descricao}</span>
+                        <span className="truncate flex-1 min-w-0 text-muted-foreground">{l.descricao}{l.anexo_url ? " 📎" : ""}</span>
                         <span className={`font-bold shrink-0 tabular-nums ${isCred ? "text-emerald-600" : "text-rose-600"}`}>{isCred ? "+" : "−"}{brl(Number(l.valor))}</span>
                       </div>
                     );
@@ -353,6 +371,7 @@ function PessoalTab() {
                         {l.observacao ? <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{l.observacao}</span> : null}
                         <span className="text-[11px] text-muted-foreground tabular-nums">saldo {brl(r)}</span>
                         <div className="flex-1" />
+                        {l.anexo_url ? <button onClick={() => abrirComprovante(l.anexo_url!)} className="size-8 rounded-lg border text-primary hover:bg-primary/5 flex items-center justify-center" title="Ver comprovante"><Paperclip className="size-3.5" /></button> : null}
                         <button onClick={() => editLanc(l)} className="size-8 rounded-lg border hover:bg-muted flex items-center justify-center" title="Editar"><Pencil className="size-3.5" /></button>
                         <button onClick={() => { if (confirm(`Apagar "${l.descricao}"?`)) delMut.mutate(l.id); }} className="size-8 rounded-lg border hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" title="Apagar"><Trash2 className="size-3.5" /></button>
                       </div>
@@ -415,6 +434,18 @@ function PessoalTab() {
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-muted-foreground font-bold">Data</label>
               <input type="date" value={dt} onChange={(e) => setDt(e.target.value)} className="app-input h-11 text-sm w-full" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-muted-foreground font-bold">Comprovante (opcional)</label>
+              <input type="file" accept="image/*,application/pdf" onChange={(e) => setAnexoFile(e.target.files?.[0] ?? null)} className="block w-full text-xs file:mr-3 file:h-9 file:px-3 file:rounded-lg file:border file:bg-muted file:text-foreground file:font-semibold file:text-xs" />
+              {anexoFile ? (
+                <p className="text-[11px] text-emerald-600 font-medium truncate">📎 {anexoFile.name}</p>
+              ) : anexoAtual ? (
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button type="button" onClick={() => abrirComprovante(anexoAtual)} className="text-primary font-semibold hover:underline">📎 Ver comprovante atual</button>
+                  <span className="text-muted-foreground">· escolha um arquivo pra substituir</span>
+                </div>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1"><button type="button" onClick={reset} className="h-11 rounded-xl border text-sm font-semibold hover:bg-muted">Cancelar</button><button type="submit" disabled={saveMut.isPending} className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50">{saveMut.isPending ? "Salvando..." : "Salvar"}</button></div>
           </form>
