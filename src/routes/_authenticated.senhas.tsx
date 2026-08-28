@@ -9,6 +9,7 @@ import {
   savePwConfig,
 } from "@/lib/password-config";
 import { lockApp } from "@/components/PasswordLock";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 export const Route = createFileRoute("/_authenticated/senhas")({
   head: () => ({ meta: [{ title: "Senhas" }] }),
@@ -62,12 +63,13 @@ function SenhasPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <KeyRound className="size-7 text-primary" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold">Senhas</h1>
           <p className="text-muted-foreground text-sm">
             Escolha sua senha e onde ela protege.
           </p>
         </div>
+        <BtnTutorial videoId="mgsGVqLeSM4" label="Senhas" />
       </div>
 
       <div className="rounded-2xl border bg-card p-5 space-y-4">

@@ -5,8 +5,8 @@ export function BtnTutorial({ videoId, label }: { videoId: string; label?: strin
   const { openTutorial } = useTutorial();
   return (
     <button onClick={() => openTutorial(videoId, label || "Tutorial")}
-      className="h-9 px-3 rounded-xl bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20 text-xs font-bold flex items-center gap-1.5 transition">
-      <HelpCircle className="size-3.5"/> {label ? `Ver ${label}` : "Como funciona"}
+      className="h-9 px-3.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold flex items-center gap-1.5 transition-colors">
+      <HelpCircle className="size-4"/> {label ? `Ver ${label}` : "Tutorial"}
     </button>
   );
 }

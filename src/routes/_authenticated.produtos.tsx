@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Plus, Package, Trash2, X, Pencil, Users, Boxes, ArrowDownToLine, AlertTriangle, ShoppingCart, Receipt, History, FileDown, RotateCcw, ChevronUp, ChevronDown } from "lucide-react";
 import { todayLocal } from "@/lib/date";
 import { parseProdutoEmbalagem, formatUnidadeDb, getUnidadeBase } from "@/lib/embalagem";
+import { BtnTutorial } from "@/components/BtnTutorial";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
   head: () => ({ meta: [{ title: "Produtos" }] }),
@@ -432,13 +433,16 @@ function ProdutosPage() {
             {produtos.length} produtos
           </p>
         </div>
-        <button
-          onClick={openNovo}
-          className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
-        >
-          <Plus className="size-5" />
-          {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : "Novo"}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <BtnTutorial videoId="D7GysoMWd-w" label="Produtos" />
+          <button
+            onClick={openNovo}
+            className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
+          >
+            <Plus className="size-5" />
+            {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : "Novo"}
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
