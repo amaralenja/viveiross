@@ -10,11 +10,9 @@ export const LOCKABLE_SECTIONS: { path: string; label: string }[] = [
   { path: "/dashboard", label: "Início" },
   { path: "/viveiros", label: "Viveiros" },
   { path: "/produtos", label: "Produtos" },
-  { path: "/biometrias", label: "Biometria" },
   { path: "/caixa", label: "Caixa" },
   { path: "/relatorios", label: "Relatórios" },
-  { path: "/vales", label: "Vales" },
-  { path: "/caixa-simples", label: "Caixa Simples" },
+  { path: "/financeiro", label: "Financeiro" },
 ];
 
 const DEFAULT: PwConfig = { enabled: false, pin: "", sections: [] };
