@@ -187,11 +187,11 @@ function PessoalTab() {
     doc.text(`EXTRATO - ${nome}`, 14, 11);
     doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.text(`Emitido em ${fmtDate(todayISO())}`, 14, 18);
 
-    // Resumo em 3 caixas: quanto passou a dever, quanto pagou, saldo atual
+    // Resumo em 3 caixas: Débito, Crédito e Saldo
     const boxes: Array<[string, string, [number, number, number]]> = [
-      ["PASSOU A DEVER (DEBITO)", brl(x.debito), [225, 29, 72]],
-      ["PAGOU / RECEBIDO (CREDITO)", brl(x.credito), [16, 185, 129]],
-      [`SALDO ATUAL - ${situacao}`, brl(Math.abs(saldo)), saldo < 0 ? [225, 29, 72] : saldo > 0 ? [37, 99, 235] : [100, 116, 139]],
+      ["DÉBITO", brl(x.debito), [225, 29, 72]],
+      ["CRÉDITO", brl(x.credito), [16, 185, 129]],
+      [`SALDO (${situacao.toLowerCase()})`, brl(Math.abs(saldo)), saldo < 0 ? [225, 29, 72] : saldo > 0 ? [37, 99, 235] : [100, 116, 139]],
     ];
     const bw = 60, bx0 = 14, gap = 3, by = 30;
     boxes.forEach(([label, valor, color], i) => {
@@ -209,7 +209,7 @@ function PessoalTab() {
     doc.text("HISTORICO", 14, 60);
     autoTable(doc, {
       startY: 63,
-      head: [["Data", "O que foi", "Debito", "Credito", "Deve (saldo)"]],
+      head: [["Data", "O que foi", "Débito", "Crédito", "Saldo"]],
       body: entries.map((l) => {
         const v = Number(l.valor); const isCred = l.tipo === "receita";
         if (isCred) credAcc += v; else debAcc += v;
