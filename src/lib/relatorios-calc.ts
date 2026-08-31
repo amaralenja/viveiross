@@ -184,10 +184,14 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       .map(([data, r]) => ({ data, kg: r.kg, custo: r.custo }))
       .sort((a, b) => (a.data < b.data ? 1 : -1));
 
+    // Lançamentos de funcionário/folha não entram na lista de "Despesas gerais" (só o que é lançado ali).
+    const ehFuncionario = (c: { descricao?: string | null; categoria?: string | null }) =>
+      (!!c.descricao && /funcion|folha|sal[áa]rio/i.test(c.descricao)) || c.categoria === "folha_pagamento";
+
     const despesasLista = [
-      ...despesasDoViveiro.map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const, source: "despesa" as const })),
-      ...(isAtivo ? despesasRateadas.map((d) => ({ ...d, share: Number(d.valor ?? 0) / nAtivos, tipoRateio: "rateado" as const, source: "despesa" as const })) : []),
-      ...caixaDespIndivViv.map((c) => ({
+      ...despesasDoViveiro.filter((d) => !ehFuncionario(d)).map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const, source: "despesa" as const })),
+      ...(isAtivo ? despesasRateadas.filter((d) => !ehFuncionario(d)).map((d) => ({ ...d, share: Number(d.valor ?? 0) / nAtivos, tipoRateio: "rateado" as const, source: "despesa" as const })) : []),
+      ...caixaDespIndivViv.filter((c) => !ehFuncionario(c)).map((c) => ({
         id: c.id,
         viveiro_id: c.viveiro_id,
         descricao: c.descricao,
@@ -199,7 +203,7 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
         tipoRateio: "individual" as const,
         source: "caixa" as const,
       })),
-      ...(isAtivo ? caixaDespesaRateada.map((c) => ({
+      ...(isAtivo ? caixaDespesaRateada.filter((c) => !ehFuncionario(c)).map((c) => ({
         id: c.id,
         viveiro_id: c.viveiro_id,
         descricao: c.descricao,
