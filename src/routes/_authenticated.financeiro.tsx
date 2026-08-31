@@ -175,8 +175,7 @@ function PessoalTab() {
   async function pdfPessoa(nome: string) {
     const x = contas[nome] ?? { debito: 0, credito: 0 };
     const entries = lancs.filter((l) => l.categoria === nome).slice().sort((a, b) => a.data.localeCompare(b.data) || String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
-    const saldo = x.credito - x.debito; // negativo = te deve
-    const situacao = saldo < 0 ? "TE DEVE" : saldo > 0 ? "VOCE DEVE" : "QUITADO";
+    const saldo = x.credito - x.debito; // crédito - débito (positivo = a favor)
     const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
     const jsPDF = pdfModule.default; const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -191,7 +190,7 @@ function PessoalTab() {
     const boxes: Array<[string, string, [number, number, number]]> = [
       ["DÉBITO", brl(x.debito), [225, 29, 72]],
       ["CRÉDITO", brl(x.credito), [16, 185, 129]],
-      [`SALDO (${situacao.toLowerCase()})`, brl(Math.abs(saldo)), saldo < 0 ? [225, 29, 72] : saldo > 0 ? [37, 99, 235] : [100, 116, 139]],
+      ["SALDO", brl(saldo), saldo >= 0 ? [37, 99, 235] : [225, 29, 72]],
     ];
     const bw = 60, bx0 = 14, gap = 3, by = 30;
     boxes.forEach(([label, valor, color], i) => {
@@ -203,7 +202,7 @@ function PessoalTab() {
       doc.text(valor, bxx + 3, by + 16);
     });
 
-    // Extrato: cada linha mostra Debito/Credito e quanto ainda DEVE (comeca no valor inicial e vai baixando)
+    // Extrato: saldo correndo = crédito - débito acumulado (positivo = a favor)
     let debAcc = 0, credAcc = 0;
     doc.setTextColor(30, 41, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
     doc.text("HISTORICO", 14, 60);
@@ -213,10 +212,10 @@ function PessoalTab() {
       body: entries.map((l) => {
         const v = Number(l.valor); const isCred = l.tipo === "receita";
         if (isCred) credAcc += v; else debAcc += v;
-        const deve = debAcc - credAcc; // positivo = ainda te deve
-        return [fmtDate(l.data), l.descricao + (l.observacao ? ` (${l.observacao})` : ""), isCred ? "-" : brl(v), isCred ? brl(v) : "-", brl(deve)];
+        const run = credAcc - debAcc;
+        return [fmtDate(l.data), l.descricao + (l.observacao ? ` (${l.observacao})` : ""), isCred ? "-" : brl(v), isCred ? brl(v) : "-", brl(run)];
       }),
-      foot: [["", "TOTAL", brl(x.debito), brl(x.credito), brl(x.debito - x.credito)]],
+      foot: [["", "TOTAL", brl(x.debito), brl(x.credito), brl(x.credito - x.debito)]],
       styles: { fontSize: 8.5, cellPadding: 2 },
       headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
       footStyles: { fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: "bold" },
