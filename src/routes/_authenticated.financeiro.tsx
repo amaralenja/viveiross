@@ -84,15 +84,15 @@ function PessoalTab() {
       });
   }, [cats, contas]);
 
-  const { aReceber, aPagar } = useMemo(() => {
-    let r = 0, p = 0;
+  const { totDeb, totCred } = useMemo(() => {
+    let d = 0, c = 0;
     for (const nome of pessoasList) {
       const x = contas[nome] ?? { debito: 0, credito: 0 };
-      const saldo = x.credito - x.debito;
-      if (saldo < 0) r += -saldo; else p += saldo;
+      d += x.debito; c += x.credito;
     }
-    return { aReceber: r, aPagar: p };
+    return { totDeb: d, totCred: c };
   }, [pessoasList, contas]);
+  const saldoGeral = totCred - totDeb;
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -236,13 +236,15 @@ function PessoalTab() {
     doc.text("FINANCEIRO - PESSOAS", 14, 11);
     doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.text(`Emitido em ${fmtDate(todayISO())}`, 14, 18);
     doc.setTextColor(30, 41, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-    doc.text(`Te devem: ${brl(aReceber)}    Voce deve: ${brl(aPagar)}`, 14, 30);
+    doc.text(`Débito total: ${brl(totDeb)}    Crédito total: ${brl(totCred)}    Saldo: ${brl(saldoGeral)}`, 14, 30);
     autoTable(doc, {
       startY: 35,
-      head: [["Pessoa", "Debito", "Credito", "Saldo", "Situacao"]],
-      body: pessoasList.map((nome) => { const x = contas[nome] ?? { debito: 0, credito: 0 }; const saldo = x.credito - x.debito; return [nome, brl(x.debito), brl(x.credito), brl(Math.abs(saldo)), saldo < 0 ? "te deve" : saldo > 0 ? "voce deve" : "quitado"]; }),
+      head: [["Pessoa", "Débito", "Crédito", "Saldo"]],
+      body: pessoasList.map((nome) => { const x = contas[nome] ?? { debito: 0, credito: 0 }; const saldo = x.credito - x.debito; return [nome, brl(x.debito), brl(x.credito), brl(saldo)]; }),
+      foot: [["TOTAL", brl(totDeb), brl(totCred), brl(saldoGeral)]],
       styles: { fontSize: 8.5, cellPadding: 2 },
       headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
+      footStyles: { fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
       margin: { left: 14, right: 14 },
@@ -253,14 +255,18 @@ function PessoalTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-3.5">
-          <p className="text-[10px] uppercase text-rose-600 font-bold">Te devem</p>
-          <p className="text-xl sm:text-2xl font-black text-rose-600 tabular-nums leading-tight break-words">{brl(aReceber)}</p>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-3 min-w-0 overflow-hidden">
+          <p className="text-[10px] uppercase text-rose-600 font-bold">Débito</p>
+          <p className="text-base sm:text-xl font-black text-rose-600 tabular-nums leading-tight break-words">{brl(totDeb)}</p>
         </div>
-        <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3.5">
-          <p className="text-[10px] uppercase text-blue-600 font-bold">Você deve</p>
-          <p className="text-xl sm:text-2xl font-black text-blue-600 tabular-nums leading-tight break-words">{brl(aPagar)}</p>
+        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 min-w-0 overflow-hidden">
+          <p className="text-[10px] uppercase text-emerald-600 font-bold">Crédito</p>
+          <p className="text-base sm:text-xl font-black text-emerald-600 tabular-nums leading-tight break-words">{brl(totCred)}</p>
+        </div>
+        <div className={`rounded-2xl border p-3 min-w-0 overflow-hidden ${saldoGeral >= 0 ? "bg-blue-500/10 border-blue-500/20" : "bg-rose-500/10 border-rose-500/20"}`}>
+          <p className="text-[10px] uppercase text-muted-foreground font-bold">Saldo</p>
+          <p className={`text-base sm:text-xl font-black tabular-nums leading-tight break-words ${saldoGeral >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldoGeral)}</p>
         </div>
       </div>
 
@@ -274,14 +280,12 @@ function PessoalTab() {
         )}
       </div>
 
-      <p className="text-[11px] text-muted-foreground px-0.5">Toque numa pessoa pra ver o histórico. <span className="text-rose-600 font-semibold">Vermelho</span> = está te devendo · <span className="text-blue-600 font-semibold">azul</span> = você deve.</p>
+      <p className="text-[11px] text-muted-foreground px-0.5">Toque numa pessoa pra ver o histórico. Saldo = Crédito − Débito · <span className="text-blue-600 font-semibold">azul</span> = a favor · <span className="text-rose-600 font-semibold">vermelho</span> = negativo.</p>
 
       <div className="space-y-2.5">
         {pessoasList.map((nome) => {
           const x = contas[nome] ?? { debito: 0, credito: 0 };
           const saldo = x.credito - x.debito;
-          const total = Math.max(x.debito, x.credito), pago = Math.min(x.debito, x.credito), falta = Math.abs(x.debito - x.credito);
-          const pct = total > 0 ? Math.round((pago / total) * 100) : 0;
           const recentes = lancs.filter((l) => l.categoria === nome).slice(0, 3);
           return (
             <button key={nome} onClick={() => setReportPessoa(nome)} className="w-full text-left rounded-2xl border bg-card p-3.5 space-y-2.5 hover:bg-muted/30 transition">
@@ -292,16 +296,10 @@ function PessoalTab() {
                   <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className={`text-xl font-black tabular-nums leading-none ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</p>
-                  <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">{saldo < 0 ? "te deve" : saldo > 0 ? "você deve" : "quitado"}</p>
+                  <p className={`text-xl font-black tabular-nums leading-none ${saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldo)}</p>
+                  <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">saldo</p>
                 </div>
               </div>
-              {falta > 0 && (
-                <div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
-                  <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(total)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
-                </div>
-              )}
               {recentes.length > 0 && (
                 <div className="border-t pt-2 space-y-1">
                   {recentes.map((l) => {
@@ -331,8 +329,6 @@ function PessoalTab() {
             const entries = lancs.filter((l) => l.categoria === c).slice().sort((a2, b2) => (a2.data.localeCompare(b2.data)) || String(a2.created_at ?? "").localeCompare(String(b2.created_at ?? "")));
             const x = contas[c] ?? { debito: 0, credito: 0 };
             const saldo = x.credito - x.debito;
-            const total = Math.max(x.debito, x.credito), pago = Math.min(x.debito, x.credito), falta = Math.abs(x.debito - x.credito);
-            const pct = total > 0 ? Math.round((pago / total) * 100) : 0;
             let run = 0;
             const withRun = entries.map((l) => { const v = Number(l.valor); const isCred = l.tipo === "receita"; run += isCred ? v : -v; return { l, v, isCred, run }; }).reverse();
             return (
@@ -343,16 +339,10 @@ function PessoalTab() {
                     <button type="button" onClick={() => { const novo = window.prompt("Novo nome da pessoa:", c)?.trim(); if (novo && novo !== c) renamePessoaMut.mutate({ from: c, to: novo }); }} className="size-7 rounded-lg border hover:bg-muted flex items-center justify-center shrink-0" title="Editar nome"><Pencil className="size-3.5" /></button>
                   </div>
                 </DialogHeader>
-                <div className={`rounded-2xl border p-3 flex items-center justify-between ${saldo < 0 ? "bg-rose-500/5 border-rose-500/30" : saldo > 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-muted/40"}`}>
-                  <div><p className="text-[10px] uppercase text-muted-foreground font-bold">{saldo < 0 ? "Te deve" : saldo > 0 ? "Você deve" : "Saldo"}</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p></div>
-                  <span className={`text-2xl font-black tabular-nums ${saldo < 0 ? "text-rose-600" : saldo > 0 ? "text-blue-600" : "text-muted-foreground"}`}>{brl(Math.abs(saldo))}</span>
+                <div className={`rounded-2xl border p-3 flex items-center justify-between ${saldo >= 0 ? "bg-blue-500/5 border-blue-500/30" : "bg-rose-500/5 border-rose-500/30"}`}>
+                  <div><p className="text-[10px] uppercase text-muted-foreground font-bold">Saldo</p><p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p></div>
+                  <span className={`text-2xl font-black tabular-nums ${saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldo)}</span>
                 </div>
-                {falta > 0 && (
-                  <div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} /></div>
-                    <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">Pago {brl(pago)} de {brl(total)} · <span className="font-bold text-foreground">falta {brl(falta)}</span> ({pct}%)</p>
-                  </div>
-                )}
                 <div className="grid grid-cols-3 gap-2">
                   <button onClick={() => novoLanc(c, "receita")} className="h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-emerald-500/20">💰 Recebi</button>
                   <button onClick={() => novoLanc(c, "despesa")} className="h-11 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-1 hover:bg-rose-500/20">💸 Dei/paguei</button>
