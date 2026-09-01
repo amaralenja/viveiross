@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark, ChevronRight, Paperclip } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark, ChevronRight, Paperclip, Archive, ArchiveRestore } from "lucide-react";
 import { BtnTutorial } from "@/components/BtnTutorial";
 
 
@@ -41,7 +41,7 @@ function FinanceiroPage() {
 
 const CAT_PADRAO = ["Salário", "Alimentação", "Transporte", "Moradia", "Energia", "Água", "Internet", "Saúde", "Educação", "Lazer", "Freelance", "Compras", "Investimento", "Outros"];
 type FpLanc = { id: string; tipo: string; descricao: string; valor: number; categoria: string; data: string; observacao: string | null; anexo_url?: string | null; created_at?: string };
-type FpCat = { id: string; nome: string; icone: string; excluida: boolean };
+type FpCat = { id: string; nome: string; icone: string; excluida: boolean; arquivada?: boolean };
 
 function PessoalTab() {
   const qc = useQueryClient();
@@ -57,6 +57,7 @@ function PessoalTab() {
   const [dt, setDt] = useState(todayISO());
   const [anexoFile, setAnexoFile] = useState<File | null>(null);
   const [anexoAtual, setAnexoAtual] = useState<string | null>(null);
+  const [verArquivados, setVerArquivados] = useState(false);
 
   const { data: lancs = [] } = useQuery({ queryKey: ["fp"], queryFn: async () => { const r = await supabase.from("financeiro_pessoal").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }); if (r.error) throw r.error; return (r.data ?? []) as FpLanc[]; } });
   const { data: cats = [] } = useQuery({ queryKey: ["fp_cats"], queryFn: async () => { const r = await supabase.from("categorias_financeiro").select("*").order("nome"); if (r.error) throw r.error; return (r.data ?? []) as FpCat[]; } });
@@ -71,18 +72,21 @@ function PessoalTab() {
     return m;
   }, [lancs]);
 
+  const arquivadasSet = useMemo(() => new Set(cats.filter((c) => c.arquivada && !c.excluida).map((c) => c.nome)), [cats]);
   const pessoasList = useMemo(() => {
     const s = new Set<string>();
     cats.filter((c) => !c.excluida).forEach((c) => s.add(c.nome));
     Object.keys(contas).forEach((n) => s.add(n));
     return Array.from(s)
       .filter((n) => n !== "geral" || contas[n])
+      .filter((n) => (verArquivados ? arquivadasSet.has(n) : !arquivadasSet.has(n)))
       .sort((a, b) => {
         const sa = Math.abs((contas[a]?.credito ?? 0) - (contas[a]?.debito ?? 0));
         const sb = Math.abs((contas[b]?.credito ?? 0) - (contas[b]?.debito ?? 0));
         return sb - sa || a.localeCompare(b);
       });
-  }, [cats, contas]);
+  }, [cats, contas, verArquivados, arquivadasSet]);
+  const qtdArquivadas = arquivadasSet.size;
 
   const { totDeb, totCred } = useMemo(() => {
     let d = 0, c = 0;
@@ -158,6 +162,21 @@ function PessoalTab() {
       if (cat) { const { error: e2 } = await supabase.from("categorias_financeiro").update({ nome: novo }).eq("id", cat.id); if (e2) throw e2; }
     },
     onSuccess: (_d, v) => { toast.success("Nome atualizado"); setReportPessoa(v.to.trim()); qc.invalidateQueries({ queryKey: ["fp"] }); qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const arquivarPessoaMut = useMutation({
+    mutationFn: async ({ nome, arquivar }: { nome: string; arquivar: boolean }) => {
+      const { data: u } = await supabase.auth.getUser();
+      const cat = cats.find((c) => c.nome === nome && !c.excluida);
+      if (cat) {
+        const { error } = await supabase.from("categorias_financeiro").update({ arquivada: arquivar }).eq("id", cat.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("categorias_financeiro").insert({ user_id: u.user?.id, nome, icone: "👤", arquivada: arquivar });
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_d, v) => { toast.success(v.arquivar ? "Conta arquivada" : "Conta desarquivada"); setReportPessoa(null); qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -280,7 +299,12 @@ function PessoalTab() {
         )}
       </div>
 
-      <p className="text-[11px] text-muted-foreground px-0.5">Toque numa pessoa pra ver o histórico. Saldo = Crédito − Débito · <span className="text-blue-600 font-semibold">azul</span> = a favor · <span className="text-rose-600 font-semibold">vermelho</span> = negativo.</p>
+      <div className="flex gap-1 p-1 rounded-xl bg-muted">
+        <button onClick={() => setVerArquivados(false)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition ${!verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Ativos</button>
+        <button onClick={() => setVerArquivados(true)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1 ${verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}><Archive className="size-3.5" />Arquivados{qtdArquivadas > 0 ? ` (${qtdArquivadas})` : ""}</button>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground px-0.5">{verArquivados ? "Contas arquivadas — toque pra ver ou desarquivar." : "Toque numa pessoa pra ver o histórico."} Saldo = Crédito − Débito · <span className="text-blue-600 font-semibold">azul</span> = a favor · <span className="text-rose-600 font-semibold">vermelho</span> = negativo.</p>
 
       <div className="space-y-2.5">
         {pessoasList.map((nome) => {
@@ -318,7 +342,9 @@ function PessoalTab() {
             </button>
           );
         })}
-        {pessoasList.length === 0 && <div className="p-8 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma pessoa ainda.<br />Toque em <span className="font-semibold text-foreground">"Nova pessoa"</span> pra começar.</div>}
+        {pessoasList.length === 0 && (verArquivados
+          ? <div className="p-8 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma conta arquivada.</div>
+          : <div className="p-8 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma pessoa ainda.<br />Toque em <span className="font-semibold text-foreground">"Nova pessoa"</span> pra começar.</div>)}
       </div>
 
       {/* Detalhe da pessoa */}
@@ -377,6 +403,9 @@ function PessoalTab() {
                     </select>
                     <button onClick={() => { if (transferTo && confirm(`Mover TODOS os lançamentos de "${c}" para "${transferTo}"?`)) transferPessoaMut.mutate({ from: c, to: transferTo }); }} disabled={!transferTo || transferPessoaMut.isPending} className="h-10 px-3 rounded-lg border text-xs font-bold hover:bg-muted disabled:opacity-40 shrink-0">Transferir</button>
                   </div>
+                  <button onClick={() => arquivarPessoaMut.mutate({ nome: c, arquivar: !arquivadasSet.has(c) })} disabled={arquivarPessoaMut.isPending} className="w-full h-10 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-muted disabled:opacity-40">
+                    {arquivadasSet.has(c) ? <><ArchiveRestore className="size-3.5" />Desarquivar conta</> : <><Archive className="size-3.5" />Arquivar conta</>}
+                  </button>
                   <button onClick={() => { if (confirm(`APAGAR "${c}" e todos os lançamentos dela? Isso não dá pra desfazer.`)) delPessoaMut.mutate(c); }} disabled={delPessoaMut.isPending} className="w-full h-10 rounded-lg border border-destructive/40 text-destructive text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-destructive/10 disabled:opacity-40"><Trash2 className="size-3.5" />Apagar pessoa</button>
                 </div>
               </>

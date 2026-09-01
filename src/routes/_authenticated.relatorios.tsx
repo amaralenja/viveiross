@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { BtnTutorial } from "@/components/BtnTutorial";
-import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, MessageCircle, Printer } from "lucide-react";
+import { FileDown, FileText, Scale, Utensils, DollarSign, Pencil, Trash2, X, MessageCircle, Printer, Archive, ArchiveRestore } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sortByViveiroNome } from "@/lib/sort";
@@ -17,6 +17,7 @@ type ViveiroRelatorio = {
   status: string;
   fornecedor: string | null;
   biomassa_manual: number | null;
+  arquivado?: boolean;
   fazendas: { nome: string } | { nome: string }[] | null;
 };
 type LancamentoRelatorio = {
@@ -114,7 +115,7 @@ function RelatoriosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, qtd_povoada, data_povoamento, status, fornecedor, biomassa_manual, fazendas(nome)")
+        .select("id, nome, qtd_povoada, data_povoamento, status, fornecedor, biomassa_manual, arquivado, fazendas(nome)")
         .order("nome");
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as unknown as ViveiroRelatorio[], (v) => v.nome);
@@ -199,10 +200,27 @@ function RelatoriosPage() {
     },
   });
 
-  const linhas = useMemo(
+  const [verArquivados, setVerArquivados] = useState(false);
+  const arquivadosSet = useMemo(() => new Set(viveiros.filter((v) => v.arquivado).map((v) => v.id)), [viveiros]);
+  const qtdArquivados = arquivadosSet.size;
+
+  const linhasTodas = useMemo(
     () => computeLinhas({ viveiros, lancamentos, biometrias, despesas, funcionarios, vales, caixa }),
     [viveiros, lancamentos, biometrias, despesas, funcionarios, vales, caixa],
   );
+  const linhas = useMemo(
+    () => linhasTodas.filter((l) => (verArquivados ? arquivadosSet.has(l.id) : !arquivadosSet.has(l.id))),
+    [linhasTodas, verArquivados, arquivadosSet],
+  );
+
+  const arquivarViveiroMut = useMutation({
+    mutationFn: async ({ id, arquivar }: { id: string; arquivar: boolean }) => {
+      const { error } = await supabase.from("viveiros").update({ arquivado: arquivar }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => { toast.success(v.arquivar ? "Viveiro arquivado" : "Viveiro desarquivado"); qc.invalidateQueries({ queryKey: ["viveiros", "relatorio"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const totais = useMemo(() => {
     const base = linhas.reduce(
@@ -865,9 +883,14 @@ function RelatoriosPage() {
         <ResumoCard icon={<FileText className="size-4" />} label="Viveiros" value={String(totais.viveiros)} />
       </div>
 
+      <div className="no-print flex gap-1 p-1 rounded-xl bg-muted">
+        <button onClick={() => setVerArquivados(false)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition ${!verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Ativos</button>
+        <button onClick={() => setVerArquivados(true)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1 ${verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}><Archive className="size-3.5" />Arquivados{qtdArquivados > 0 ? ` (${qtdArquivados})` : ""}</button>
+      </div>
+
       {linhas.length === 0 ? (
         <p className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
-          Sem dados ainda para relatório.
+          {verArquivados ? "Nenhum viveiro arquivado." : "Sem dados ainda para relatório."}
         </p>
       ) : (
         <div className="grid min-w-0 gap-4">
@@ -895,12 +918,19 @@ function RelatoriosPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="no-print flex shrink-0 items-center gap-1.5">
                   <button
                     onClick={() => exportPdf([l.id])}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-secondary px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
                   >
                     <FileDown className="size-3.5" /> PDF
+                  </button>
+                  <button
+                    onClick={() => arquivarViveiroMut.mutate({ id: l.id, arquivar: !arquivadosSet.has(l.id) })}
+                    title={arquivadosSet.has(l.id) ? "Desarquivar" : "Arquivar"}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold hover:bg-muted"
+                  >
+                    {arquivadosSet.has(l.id) ? <><ArchiveRestore className="size-3.5" /> Desarquivar</> : <><Archive className="size-3.5" /> Arquivar</>}
                   </button>
                 </div>
 
