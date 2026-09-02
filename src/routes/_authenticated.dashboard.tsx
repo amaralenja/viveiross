@@ -1226,19 +1226,6 @@ function RacaoHojeOntem() {
         </div>
       )}
 
-      {linhas.length > 0 && (
-        <div className="space-y-1 pt-1 border-t">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Últimos Lançamentos</p>
-          {linhas.slice(0, 10).map((l) => (
-            <div key={l.id} className="flex items-center justify-between text-xs rounded bg-muted/20 p-1.5 gap-1">
-              <span className="text-muted-foreground shrink-0 w-16">{format(new Date(l.data_lancamento + "T00:00:00"), "dd/MM")}</span>
-              <span className="font-medium truncate min-w-0 flex-1">{relName(l.viveiros)} · {l.produto_nome}</span>
-              <span className="font-semibold shrink-0">{fmt(Number(l.quantidade ?? 0))} {l.unidade}</span>
-              <Button size="icon" variant="ghost" className="size-6 shrink-0" onClick={() => { if (confirm("Apagar este lançamento?")) delMut.mutate(l.id); }} title="Apagar"><Trash2 className="size-3" /></Button>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
