@@ -331,7 +331,7 @@ function PessoalTab() {
               <div className="flex items-center gap-3">
                 <div className="size-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-lg shrink-0">{nome.charAt(0).toUpperCase()}</div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-base truncate">{nome}</p>
+                  <p className="font-bold text-base leading-tight break-words">{nome}</p>
                   <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
                 </div>
                 <div className="text-right shrink-0">
@@ -376,7 +376,7 @@ function PessoalTab() {
               <>
                 <DialogHeader>
                   <div className="flex items-center gap-2 pr-6">
-                    <DialogTitle className="truncate min-w-0">{c}</DialogTitle>
+                    <DialogTitle className="min-w-0 break-words leading-tight">{c}</DialogTitle>
                     <button type="button" onClick={() => { const novo = window.prompt("Novo nome da pessoa:", c)?.trim(); if (novo && novo !== c) renamePessoaMut.mutate({ from: c, to: novo }); }} className="size-7 rounded-lg border hover:bg-muted flex items-center justify-center shrink-0" title="Editar nome"><Pencil className="size-3.5" /></button>
                   </div>
                 </DialogHeader>
