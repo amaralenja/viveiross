@@ -447,6 +447,29 @@ function ViveirosPage() {
                   highlight
                 />
               </div>
+              {v.data_povoamento && (
+                <button
+                  type="button"
+                  onClick={() => setEditarViveiro(v)}
+                  className="mt-3 w-full text-left rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 flex items-center justify-between gap-2 hover:bg-emerald-500/10"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base shrink-0">🦐</span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground">Custo das pós-larvas</p>
+                      {v.preco_milheiro && v.qtd_povoada ? (
+                        <p className="text-sm font-black text-emerald-600 tabular-nums leading-tight break-words">
+                          {(Number(v.qtd_povoada) * Number(v.preco_milheiro)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          <span className="text-[11px] font-medium text-muted-foreground"> · {Number(v.qtd_povoada).toLocaleString("pt-BR")} milheiros × {Number(v.preco_milheiro).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/mil</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs font-semibold text-primary">Definir preço por milheiro →</p>
+                      )}
+                    </div>
+                  </div>
+                  <span className="size-7 rounded-md border bg-background/80 flex items-center justify-center text-muted-foreground shrink-0"><Pencil className="size-3.5" /></span>
+                </button>
+              )}
               {!v.data_povoamento && (
                 <div className="mt-3 p-3 rounded-xl border-2 border-amber-500/40 bg-amber-500/5">
                   <div className="flex items-center justify-between gap-2">

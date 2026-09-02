@@ -460,7 +460,7 @@ function CaixaPage() {
   const [editing, setEditing] = useState<Lanc | null>(null);
   const [detailView, setDetailView] = useState<ViveiroRel | null>(null);
 
-  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
+  const [tipo, setTipo] = useState<"despesa" | "receita">("receita");
   const [viveiroId, setViveiroId] = useState<string>(TODOS);
   const [selectedViveiros, setSelectedViveiros] = useState<Set<string>>(new Set());
   const [data, setData] = useState(todayLocal());
@@ -852,23 +852,12 @@ function CaixaPage() {
         }}
         className="space-y-4 rounded-2xl bg-card border p-5"
       >
-        <h2 className="font-bold">Novo lançamento</h2>
-
-        <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
-          <button
-            type="button"
-            onClick={() => setTipo("despesa")}
-            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "despesa" ? "bg-destructive text-destructive-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <TrendingDown className="size-4" /> Despesa
-          </button>
-          <button
-            type="button"
-            onClick={() => setTipo("receita")}
-            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow" : "text-muted-foreground"}`}
-          >
-            <TrendingUp className="size-4" /> Receita
-          </button>
+        <div className="flex items-center gap-2">
+          <div className="size-9 rounded-xl bg-emerald-600/15 text-emerald-600 flex items-center justify-center shrink-0"><TrendingUp className="size-5" /></div>
+          <div>
+            <h2 className="font-bold">Nova receita</h2>
+            <p className="text-[11px] text-muted-foreground">Vendas e entradas dos viveiros. Despesas ficam em <span className="font-semibold">Produtos → Despesas</span>.</p>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

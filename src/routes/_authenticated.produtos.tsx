@@ -446,12 +446,12 @@ function ProdutosPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
+      <div className="flex gap-1 p-1 rounded-xl bg-muted">
         {(["produtos", "estoque", "compras", "despesas"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 min-w-[88px] h-10 rounded-lg font-semibold text-sm transition ${
+            className={`flex-1 min-w-0 h-10 px-1 rounded-lg font-semibold text-xs sm:text-sm transition ${
               tab === t
                 ? "bg-card shadow-sm text-foreground"
                 : "text-muted-foreground hover:text-foreground"
