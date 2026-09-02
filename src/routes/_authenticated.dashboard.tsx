@@ -1142,16 +1142,16 @@ function RacaoHojeOntem() {
   const [calOpen, setCalOpen] = useState(false);
   const hojeDate = new Date();
 
-  const datas = [hoje, ontem, anteontem];
-  const labels = ["Hoje", "Ontem", "Anteontem"];
+  const datas = [hoje, ontem];
+  const labels = ["Hoje", "Ontem"];
 
   const { data: linhas = [] } = useQuery({
-    queryKey: ["dashboard", "racao-hoje-ontem", hoje, anteontem],
+    queryKey: ["dashboard", "racao-hoje-ontem", hoje, ontem],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
         .select("id, viveiro_id, quantidade, data_lancamento, produto_nome, unidade, custo_total, viveiros(nome)")
-        .in("data_lancamento", [hoje, ontem, anteontem]);
+        .in("data_lancamento", [hoje, ontem]);
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; viveiro_id: string; quantidade: number | null; data_lancamento: string; produto_nome: string; unidade: string; custo_total: number | null; viveiros: { nome: string } | { nome: string }[] | null }>;
     },
@@ -1163,44 +1163,40 @@ function RacaoHojeOntem() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const toKg = (q: number, u: string | null | undefined) => {
+    const un = (u || "").toLowerCase().trim();
+    if (un === "g" || un === "grama" || un === "gramas" || un === "ml" || un === "mililitro") return q / 1000;
+    return q;
+  };
   const stats = useMemo(() => {
-    const map = new Map<string, { nome: string; d0: number; d1: number; d2: number }>();
-    const totals = [0, 0, 0];
+    const map = new Map<string, { nome: string; d0: number; d1: number }>();
+    const totals = [0, 0];
     for (const l of linhas) {
       const nome = relName(l.viveiros) || "Sem viveiro";
-      const cur = map.get(l.viveiro_id) ?? { nome, d0: 0, d1: 0, d2: 0 };
-      const q = Number(l.quantidade ?? 0);
+      const cur = map.get(l.viveiro_id) ?? { nome, d0: 0, d1: 0 };
+      const q = toKg(Number(l.quantidade ?? 0), l.unidade);
       const idx = datas.indexOf(l.data_lancamento);
-      if (idx >= 0) { if (idx === 0) cur.d0 += q; else if (idx === 1) cur.d1 += q; else cur.d2 += q; totals[idx] += q; }
+      if (idx >= 0) { if (idx === 0) cur.d0 += q; else cur.d1 += q; totals[idx] += q; }
       map.set(l.viveiro_id, cur);
     }
     return { totals, porViveiro: sortByViveiroNome(Array.from(map.values()), v => v.nome) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linhas]);
 
-  if (stats.totals[0] === 0 && stats.totals[1] === 0 && stats.totals[2] === 0) return null;
+  if (stats.totals[0] === 0 && stats.totals[1] === 0) return null;
 
   const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
   return (
     <section className="rounded-2xl border bg-card p-4 space-y-3 shadow-sm">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Scale className="size-4" /></div>
-          <h2 className="text-sm font-bold text-foreground">Comparativo — Últimos 3 Dias</h2>
-        </div>
-        <Popover open={calOpen} onOpenChange={setCalOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-xl border bg-background px-3 text-xs font-semibold"><CalendarIcon className="size-3.5 text-muted-foreground" />{format(comparacaoDate, "dd/MM/yyyy")}</Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar mode="single" selected={comparacaoDate} onSelect={(d) => { if (d) { setComparacaoDate(d); setCalOpen(false); } }} disabled={(d) => d > hojeDate} locale={ptBR} initialFocus />
-          </PopoverContent>
-        </Popover>
+      <div className="flex items-center gap-2">
+        <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Scale className="size-4" /></div>
+        <h2 className="text-sm font-bold text-foreground">Comparativo — Ontem e Hoje</h2>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {labels.map((label, i) => {
-          const color = i === 0 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : i === 1 ? "bg-muted/40 border" : "bg-muted/30 border";
+          const color = i === 0 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : "bg-muted/40 border";
           return (
             <div key={label} className={`rounded-xl p-2.5 ${color}`}>
               <span className="text-[10px] font-bold uppercase block">{label}</span>
@@ -1212,15 +1208,13 @@ function RacaoHojeOntem() {
 
       {stats.porViveiro.length > 0 && (
         <div className="space-y-1.5 pt-1 border-t">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Por Viveiro</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Por viveiro · ontem → hoje</p>
           {stats.porViveiro.map((v) => (
             <div key={v.nome} className="flex items-center justify-between text-xs rounded-xl bg-muted/30 p-2.5 border gap-1">
               <span className="font-semibold text-foreground truncate min-w-0 flex-1">{v.nome}</span>
-              <span className="text-muted-foreground shrink-0">{fmt(v.d2)}</span>
+              <span className="text-muted-foreground shrink-0">{fmt(v.d1)} kg</span>
               <ArrowRight className="size-3 text-muted-foreground shrink-0" />
-              <span className="text-muted-foreground shrink-0">{fmt(v.d1)}</span>
-              <ArrowRight className="size-3 text-muted-foreground shrink-0" />
-              <span className="font-bold text-emerald-600 shrink-0">{fmt(v.d0)}</span>
+              <span className="font-bold text-emerald-600 shrink-0">{fmt(v.d0)} kg</span>
             </div>
           ))}
         </div>

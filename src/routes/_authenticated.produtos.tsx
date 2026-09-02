@@ -33,6 +33,7 @@ type Produto = {
   unidade: string;
   preco_unidade: number | null;
   ordem: number | null;
+  estoque_zerado_em?: string | null;
 };
 
 type Funcionario = {
@@ -57,6 +58,7 @@ type EstoqueEntrada = {
   fornecedor: string | null;
   data_entrada: string;
   observacao: string | null;
+  created_at?: string | null;
 };
 
 type ConsumoRow = {
@@ -68,6 +70,7 @@ type ConsumoRow = {
   viveiro_id: string;
   data_lancamento: string;
   tipo: string;
+  created_at?: string | null;
 };
 
 function normalizeQuantity(qty: number, fromUnit: string | null, toUnit: string | null): number {
@@ -169,7 +172,7 @@ function ProdutosPage() {
       try {
         const { data, error } = await supabase
           .from("produtos")
-          .select("id, nome, categoria, unidade, preco_unidade, ordem")
+          .select("id, nome, categoria, unidade, preco_unidade, ordem, estoque_zerado_em")
           .order("ordem", { ascending: true, nullsFirst: false })
           .order("nome");
         if (error) {
@@ -228,7 +231,7 @@ function ProdutosPage() {
       try {
         const { data, error } = await supabase
           .from("estoque_entradas")
-          .select("id, produto_id, quantidade, unidade, preco_unidade, custo_total, fornecedor, data_entrada, observacao")
+          .select("id, produto_id, quantidade, unidade, preco_unidade, custo_total, fornecedor, data_entrada, observacao, created_at")
           .order("data_entrada", { ascending: false });
         if (error) {
           console.error("Erro ao buscar estoque_entradas:", error);
@@ -247,7 +250,7 @@ function ProdutosPage() {
       try {
         const { data, error } = await supabase
           .from("lancamentos")
-          .select("id, produto_id, produto_nome, quantidade, unidade, viveiro_id, data_lancamento, tipo")
+          .select("id, produto_id, produto_nome, quantidade, unidade, viveiro_id, data_lancamento, tipo, created_at")
           .order("data_lancamento", { ascending: false });
         if (error) {
           console.error("Erro ao buscar estoque_consumo:", error);
@@ -286,9 +289,21 @@ function ProdutosPage() {
   const consumo = consumoQuery.data ?? [];
   const despesas = despesasQuery.data ?? [];
 
+  const zeradoEmPorProduto = new Map<string, number>();
+  for (const p of produtos) {
+    if (p?.estoque_zerado_em) zeradoEmPorProduto.set(p.id, new Date(p.estoque_zerado_em).getTime());
+  }
+  const antesDaZeragem = (produtoId: string, createdAt: string | null | undefined) => {
+    const z = zeradoEmPorProduto.get(produtoId);
+    if (!z) return false;
+    if (!createdAt) return true; // sem data conhecida → considera anterior à zeragem
+    return new Date(createdAt).getTime() <= z;
+  };
+
   const saldoPorProduto = new Map<string, { entradas: number; saidas: number }>();
   for (const e of entradas) {
     if (!e || !e.produto_id) continue;
+    if (antesDaZeragem(e.produto_id, e.created_at)) continue;
     const prod = produtos.find((x) => x && x.id === e.produto_id);
     const qtyNorm = prod ? normalizeQuantity(Number(e.quantidade ?? 0), e.unidade, prod.unidade) : Number(e.quantidade ?? 0);
     const cur = saldoPorProduto.get(e.produto_id) ?? { entradas: 0, saidas: 0 };
@@ -305,6 +320,7 @@ function ProdutosPage() {
       prod = produtos.find((p) => p && p.nome && typeof p.nome === "string" && p.nome.toLowerCase().trim() === nameLower) ?? null;
     }
     if (!prod || !prod.id) continue;
+    if (antesDaZeragem(prod.id, c.created_at)) continue;
 
     const qtyNorm = normalizeQuantity(Number(c.quantidade ?? 0), c.unidade, prod.unidade);
     const cur = saldoPorProduto.get(prod.id) ?? { entradas: 0, saidas: 0 };
@@ -379,21 +395,16 @@ function ProdutosPage() {
 
   const zerarEstoqueMut = useMutation({
     mutationFn: async (produtoId: string) => {
-      const prod = produtos.find((p) => p.id === produtoId);
-      // Zerar TUDO: apaga entradas (compras) e saídas (consumos) desse produto → Entrada 0, Saída 0, Saldo 0
-      const { error: e1 } = await supabase.from("estoque_entradas").delete().eq("produto_id", produtoId);
-      if (e1) throw e1;
-      const { error: e2 } = await supabase.from("lancamentos").delete().eq("produto_id", produtoId);
-      if (e2) throw e2;
-      if (prod?.nome) {
-        await supabase.from("lancamentos").delete().is("produto_id", null).eq("produto_nome", prod.nome);
-      }
+      // Zera a CONTAGEM: marca o ponto de zeragem. Entrada/Saída/Saldo passam a contar só a partir de agora.
+      // NÃO apaga histórico (preserva a alimentação dos viveiros / FCA).
+      const { error } = await supabase.from("produtos").update({ estoque_zerado_em: new Date().toISOString() }).eq("id", produtoId);
+      if (error) throw error;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["produtos"] });
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
       qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
-      qc.invalidateQueries({ queryKey: ["produtos"] });
-      toast.success("Estoque zerado (entradas e saídas apagadas)");
+      toast.success("Estoque zerado (Entrada, Saída e Saldo a partir de agora)");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -631,7 +642,7 @@ function ProdutosPage() {
             if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
           }}
           onZerarEstoque={(p) => {
-            if (confirm(`Zerar TUDO do estoque de "${p.nome}"?\n\nIsso APAGA todas as entradas (compras) e saídas (consumos) desse produto — Entrada, Saída e Saldo vão pra 0. Não dá pra desfazer.`)) zerarEstoqueMut.mutate(p.id);
+            if (confirm(`Zerar o estoque de "${p.nome}"?\n\nEntrada, Saída e Saldo voltam pra 0 a partir de agora. O histórico de alimentação dos viveiros é preservado (não apaga nada).`)) zerarEstoqueMut.mutate(p.id);
           }}
           onDelConsumo={(id) => delConsumoMut.mutate(id)}
           onMover={(id, dir) => moverProdMut.mutate({ id, dir })}
