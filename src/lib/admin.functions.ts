@@ -181,7 +181,7 @@ export const deleteUserFn = createServerFn({ method: "POST" })
   .inputValidator((d: { user_id: string }) => d)
   .handler(async ({ data, context }) => {
     const ctx = context as any;
-    const { error } = await ctx.supabase.rpc("admin_revoke_access", {
+    const { error } = await ctx.supabase.rpc("admin_delete_user", {
       _user_id: data.user_id,
     });
     if (error) throw new Error(error.message);

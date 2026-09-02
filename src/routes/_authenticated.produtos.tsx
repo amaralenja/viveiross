@@ -634,6 +634,8 @@ function ProdutosPage() {
             if (confirm(`Zerar TUDO do estoque de "${p.nome}"?\n\nIsso APAGA todas as entradas (compras) e saídas (consumos) desse produto — Entrada, Saída e Saldo vão pra 0. Não dá pra desfazer.`)) zerarEstoqueMut.mutate(p.id);
           }}
           onDelConsumo={(id) => delConsumoMut.mutate(id)}
+          onMover={(id, dir) => moverProdMut.mutate({ id, dir })}
+          moverPending={moverProdMut.isPending}
         />
 
 
@@ -1009,6 +1011,8 @@ function EstoqueView({
   onEditProduto,
   onDelProduto,
   onZerarEstoque,
+  onMover,
+  moverPending,
 }: {
   produtos: Produto[];
   entradas: EstoqueEntrada[];
@@ -1025,6 +1029,8 @@ function EstoqueView({
   onDelConsumo: (id: string) => void;
   onEditProduto: (p: Produto) => void;
   onDelProduto: (p: Produto) => void;
+  onMover: (id: string, dir: "up" | "down") => void;
+  moverPending: boolean;
 }) {
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [filtroTimeline, setFiltroTimeline] = useState<"todas" | "entradas" | "saidas">("todas");
@@ -1040,7 +1046,7 @@ function EstoqueView({
     );
   }
 
-  const produtosOrdenados = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
+  const produtosOrdenados = [...produtos]; // segue a mesma ordem da aba Produtos (por "ordem")
 
   const totalEntradasGlobal = Array.from(saldoPorProduto.values()).reduce((sum, s) => sum + s.entradas, 0);
   const totalSaidasGlobal = Array.from(saldoPorProduto.values()).reduce((sum, s) => sum + s.saidas, 0);
@@ -1170,7 +1176,7 @@ function EstoqueView({
         </div>
 
         <ul className="space-y-2.5">
-          {produtosOrdenados.map((p) => {
+          {produtosOrdenados.map((p, idx) => {
             const s = saldoPorProduto.get(p.id) ?? { entradas: 0, saidas: 0 };
             const saldo = s.entradas - s.saidas;
             const pctRestante = s.entradas > 0 ? Math.max(0, Math.min(100, Math.round((saldo / s.entradas) * 100))) : (saldo > 0 ? 100 : 0);
@@ -1242,6 +1248,10 @@ function EstoqueView({
                         {aberto ? "Ocultar ▲" : `Histórico ▼`}
                       </span>
                     </button>
+                    <div className="flex flex-col gap-0.5">
+                      <button type="button" onClick={() => onMover(p.id, "up")} disabled={idx === 0 || moverPending} className="size-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30" aria-label="Subir"><ChevronUp className="size-3.5" /></button>
+                      <button type="button" onClick={() => onMover(p.id, "down")} disabled={idx === produtosOrdenados.length - 1 || moverPending} className="size-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30" aria-label="Descer"><ChevronDown className="size-3.5" /></button>
+                    </div>
                     <RowActions onEdit={() => onEditProduto(p)} onDel={() => onDelProduto(p)} />
                   </div>
                 </div>
