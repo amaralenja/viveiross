@@ -103,16 +103,6 @@ type Despesa = {
   observacao: string | null;
 };
 
-type CaixaDespesa = {
-  id: string;
-  viveiro_id: string | null;
-  data_lancamento: string;
-  descricao: string;
-  categoria: string | null;
-  valor: number;
-  tipo: string;
-};
-
 function formatBRL(v: number | null | undefined) {
   if (v == null) return null;
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -289,25 +279,9 @@ function ProdutosPage() {
     },
   });
 
-  const caixaDespesasQuery = useQuery({
-    queryKey: ["caixa", "despesas_produtos"],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from("caixa_lancamentos")
-          .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, tipo")
-          .eq("tipo", "despesa")
-          .order("data_lancamento", { ascending: false });
-        if (error) { console.error("Erro ao buscar despesas do caixa:", error); return []; }
-        return (data ?? []) as CaixaDespesa[];
-      } catch { return []; }
-    },
-  });
-
   const produtos = produtosQuery.data ?? [];
   const funcionarios = funcionariosQuery.data ?? [];
   const viveiros = viveirosQuery.data ?? [];
-  const caixaDespesas = caixaDespesasQuery.data ?? [];
   const entradas = entradasQuery.data ?? [];
   const consumo = consumoQuery.data ?? [];
   const despesas = despesasQuery.data ?? [];
@@ -446,7 +420,8 @@ function ProdutosPage() {
     if (tab === "produtos") setOpenProd(true);
     else if (tab === "funcionarios") setOpenFunc(true);
     else if (tab === "compras") setOpenEntrada(true);
-    else setOpenEntrada(true); // estoque ou compras
+    else if (tab === "despesas") setOpenDesp(true);
+    else setOpenEntrada(true); // estoque
   }
 
 
@@ -461,15 +436,13 @@ function ProdutosPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <BtnTutorial videoId="LBYUg7FA3Mo" label="Produtos" />
-          {tab !== "despesas" && (
-            <button
-              onClick={openNovo}
-              className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
-            >
-              <Plus className="size-5" />
-              {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : "Novo"}
-            </button>
-          )}
+          <button
+            onClick={openNovo}
+            className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
+          >
+            <Plus className="size-5" />
+            {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : tab === "despesas" ? "Despesa" : "Novo"}
+          </button>
         </div>
       </div>
 
@@ -684,7 +657,13 @@ function ProdutosPage() {
         />
 
       ) : (
-        <CaixaDespesasView despesas={caixaDespesas} viveiros={viveiros} />
+        <DespesasExtrasView
+          despesas={despesas}
+          viveiros={viveiros}
+          onNova={() => setOpenDesp(true)}
+          onEdit={(d: Despesa) => setEditandoDesp(d)}
+          onDel={(d: Despesa) => { if (confirm(`Remover "${d.descricao}"?`)) delDespMut.mutate(d.id); }}
+        />
       )}
 
 
@@ -1613,17 +1592,21 @@ async function gerarPdfCompras(
   toast.success("PDF de Compras gerado com sucesso!");
 }
 
-function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; viveiros: ViveiroOpt[] }) {
+function DespesasExtrasView({ despesas, viveiros, onNova, onEdit, onDel }: {
+  despesas: Despesa[];
+  viveiros: ViveiroOpt[];
+  onNova: () => void;
+  onEdit: (d: Despesa) => void;
+  onDel: (d: Despesa) => void;
+}) {
   const [periodo, setPeriodo] = useState<"mes" | "30d" | "tudo" | "custom">("mes");
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtData = (iso: string) => { const p = (iso || "").slice(0, 10).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; };
   const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
-  const labelViveiro = (d: CaixaDespesa) =>
-    d.viveiro_id ? (viveiroMap.get(d.viveiro_id) ?? "Viveiro")
-      : d.categoria === "nao_rateado" ? "Isento / Não rateado"
-        : "Rateado (todos)";
+  const labelViveiro = (d: Despesa) =>
+    d.rateio === "todos" || !d.viveiro_id ? "Geral (todos)" : (viveiroMap.get(d.viveiro_id) ?? "Viveiro");
 
   const filtradas = useMemo(() => {
     const hoje = new Date();
@@ -1632,7 +1615,7 @@ function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; v
     else if (periodo === "30d") { const d = new Date(hoje); d.setDate(d.getDate() - 30); ini = d.toISOString().slice(0, 10); fim = hoje.toISOString().slice(0, 10); }
     else if (periodo === "custom") { ini = de || null; fim = ate || null; }
     return despesas.filter((x) => {
-      const dt = (x.data_lancamento || "").slice(0, 10);
+      const dt = (x.data_despesa || "").slice(0, 10);
       if (ini && dt < ini) return false;
       if (fim && dt > fim) return false;
       return true;
@@ -1657,7 +1640,7 @@ function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; v
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     doc.setFillColor(220, 38, 38); doc.rect(0, 0, 210, 22, "F");
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-    doc.text("Relatório de Despesas", 14, 14);
+    doc.text("Relatório de Despesas Extras", 14, 14);
     doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
     doc.text(`Período: ${periodoLabel}`, 14, 30);
     doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 36);
@@ -1665,7 +1648,7 @@ function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; v
     doc.text(`Total: ${brl(total)}`, 14, 45);
     autoTable(doc, {
       startY: 50,
-      head: [["Resumo por viveiro", "Total"]],
+      head: [["Resumo por destino", "Total"]],
       body: porViveiro.map(([nome, v]) => [nome, brl(v)]),
       styles: { fontSize: 9 },
       headStyles: { fillColor: [71, 85, 105] },
@@ -1674,13 +1657,13 @@ function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; v
     const y2 = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60;
     autoTable(doc, {
       startY: y2 + 6,
-      head: [["Data", "Descrição", "Viveiro", "Categoria", "Valor"]],
-      body: filtradas.map((x) => [fmtData(x.data_lancamento), x.descricao || "—", labelViveiro(x), x.categoria || "—", brl(Number(x.valor ?? 0))]),
+      head: [["Data", "Descrição", "Destino", "Categoria", "Valor"]],
+      body: filtradas.map((x) => [fmtData(x.data_despesa), x.descricao || "—", labelViveiro(x), x.categoria || "—", brl(Number(x.valor ?? 0))]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [220, 38, 38] },
       columnStyles: { 4: { halign: "right" } },
     });
-    doc.save(`despesas-${periodoLabel.replace(/[^0-9A-Za-z]+/g, "-").toLowerCase()}.pdf`);
+    doc.save(`despesas-extras-${periodoLabel.replace(/[^0-9A-Za-z]+/g, "-").toLowerCase()}.pdf`);
     toast.success("PDF gerado");
   }
 
@@ -1691,12 +1674,13 @@ function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; v
       <div className="rounded-2xl border bg-card p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Receipt className="size-5 text-destructive" />
-          <div>
-            <h2 className="font-bold text-base">Despesas do Caixa</h2>
-            <p className="text-xs text-muted-foreground">Tudo que foi lançado como despesa, com o viveiro de destino.</p>
+          <div className="min-w-0">
+            <h2 className="font-bold text-base">Despesas extras dos viveiros</h2>
+            <p className="text-xs text-muted-foreground">Manutenção, mão de obra, funcionário, ferramentas... Lance <span className="font-semibold">Geral</span> ou <span className="font-semibold">por viveiro</span>. Ração/insumo é no Caixa.</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <button onClick={onNova} className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary/90"><Plus className="size-4" /> Nova despesa</button>
+        <div className="flex flex-wrap gap-1.5 pt-1">
           <button onClick={() => setPeriodo("mes")} className={btnCls(periodo === "mes")}>Mês atual</button>
           <button onClick={() => setPeriodo("30d")} className={btnCls(periodo === "30d")}>Últimos 30 dias</button>
           <button onClick={() => setPeriodo("tudo")} className={btnCls(periodo === "tudo")}>Tudo</button>
@@ -1712,15 +1696,15 @@ function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; v
           <div>
             <p className="text-[10px] uppercase font-bold text-muted-foreground">Total ({periodoLabel})</p>
             <p className="text-2xl font-black text-destructive tabular-nums">{brl(total)}</p>
-            <p className="text-[11px] text-muted-foreground">{filtradas.length} lançamento(s)</p>
+            <p className="text-[11px] text-muted-foreground">{filtradas.length} despesa(s)</p>
           </div>
-          <button onClick={gerarPdf} className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center gap-2 hover:bg-primary/90 shrink-0"><FileDown className="size-4" /> Imprimir (PDF)</button>
+          <button onClick={gerarPdf} className="h-11 px-4 rounded-xl border font-bold text-sm flex items-center gap-2 hover:bg-muted shrink-0"><FileDown className="size-4" /> Imprimir (PDF)</button>
         </div>
       </div>
 
       {porViveiro.length > 0 && (
         <div className="rounded-2xl border bg-card p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Por viveiro</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Por destino</p>
           <div className="space-y-1.5">
             {porViveiro.map(([nome, v]) => (
               <div key={nome} className="flex items-center justify-between gap-2 text-sm">
@@ -1733,16 +1717,20 @@ function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; v
       )}
 
       {filtradas.length === 0 ? (
-        <div className="p-8 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma despesa nesse período.</div>
+        <div className="p-8 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma despesa extra nesse período.<br />Toque em <span className="font-semibold text-foreground">"Nova despesa"</span> pra lançar.</div>
       ) : (
         <div className="rounded-2xl border bg-card divide-y">
           {filtradas.map((x) => (
             <div key={x.id} className="p-3.5 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold text-sm truncate">{x.descricao || "—"}</p>
-                <p className="text-[11px] text-muted-foreground">{fmtData(x.data_lancamento)} · <span className="font-medium text-foreground">{labelViveiro(x)}</span>{x.categoria ? ` · ${x.categoria}` : ""}</p>
+                <p className="text-[11px] text-muted-foreground">{fmtData(x.data_despesa)} · <span className="font-medium text-foreground">{labelViveiro(x)}</span>{x.categoria ? ` · ${x.categoria}` : ""}</p>
               </div>
-              <span className="font-black tabular-nums text-destructive shrink-0">{brl(Number(x.valor ?? 0))}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-black tabular-nums text-destructive">{brl(Number(x.valor ?? 0))}</span>
+                <button onClick={() => onEdit(x)} className="size-8 rounded-lg border flex items-center justify-center hover:bg-muted" aria-label="Editar"><Pencil className="size-3.5 text-muted-foreground" /></button>
+                <button onClick={() => onDel(x)} className="size-8 rounded-lg border flex items-center justify-center hover:bg-destructive/10 text-destructive" aria-label="Apagar"><Trash2 className="size-3.5" /></button>
+              </div>
             </div>
           ))}
         </div>
