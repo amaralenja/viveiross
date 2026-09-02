@@ -109,8 +109,25 @@ export const createUserFn = createServerFn({ method: "POST" })
 
     // E-mail com as credenciais (best-effort)
     const mail = await sendAccessEmail(data.email, data.password);
+    await ctx.supabase.from("envios_acesso").insert({ target_email: data.email, target_user_id: uid, tipo: "criacao", emailed: mail.ok, admin_id: ctx.userId });
 
     return { ok: true, user_id: uid, emailed: mail.ok, emailError: mail.error ?? null };
+  });
+
+export type EnvioAcesso = { id: string; target_email: string; tipo: string; emailed: boolean; created_at: string };
+export const listEnviosFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<EnvioAcesso[]> => {
+    const ctx = context as any;
+    const { data: isAdmin } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
+    if (!isAdmin) throw new Error("Acesso restrito ao administrador.");
+    const { data, error } = await ctx.supabase
+      .from("envios_acesso")
+      .select("id, target_email, tipo, emailed, created_at")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as EnvioAcesso[];
   });
 
 export const setWhatsappFn = createServerFn({ method: "POST" })
@@ -233,6 +250,7 @@ export const resendAccessFn = createServerFn({ method: "POST" })
       const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, { password: novaSenha });
       if (error) throw new Error(error.message);
       const mail = await sendAccessEmail(data.email, novaSenha);
+      await ctx.supabase.from("envios_acesso").insert({ target_email: data.email, target_user_id: data.user_id, tipo: "reenvio", emailed: mail.ok, admin_id: ctx.userId });
       return { ok: true, mode: "senha" as const, emailed: mail.ok, emailError: mail.error ?? null, password: novaSenha };
     } catch {
       const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -241,9 +259,10 @@ export const resendAccessFn = createServerFn({ method: "POST" })
         auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
       });
       const { error } = await anon.auth.resetPasswordForEmail(data.email, {
-        redirectTo: (process.env.APP_URL || "https://viveiross.lovable.app") + "/reset-password",
+        redirectTo: (process.env.APP_URL || "https://viveiross.vercel.app") + "/reset-password",
       });
       if (error) throw new Error(error.message);
+      await ctx.supabase.from("envios_acesso").insert({ target_email: data.email, target_user_id: data.user_id, tipo: "reenvio (link)", emailed: true, admin_id: ctx.userId });
       return { ok: true, mode: "link" as const, emailed: true, password: null };
     }
   });

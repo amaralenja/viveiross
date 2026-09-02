@@ -13,6 +13,7 @@ import {
   setViveiroLimitFn,
   setWhatsappFn,
   resendAccessFn,
+  listEnviosFn,
   type AdminUser,
 } from "@/lib/admin.functions";
 
@@ -57,12 +58,19 @@ function AdminPage() {
     retry: false,
   });
 
+  const listEnvios = useServerFn(listEnviosFn);
+  const { data: envios = [] } = useQuery({
+    queryKey: ["admin", "envios"],
+    queryFn: () => listEnvios(),
+    retry: false,
+  });
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [dias, setDias] = useState("30");
   const [whatsapp, setWhatsappInput] = useState("");
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "users"] });
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["admin", "users"] }); qc.invalidateQueries({ queryKey: ["admin", "envios"] }); };
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -182,6 +190,7 @@ function AdminPage() {
                         toast.success(`Nova senha: ${r?.password ?? "—"} — copie e envie manualmente.`, { duration: 15000 });
                         if (r?.emailError) toast.error(`E-mail não enviado: ${r.emailError}`, { duration: 15000 });
                       }
+                      invalidate();
                     })
                     .catch((e) => toast.error((e as Error).message))
                 }
@@ -201,6 +210,34 @@ function AdminPage() {
                     .catch((e) => toast.error((e as Error).message))
                 }
               />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="font-bold text-lg flex items-center gap-2"><Send className="size-5 text-primary" /> Envios de acesso ({envios.length})</h2>
+        <p className="text-xs text-muted-foreground -mt-1">Para quem você já enviou o acesso, quando e como.</p>
+        {envios.length === 0 ? (
+          <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum envio ainda.</p>
+        ) : (
+          <div className="rounded-2xl border overflow-hidden">
+            {envios.map((e, i) => (
+              <div key={e.id} className={`flex items-center gap-3 p-3 ${i > 0 ? "border-t" : ""}`}>
+                <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${e.emailed ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
+                  {e.emailed ? <Check className="size-4" /> : <AlertTriangle className="size-4" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-sm truncate">{e.target_email}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {e.tipo === "criacao" ? "Criação de acesso" : e.tipo.startsWith("reenvio") ? "Reenvio de acesso" : e.tipo}
+                    {" · "}{new Date(e.created_at).toLocaleString("pt-BR")}
+                  </p>
+                </div>
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded shrink-0 ${e.emailed ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/15 text-amber-700 dark:text-amber-400"}`}>
+                  {e.emailed ? "E-mail enviado" : "Não enviado"}
+                </span>
+              </div>
             ))}
           </div>
         )}
