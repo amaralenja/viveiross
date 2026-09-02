@@ -379,29 +379,21 @@ function ProdutosPage() {
 
   const zerarEstoqueMut = useMutation({
     mutationFn: async (produtoId: string) => {
-      const { data: u } = await supabase.auth.getUser();
-      const uid = u.user?.id;
-      if (!uid) throw new Error("Sem sessão");
       const prod = produtos.find((p) => p.id === produtoId);
-      const s = saldoPorProduto.get(produtoId) ?? { entradas: 0, saidas: 0 };
-      const saldo = s.entradas - s.saidas;
-      if (Math.abs(saldo) < 0.0001) throw new Error("Estoque já está zerado.");
-      const { error } = await supabase.from("estoque_entradas").insert({
-        user_id: uid,
-        produto_id: produtoId,
-        quantidade: -saldo,
-        unidade: getUnidadeBase(prod?.unidade || "kg"),
-        preco_unidade: 0,
-        custo_total: 0,
-        fornecedor: null,
-        data_entrada: new Date().toISOString().slice(0, 10),
-        observacao: "Zeragem de estoque (ajuste)",
-      });
-      if (error) throw error;
+      // Zerar TUDO: apaga entradas (compras) e saídas (consumos) desse produto → Entrada 0, Saída 0, Saldo 0
+      const { error: e1 } = await supabase.from("estoque_entradas").delete().eq("produto_id", produtoId);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from("lancamentos").delete().eq("produto_id", produtoId);
+      if (e2) throw e2;
+      if (prod?.nome) {
+        await supabase.from("lancamentos").delete().is("produto_id", null).eq("produto_nome", prod.nome);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["estoque_entradas"] });
-      toast.success("Estoque zerado");
+      qc.invalidateQueries({ queryKey: ["estoque_consumo"] });
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+      toast.success("Estoque zerado (entradas e saídas apagadas)");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -639,7 +631,7 @@ function ProdutosPage() {
             if (confirm(`Remover "${p.nome}"?`)) delProdMut.mutate(p.id);
           }}
           onZerarEstoque={(p) => {
-            if (confirm(`Zerar o estoque de "${p.nome}"? O saldo vai pra 0 (o histórico continua).`)) zerarEstoqueMut.mutate(p.id);
+            if (confirm(`Zerar TUDO do estoque de "${p.nome}"?\n\nIsso APAGA todas as entradas (compras) e saídas (consumos) desse produto — Entrada, Saída e Saldo vão pra 0. Não dá pra desfazer.`)) zerarEstoqueMut.mutate(p.id);
           }}
           onDelConsumo={(id) => delConsumoMut.mutate(id)}
         />
@@ -1803,28 +1795,6 @@ function ComprasView({
 
   return (
     <div className="space-y-6">
-      {/* Resumo Executivo / KPIs */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Investimento Total Gasto</p>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {formatBRL(totalGasto)}
-          </p>
-        </div>
-        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Volume Total Comprado</p>
-          <p className="text-2xl font-black text-foreground tabular-nums">
-            {formatNumber(totalVolume)} kg
-          </p>
-        </div>
-        <div className="rounded-2xl bg-card border p-4 shadow-sm space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Registros de Compras</p>
-          <p className="text-2xl font-black text-foreground tabular-nums">
-            {entradas.length} {entradas.length === 1 ? "compra" : "compras"}
-          </p>
-        </div>
-      </div>
-
       {/* Banner de Ações Rápidas */}
       <div className="flex items-center justify-between gap-3 flex-wrap bg-muted/40 p-3 rounded-2xl border">
         <div>
@@ -3016,56 +2986,34 @@ function DespesaModal({
               placeholder="Ex: energia, manutenção, combustível..."
             />
           </Field>
-          <Field label="Rateio">
-            <div className="grid grid-cols-2 gap-2">
+          <Field label="Destino">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               <button
                 type="button"
-                onClick={() => setRateio("todos")}
-                className={`h-11 rounded-lg border font-semibold ${rateio === "todos" ? "bg-primary text-primary-foreground border-primary" : "bg-background"}`}
+                onClick={() => { setRateio("todos"); setViveiroIds([]); }}
+                className={`py-2 px-2 rounded-lg border text-xs font-bold text-left truncate ${rateio === "todos" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background hover:bg-muted text-muted-foreground"}`}
               >
-                Todos os viveiros
+                🔄 Todos
               </button>
-              <button
-                type="button"
-                onClick={() => setRateio("individual")}
-                className={`h-11 rounded-lg border font-semibold ${rateio === "individual" ? "bg-primary text-primary-foreground border-primary" : "bg-background"}`}
-              >
-                Um viveiro
-              </button>
+              {viveiros.map((v) => {
+                const checked = rateio === "individual" && viveiroIds.includes(v.id);
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => { if (rateio !== "individual") setRateio("individual"); toggleViveiro(v.id); }}
+                    className={`py-2 px-2 rounded-lg border text-xs font-semibold text-left truncate ${checked ? "border-primary bg-primary/10 text-primary" : "border-border bg-background hover:bg-muted text-muted-foreground"}`}
+                  >
+                    {checked ? "✓ " : ""}{v.nome}
+                  </button>
+                );
+              })}
             </div>
+            {viveiros.length === 0 && <p className="text-xs text-muted-foreground mt-1">Nenhum viveiro cadastrado.</p>}
+            {!despesa && rateio === "individual" && viveiroIds.length > 1 && (
+              <p className="text-xs text-muted-foreground mt-1">Será criada uma despesa para cada viveiro selecionado.</p>
+            )}
           </Field>
-          {rateio === "individual" && (
-            <Field label={`Viveiros (${viveiroIds.length} selecionado${viveiroIds.length === 1 ? "" : "s"})`}>
-              <div className="border rounded-lg bg-background max-h-48 overflow-y-auto divide-y">
-                {viveiros.length === 0 ? (
-                  <div className="p-3 text-sm text-muted-foreground">Nenhum viveiro cadastrado.</div>
-                ) : (
-                  viveiros.map((v) => {
-                    const checked = viveiroIds.includes(v.id);
-                    return (
-                      <label
-                        key={v.id}
-                        className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleViveiro(v.id)}
-                          className="size-4"
-                        />
-                        <span className="font-medium">{v.nome}</span>
-                      </label>
-                    );
-                  })
-                )}
-              </div>
-              {!despesa && viveiroIds.length > 1 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Será criada uma despesa para cada viveiro selecionado.
-                </p>
-              )}
-            </Field>
-          )}
           <Field label="Observação (opcional)">
             <textarea
               value={observacao}
