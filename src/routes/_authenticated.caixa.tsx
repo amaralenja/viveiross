@@ -472,6 +472,20 @@ function CaixaPage() {
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState<string>("kg");
   const [socioId, setSocioId] = useState<string>("");
+  const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
+  const [scrollAnim, setScrollAnim] = useState<boolean>(() => {
+    try { return localStorage.getItem("caixa_scroll_anim") !== "0"; } catch { return true; }
+  });
+  function triggerScrollHighlight(target: string) {
+    setHighlightTarget(target);
+    setTimeout(() => {
+      const el = target === "__resumo__"
+        ? document.getElementById("caixa-resumo")
+        : document.querySelector(`[data-viv-card="${target}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    setTimeout(() => setHighlightTarget(null), 2800);
+  }
 
   const compraMut = useMutation({
     mutationFn: async (compraData: {
@@ -730,6 +744,12 @@ function CaixaPage() {
     },
     onSuccess: () => {
       toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada e estoque atualizado!");
+      if (scrollAnim) {
+        let target = "__resumo__";
+        if (selectedViveiros.size === 1) target = Array.from(selectedViveiros)[0];
+        else if (selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") target = viveiroId;
+        triggerScrollHighlight(target);
+      }
       setProdutoId("");
       setDescricao("");
       setCategoria("");
@@ -937,10 +957,23 @@ function CaixaPage() {
         >
           {saveMut.isPending ? "Salvando..." : "Salvar"}
         </button>
+
+        <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            checked={scrollAnim}
+            onChange={(e) => {
+              setScrollAnim(e.target.checked);
+              try { localStorage.setItem("caixa_scroll_anim", e.target.checked ? "1" : "0"); } catch { /* ignore */ }
+            }}
+            className="size-4"
+          />
+          <span className="text-xs text-muted-foreground">Após salvar, rolar e destacar onde o lançamento entrou</span>
+        </label>
       </form>
 
       {/* Resumo geral */}
-      <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
+      <section id="caixa-resumo" className={`rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3 transition-all duration-500 ${highlightTarget === "__resumo__" ? "ring-4 ring-primary ring-offset-2 shadow-xl shadow-primary/30" : ""}`}>
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             Saldo geral
@@ -1040,7 +1073,8 @@ function CaixaPage() {
             {relatorio.porViveiro.map((v) => (
               <div
                 key={v.id}
-                className="w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 transition-shadow hover:shadow-md"
+                data-viv-card={v.id}
+                className={`w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 transition-all duration-500 hover:shadow-md ${highlightTarget === v.id ? "ring-4 ring-primary ring-offset-2 shadow-xl shadow-primary/30" : ""}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
