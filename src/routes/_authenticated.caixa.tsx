@@ -796,14 +796,9 @@ function CaixaPage() {
       const diretos = lancamentos.filter((l) => l.viveiro_id === v.id);
       const despDireto = diretos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
       const recDireto = diretos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
-      const historico = [
-        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: val(l) * sign(l) })),
-        ...rateados.map((l) => ({
-          l,
-          rateado: true,
-          valorMostrado: (val(l) / nAtivos) * sign(l),
-        })),
-      ].sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
+      const historico = diretos
+        .map((l) => ({ l, rateado: false, valorMostrado: val(l) * sign(l) }))
+        .sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
       const despesaTotal = despDireto + rateioDesp;
       const receitaTotal = recDireto + rateioRec;
       return {
