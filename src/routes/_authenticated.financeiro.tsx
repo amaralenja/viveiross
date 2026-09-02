@@ -250,7 +250,11 @@ function PessoalTab() {
       columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right", fontStyle: "bold" } },
       margin: { left: 14, right: 14 },
     });
-    doc.save(`extrato-${nome.replace(/\s+/g, "-")}.pdf`);
+    try {
+      const url = URL.createObjectURL(doc.output("blob") as Blob);
+      const w = window.open(url, "_blank");
+      if (!w) doc.save(`extrato-${nome.replace(/\s+/g, "-")}.pdf`);
+    } catch { doc.save(`extrato-${nome.replace(/\s+/g, "-")}.pdf`); }
     toast.success("PDF gerado!");
   }
 
@@ -276,27 +280,16 @@ function PessoalTab() {
       columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
       margin: { left: 14, right: 14 },
     });
-    doc.save(`financeiro-pessoas-${fmtDate(todayISO()).replace(/\//g, "-")}.pdf`);
+    try {
+      const url = URL.createObjectURL(doc.output("blob") as Blob);
+      const w = window.open(url, "_blank");
+      if (!w) doc.save(`financeiro-pessoas-${fmtDate(todayISO()).replace(/\//g, "-")}.pdf`);
+    } catch { doc.save(`financeiro-pessoas-${fmtDate(todayISO()).replace(/\//g, "-")}.pdf`); }
     toast.success("PDF gerado!");
   }
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-3 min-w-0 overflow-hidden">
-          <p className="text-[10px] uppercase text-rose-600 font-bold">Débito</p>
-          <p className="text-base sm:text-xl font-black text-rose-600 tabular-nums leading-tight break-words">{brl(totDeb)}</p>
-        </div>
-        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 min-w-0 overflow-hidden">
-          <p className="text-[10px] uppercase text-emerald-600 font-bold">Crédito</p>
-          <p className="text-base sm:text-xl font-black text-emerald-600 tabular-nums leading-tight break-words">{brl(totCred)}</p>
-        </div>
-        <div className={`rounded-2xl border p-3 min-w-0 overflow-hidden ${saldoGeral >= 0 ? "bg-blue-500/10 border-blue-500/20" : "bg-rose-500/10 border-rose-500/20"}`}>
-          <p className="text-[10px] uppercase text-muted-foreground font-bold">Saldo</p>
-          <p className={`text-base sm:text-xl font-black tabular-nums leading-tight break-words ${saldoGeral >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldoGeral)}</p>
-        </div>
-      </div>
-
       <div className="flex gap-2">
         <button onClick={() => novoLancGlobal()} className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
           <Plus className="size-5" /> Novo lançamento
@@ -312,7 +305,6 @@ function PessoalTab() {
         <button onClick={() => setVerArquivados(true)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1 ${verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}><Archive className="size-3.5" />Arquivados{qtdArquivadas > 0 ? ` (${qtdArquivadas})` : ""}</button>
       </div>
 
-      <p className="text-[11px] text-muted-foreground px-0.5">{verArquivados ? "Contas arquivadas — toque pra ver ou desarquivar." : "Toque numa pessoa pra ver o histórico."} Saldo = Crédito − Débito · <span className="text-blue-600 font-semibold">azul</span> = a favor · <span className="text-rose-600 font-semibold">vermelho</span> = negativo.</p>
 
       {verArquivados && pessoasList.length > 0 && (
         <div className="grid grid-cols-2 gap-2">

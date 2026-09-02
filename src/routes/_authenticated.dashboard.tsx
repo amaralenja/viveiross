@@ -311,15 +311,12 @@ function Dashboard() {
   const { data: ultimos = [], isLoading } = useQuery({
     queryKey: ["dashboard", "ultimos-lancamentos"],
     queryFn: async () => {
-      const od = new Date();
-      od.setDate(od.getDate() - 1);
-      const ontem = ymd(od);
       const { data, error } = await supabase
         .from("lancamentos")
         .select(
           "id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, tipo, preco_unidade, custo_total, viveiros(nome)",
         )
-        .in("data_lancamento", [todayLocal(), ontem])
+        .eq("data_lancamento", todayLocal())
         .order("data_lancamento", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(500);
@@ -727,7 +724,7 @@ function Dashboard() {
       <section className="space-y-3 pt-2">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-base font-bold flex items-center gap-2">
-            <ClipboardList className="size-5 text-primary" /> Lançamentos — hoje e ontem ({ultimos.length})
+            <ClipboardList className="size-5 text-primary" /> Lançamentos de hoje ({ultimos.length})
           </h2>
         </div>
 
@@ -735,7 +732,7 @@ function Dashboard() {
           <p className="text-muted-foreground text-sm">Carregando lançamentos...</p>
         ) : ultimos.length === 0 ? (
           <div className="p-6 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">
-            Nenhum lançamento de hoje ou ontem.
+            Nenhum lançamento hoje.
           </div>
         ) : (
           <div className="space-y-2">
