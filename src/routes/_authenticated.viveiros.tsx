@@ -26,6 +26,7 @@ type Viveiro = {
   data_povoamento: string | null;
   data_preparacao: string | null;
   qtd_povoada: number | null;
+  preco_milheiro: number | null;
   created_at?: string | null;
   fornecedor: string | null;
   biomassa_manual: number | null;
@@ -65,7 +66,7 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viveiros")
-        .select("id, nome, status, data_povoamento, data_preparacao, qtd_povoada, created_at, fornecedor, biomassa_manual, fazendas(nome)")
+        .select("id, nome, status, data_povoamento, data_preparacao, qtd_povoada, preco_milheiro, created_at, fornecedor, biomassa_manual, fazendas(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as Viveiro[], (v) => v.nome);
@@ -1384,8 +1385,17 @@ function EditarViveiroModal({
   const [qtdPovoada, setQtdPovoada] = useState(
     viveiro.qtd_povoada != null ? String(viveiro.qtd_povoada) : "",
   );
+  const [precoMilheiro, setPrecoMilheiro] = useState(
+    viveiro.preco_milheiro != null ? String(viveiro.preco_milheiro) : "",
+  );
   const [fornecedor, setFornecedor] = useState(viveiro.fornecedor ?? "");
   const [loading, setLoading] = useState(false);
+  const qc = useQueryClient();
+
+  const qtdNum = Number(qtdPovoada.replace(",", ".")) || 0;
+  const precoNum = Number(precoMilheiro.replace(",", ".")) || 0;
+  const custoLarvas = qtdNum > 0 && precoNum > 0 ? qtdNum * precoNum : 0;
+  const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1395,18 +1405,53 @@ function EditarViveiroModal({
       if (qtd != null && (isNaN(qtd) || qtd < 0)) throw new Error("Quantidade inválida.");
       // Ao povoar (colocar as pós-larvas), o viveiro é ativado automaticamente
       const novoStatus = dataPovoamento ? "ativo" : viveiro.status;
+      const preco = precoMilheiro.trim() === "" ? null : Number(precoMilheiro.replace(",", "."));
+      if (preco != null && (isNaN(preco) || preco < 0)) throw new Error("Preço por milheiro inválido.");
       const { error } = await supabase
         .from("viveiros")
         .update({
           data_povoamento: dataPovoamento || null,
           data_preparacao: dataPreparacao || null,
           qtd_povoada: qtd,
+          preco_milheiro: preco,
           fornecedor: fornecedor.trim() || null,
           status: novoStatus,
         })
         .eq("id", viveiro.id);
       if (error) throw error;
-      toast.success(dataPovoamento && viveiro.status !== "ativo" ? "Viveiro povoado e ativado!" : "Viveiro atualizado!");
+
+      // Lançar automático (ou atualizar) a despesa das pós-larvas no caixa deste viveiro
+      let lancouCaixa = false;
+      const custo = qtd != null && preco != null && qtd > 0 && preco > 0 ? qtd * preco : 0;
+      if (custo > 0 && dataPovoamento) {
+        const { data: u } = await supabase.auth.getUser();
+        const userId = u.user?.id;
+        if (userId) {
+          const desc = `Povoamento: ${qtd} milheiros × ${brl(preco)}/milheiro${fornecedor.trim() ? ` — ${fornecedor.trim()}` : ""}`;
+          const { data: existentes } = await supabase
+            .from("caixa_lancamentos")
+            .select("id")
+            .eq("viveiro_id", viveiro.id)
+            .eq("categoria", "povoamento")
+            .limit(1);
+          if (existentes && existentes.length > 0) {
+            await supabase.from("caixa_lancamentos").update({
+              descricao: desc, valor: custo, data_lancamento: dataPovoamento, tipo: "despesa",
+            }).eq("id", existentes[0].id);
+          } else {
+            await supabase.from("caixa_lancamentos").insert({
+              user_id: userId, viveiro_id: viveiro.id, data_lancamento: dataPovoamento,
+              descricao: desc, categoria: "povoamento", valor: custo, tipo: "despesa",
+            });
+          }
+          lancouCaixa = true;
+          qc.invalidateQueries({ queryKey: ["caixa"] });
+        }
+      }
+
+      toast.success(lancouCaixa
+        ? `Povoamento salvo · ${brl(custo)} lançado no caixa do viveiro`
+        : (dataPovoamento && viveiro.status !== "ativo" ? "Viveiro povoado e ativado!" : "Viveiro atualizado!"));
       onSaved();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao salvar";
@@ -1476,17 +1521,41 @@ function EditarViveiroModal({
             Colocou a data errada sem querer? Toque em <span className="font-semibold">Zerar</span> e salve — os dias voltam pra zero.
           </p>
         </div>
-        <Field label="Quantidade de pós-larvas">
+        <Field label="Quantidade de pós-larvas (em milheiros)">
           <input
             type="number"
             inputMode="numeric"
             min="0"
             value={qtdPovoada}
             onChange={(e) => setQtdPovoada(e.target.value)}
-            placeholder="0"
+            placeholder="Ex: 400 (= 400 mil)"
             className="input"
           />
         </Field>
+        <div className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="size-9 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">🦐</div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-tight">Preço por milheiro (R$)</p>
+              <p className="text-[11px] text-muted-foreground">Ao preencher, o custo das pós-larvas é <span className="font-semibold text-emerald-600">lançado automático no Caixa</span> deste viveiro. Deixe em branco pra não lançar.</p>
+            </div>
+          </div>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={precoMilheiro}
+            onChange={(e) => setPrecoMilheiro(e.target.value.replace(/[^0-9.,]/g, ""))}
+            placeholder="Ex: 14,00"
+            className="input"
+          />
+          {custoLarvas > 0 && (
+            <div className="rounded-xl bg-card border p-3 text-sm">
+              <span className="text-muted-foreground">{qtdNum.toLocaleString("pt-BR")} milheiros × {brl(precoNum)} = </span>
+              <span className="font-black text-emerald-600 text-base">{brl(custoLarvas)}</span>
+              {!dataPovoamento && <p className="text-[11px] text-amber-600 font-medium mt-1">⚠️ Defina a data de povoamento acima pra lançar no caixa.</p>}
+            </div>
+          )}
+        </div>
         <Field label="Laboratório / Fornecedor">
           <input
             value={fornecedor}
