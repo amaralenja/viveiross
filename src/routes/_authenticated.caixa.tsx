@@ -472,19 +472,19 @@ function CaixaPage() {
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState<string>("kg");
   const [socioId, setSocioId] = useState<string>("");
-  const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<{ vivs: string[]; resumo: boolean }>({ vivs: [], resumo: false });
   const [scrollAnim, setScrollAnim] = useState<boolean>(() => {
     try { return localStorage.getItem("caixa_scroll_anim") !== "0"; } catch { return true; }
   });
-  function triggerScrollHighlight(target: string) {
-    setHighlightTarget(target);
+  function triggerScrollHighlight(vivs: string[], resumo: boolean) {
+    setHighlight({ vivs, resumo });
     setTimeout(() => {
-      const el = target === "__resumo__"
-        ? document.getElementById("caixa-resumo")
-        : document.querySelector(`[data-viv-card="${target}"]`);
+      const el = vivs.length > 0
+        ? document.querySelector(`[data-viv-card="${vivs[0]}"]`)
+        : (resumo ? document.getElementById("caixa-resumo") : null);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 150);
-    setTimeout(() => setHighlightTarget(null), 2800);
+    setTimeout(() => setHighlight({ vivs: [], resumo: false }), 2800);
   }
 
   const compraMut = useMutation({
@@ -745,10 +745,13 @@ function CaixaPage() {
     onSuccess: () => {
       toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada e estoque atualizado!");
       if (scrollAnim) {
-        let target = "__resumo__";
-        if (selectedViveiros.size === 1) target = Array.from(selectedViveiros)[0];
-        else if (selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") target = viveiroId;
-        triggerScrollHighlight(target);
+        let vivs: string[] = [];
+        let resumo = false;
+        if (selectedViveiros.size > 0) vivs = Array.from(selectedViveiros);
+        else if (viveiroId === NAO_RATEADO) resumo = true;
+        else if (viveiroId === TODOS || viveiroId === "") vivs = viveiros.map((v) => v.id);
+        else vivs = [viveiroId];
+        triggerScrollHighlight(vivs, resumo);
       }
       setProdutoId("");
       setDescricao("");
@@ -973,7 +976,7 @@ function CaixaPage() {
       </form>
 
       {/* Resumo geral */}
-      <section id="caixa-resumo" className={`rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3 transition-all duration-500 ${highlightTarget === "__resumo__" ? "ring-4 ring-primary ring-offset-2 shadow-xl shadow-primary/30" : ""}`}>
+      <section id="caixa-resumo" className={`rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3 transition-all duration-500 ${highlight.resumo ? "ring-4 ring-primary ring-offset-2 shadow-xl shadow-primary/30" : ""}`}>
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             Saldo geral
@@ -1074,7 +1077,7 @@ function CaixaPage() {
               <div
                 key={v.id}
                 data-viv-card={v.id}
-                className={`w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 transition-all duration-500 hover:shadow-md ${highlightTarget === v.id ? "ring-4 ring-primary ring-offset-2 shadow-xl shadow-primary/30" : ""}`}
+                className={`w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 transition-all duration-500 hover:shadow-md ${highlight.vivs.includes(v.id) ? "ring-4 ring-primary ring-offset-2 shadow-xl shadow-primary/30" : ""}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
