@@ -179,6 +179,14 @@ function PessoalTab() {
     onSuccess: (_d, v) => { toast.success(v.arquivar ? "Conta arquivada" : "Conta desarquivada"); setReportPessoa(null); qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
     onError: (e: Error) => toast.error(e.message),
   });
+  const desarquivarTodasMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("categorias_financeiro").update({ arquivada: false }).eq("arquivada", true);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Todas as contas desarquivadas"); setVerArquivados(false); qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); }
   function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); setReportPessoa(null); setShowForm(true); }
@@ -305,6 +313,13 @@ function PessoalTab() {
       </div>
 
       <p className="text-[11px] text-muted-foreground px-0.5">{verArquivados ? "Contas arquivadas — toque pra ver ou desarquivar." : "Toque numa pessoa pra ver o histórico."} Saldo = Crédito − Débito · <span className="text-blue-600 font-semibold">azul</span> = a favor · <span className="text-rose-600 font-semibold">vermelho</span> = negativo.</p>
+
+      {verArquivados && pessoasList.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => { if (confirm("Desarquivar TODAS as contas?")) desarquivarTodasMut.mutate(); }} disabled={desarquivarTodasMut.isPending} className="h-11 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-muted disabled:opacity-40"><ArchiveRestore className="size-4" />Desarquivar todas</button>
+          <button onClick={pdfGeral} className="h-11 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-muted"><FileDown className="size-4" />Imprimir todas (PDF)</button>
+        </div>
+      )}
 
       <div className="space-y-2.5">
         {pessoasList.map((nome) => {

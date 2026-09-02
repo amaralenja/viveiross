@@ -221,6 +221,14 @@ function RelatoriosPage() {
     onSuccess: (_d, v) => { toast.success(v.arquivar ? "Viveiro arquivado" : "Viveiro desarquivado"); qc.invalidateQueries({ queryKey: ["viveiros", "relatorio"] }); },
     onError: (e: Error) => toast.error(e.message),
   });
+  const desarquivarTodosVivMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("viveiros").update({ arquivado: false }).eq("arquivado", true);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Todos os viveiros desarquivados"); setVerArquivados(false); qc.invalidateQueries({ queryKey: ["viveiros", "relatorio"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const totais = useMemo(() => {
     const base = linhas.reduce(
@@ -887,6 +895,13 @@ function RelatoriosPage() {
         <button onClick={() => setVerArquivados(false)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition ${!verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Ativos</button>
         <button onClick={() => setVerArquivados(true)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1 ${verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}><Archive className="size-3.5" />Arquivados{qtdArquivados > 0 ? ` (${qtdArquivados})` : ""}</button>
       </div>
+
+      {verArquivados && linhas.length > 0 && (
+        <div className="no-print grid grid-cols-2 gap-2">
+          <button onClick={() => { if (confirm("Desarquivar TODOS os viveiros?")) desarquivarTodosVivMut.mutate(); }} disabled={desarquivarTodosVivMut.isPending} className="h-11 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-muted disabled:opacity-40"><ArchiveRestore className="size-4" />Desarquivar todos</button>
+          <button onClick={() => exportPdf()} className="h-11 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-muted"><FileDown className="size-4" />Imprimir todos (PDF)</button>
+        </div>
+      )}
 
       {linhas.length === 0 ? (
         <p className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
