@@ -292,7 +292,9 @@ function ProdutosPage() {
     const prod = produtos.find((x) => x && x.id === e.produto_id);
     const qtyNorm = prod ? normalizeQuantity(Number(e.quantidade ?? 0), e.unidade, prod.unidade) : Number(e.quantidade ?? 0);
     const cur = saldoPorProduto.get(e.produto_id) ?? { entradas: 0, saidas: 0 };
-    cur.entradas += Number.isNaN(qtyNorm) ? 0 : qtyNorm;
+    const q = Number.isNaN(qtyNorm) ? 0 : qtyNorm;
+    if (q >= 0) cur.entradas += q;
+    else cur.saidas += -q; // ajuste/zeragem negativo conta como saída
     saldoPorProduto.set(e.produto_id, cur);
   }
   for (const c of consumo) {
@@ -1220,10 +1222,10 @@ function EstoqueView({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                      <span className="text-emerald-600 font-semibold">+ {formatNumber(s.entradas)} {p.unidade}</span>
-                      <span className="text-muted-foreground/40">|</span>
-                      <span className="text-rose-600 font-semibold">- {formatNumber(s.saidas)} {p.unidade}</span>
+                    <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                      <span className="text-emerald-600 font-semibold">Entrada: {formatNumber(s.entradas)} {getUnidadeBase(p.unidade)}</span>
+                      <span className="text-muted-foreground/40">·</span>
+                      <span className="text-rose-600 font-semibold">Saída: {formatNumber(s.saidas)} {getUnidadeBase(p.unidade)}</span>
                     </div>
 
                     <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden mt-1">
@@ -1240,8 +1242,9 @@ function EstoqueView({
                       onClick={() => setExpandidoId(aberto ? null : p.id)}
                       className="text-right min-w-[60px]"
                     >
-                      <span className={`text-lg font-black tabular-nums block ${zerado ? "text-red-600" : "text-foreground"}`}>
-                        {formatNumber(saldo)}
+                      <span className="text-[9px] uppercase text-muted-foreground font-bold block">Saldo</span>
+                      <span className={`text-lg font-black tabular-nums block leading-none ${zerado ? "text-red-600" : "text-foreground"}`}>
+                        {formatNumber(saldo)} <span className="text-[10px] font-semibold text-muted-foreground">{getUnidadeBase(p.unidade)}</span>
                       </span>
                       <span className="text-[10px] text-primary font-semibold hover:underline">
                         {aberto ? "Ocultar ▲" : `Histórico ▼`}

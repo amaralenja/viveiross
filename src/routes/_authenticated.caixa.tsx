@@ -461,7 +461,7 @@ function CaixaPage() {
   const [detailView, setDetailView] = useState<ViveiroRel | null>(null);
 
   const [tipo, setTipo] = useState<"despesa" | "receita">("receita");
-  const [viveiroId, setViveiroId] = useState<string>(TODOS);
+  const [viveiroId, setViveiroId] = useState<string>("");
   const [selectedViveiros, setSelectedViveiros] = useState<Set<string>>(new Set());
   const [data, setData] = useState(todayLocal());
   const [produtoId, setProdutoId] = useState("");
@@ -673,6 +673,7 @@ function CaixaPage() {
       if (!userId) throw new Error("Sessão expirada.");
       if (!descricao.trim()) throw new Error("Informe a descrição.");
       if (!valorFinal || valorFinal <= 0) throw new Error("Informe o valor.");
+      if (!viveiroId || viveiroId === TODOS || viveiroId === NAO_RATEADO) throw new Error("Toque no viveiro da venda.");
       const qNum = Number(qtd.replace(",", ".")) || 0;
       const isNR = viveiroId === NAO_RATEADO;
       const isMulti = selectedViveiros.size > 0;
@@ -744,14 +745,8 @@ function CaixaPage() {
     },
     onSuccess: () => {
       toast.success(tipo === "receita" ? "Receita registrada" : "Despesa registrada e estoque atualizado!");
-      if (scrollAnim) {
-        let vivs: string[] = [];
-        let resumo = false;
-        if (selectedViveiros.size > 0) vivs = Array.from(selectedViveiros);
-        else if (viveiroId === NAO_RATEADO) resumo = true;
-        else if (viveiroId === TODOS || viveiroId === "") vivs = viveiros.map((v) => v.id);
-        else vivs = [viveiroId];
-        triggerScrollHighlight(vivs, resumo);
+      if (scrollAnim && viveiroId && viveiroId !== TODOS && viveiroId !== NAO_RATEADO) {
+        triggerScrollHighlight([viveiroId], false);
       }
       setProdutoId("");
       setDescricao("");
@@ -846,8 +841,6 @@ function CaixaPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          const vaiRatear = selectedViveiros.size === 0 && viveiroId === TODOS;
-          if (vaiRatear && !confirm("Atenção: o destino está em \"🔄 Rateado (todos)\", então o valor será DIVIDIDO entre TODOS os viveiros.\n\nSe for pra um viveiro só, cancele e toque no viveiro (ele fica azul). Continuar rateando?")) return;
           saveMut.mutate();
         }}
         className="space-y-4 rounded-2xl bg-card border p-5"
@@ -861,42 +854,21 @@ function CaixaPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Viveiro">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => { setViveiroId(TODOS); setSelectedViveiros(new Set()); }}
-                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === TODOS ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
-                  🔄 Rateado (todos)
-                </button>
-                <button type="button" onClick={() => { setViveiroId(NAO_RATEADO); setSelectedViveiros(new Set()); }}
-                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === NAO_RATEADO ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
-                  🚫 Não rateado
-                </button>
-              </div>
+          <Field label="Viveiro da venda">
+            <div className="space-y-2">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 {viveiros.map((v) => {
-                  const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
+                  const isSelected = viveiroId === v.id;
                   return (
-                    <button key={v.id} type="button" onClick={() => {
-                      const n = new Set(selectedViveiros);
-                      if (n.has(v.id)) { n.delete(v.id); } else {
-                        if (n.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "" && viveiroId !== v.id) n.add(viveiroId);
-                        n.add(v.id);
-                      }
-                      if (n.size === 0) setViveiroId(TODOS);
-                      setSelectedViveiros(n);
-                    }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                    <button key={v.id} type="button" onClick={() => { setViveiroId(v.id); setSelectedViveiros(new Set()); }}
+                      className={`py-2 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
                       {isSelected ? "✓ " : ""}{v.nome}
                     </button>
                   );
                 })}
               </div>
-              {selectedViveiros.size > 0 && (
-                <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiro(s) — valor de <strong>{fmtBRL(valorFinal)}</strong> dividido em <strong>{fmtBRL(valorFinal / selectedViveiros.size)}</strong> cada</p>
-              )}
-              {(selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") && (
-                <p className="text-[11px] text-muted-foreground">1 viveiro selecionado. Toque em outros para adicionar mais.</p>
-              )}
+              {viveiros.length === 0 && <p className="text-[11px] text-muted-foreground">Nenhum viveiro ativo.</p>}
+              {!viveiroId && <p className="text-[11px] text-amber-600 font-medium">Toque no viveiro da venda.</p>}
             </div>
           </Field>
           <Field label="Data">
