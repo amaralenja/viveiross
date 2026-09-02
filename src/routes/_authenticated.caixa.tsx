@@ -472,7 +472,6 @@ function CaixaPage() {
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState<string>("kg");
   const [socioId, setSocioId] = useState<string>("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const compraMut = useMutation({
     mutationFn: async (compraData: {
@@ -820,6 +819,204 @@ function CaixaPage() {
         </div>
         <BtnTutorial videoId="WDe74R9yfes" label="Caixa" />
       </div>
+      {/* Form */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          saveMut.mutate();
+        }}
+        className="space-y-4 rounded-2xl bg-card border p-5"
+      >
+        <h2 className="font-bold">Novo lançamento</h2>
+
+        <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
+          <button
+            type="button"
+            onClick={() => setTipo("despesa")}
+            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "despesa" ? "bg-destructive text-destructive-foreground shadow" : "text-muted-foreground"}`}
+          >
+            <TrendingDown className="size-4" /> Despesa
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipo("receita")}
+            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow" : "text-muted-foreground"}`}
+          >
+            <TrendingUp className="size-4" /> Receita
+          </button>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Viveiro">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { setViveiroId(TODOS); setSelectedViveiros(new Set()); }}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === TODOS ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                  🔄 Rateado (todos)
+                </button>
+                <button type="button" onClick={() => { setViveiroId(NAO_RATEADO); setSelectedViveiros(new Set()); }}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === NAO_RATEADO ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                  🚫 Não rateado
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {viveiros.map((v) => {
+                  const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
+                  return (
+                    <button key={v.id} type="button" onClick={() => {
+                      const n = new Set(selectedViveiros);
+                      if (n.has(v.id)) { n.delete(v.id); } else {
+                        if (n.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "" && viveiroId !== v.id) n.add(viveiroId);
+                        n.add(v.id);
+                      }
+                      if (n.size === 0) setViveiroId(TODOS);
+                      setSelectedViveiros(n);
+                    }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
+                      {isSelected ? "✓ " : ""}{v.nome}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedViveiros.size > 0 && (
+                <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiro(s) — valor de <strong>{fmtBRL(valorFinal)}</strong> dividido em <strong>{fmtBRL(valorFinal / selectedViveiros.size)}</strong> cada</p>
+              )}
+              {(selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") && (
+                <p className="text-[11px] text-muted-foreground">1 viveiro selecionado. Toque em outros para adicionar mais.</p>
+              )}
+            </div>
+          </Field>
+          <Field label="Data">
+            <input
+              required
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="app-input"
+            />
+          </Field>
+        </div>
+
+
+        <Field label="Descrição">
+          <input
+            required
+            value={descricao}
+            onChange={(e) => {
+              setDescricao(e.target.value);
+              setProdutoId("");
+            }}
+            className="app-input"
+            placeholder="Ex: Ração 40%, energia, transporte..."
+          />
+        </Field>
+
+        <Field label="Categoria (opcional)">
+          <input
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            className="app-input"
+            placeholder="Ex: ração, energia, manutenção"
+          />
+        </Field>
+
+        <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            Calcular por preço × quantidade (opcional)
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={`Preço por ${selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") ? selectedEmb.unidadeBase : (unidade || "un")} (R$)`}>
+              <input
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9.,]*"
+                value={precoKg}
+                onChange={(e) => setPrecoKg(e.target.value.replace(/[^0-9.,]/g, ""))}
+                className="app-input font-bold"
+                placeholder="Ex: 5,00"
+              />
+            </Field>
+            <Field label="Quantidade">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9.,]*"
+                  value={qtd}
+                  onChange={(e) => setQtd(e.target.value.replace(/[^0-9.,]/g, ""))}
+                  className="app-input flex-1 font-bold"
+                  placeholder="Ex: 1"
+                />
+                {selectedEmb.temEmbalagem ? (
+                  <select
+                    value={unidade}
+                    onChange={(e) => setUnidade(e.target.value)}
+                    className="app-input w-36 font-semibold text-primary"
+                  >
+                    <option value={selectedEmb.tipoEmbalagem}>{selectedEmb.tipoEmbalagem} ({selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase})</option>
+                    {selectedEmb.unidadeBase === "kg" && <option value="g">g (gramas)</option>}
+                    <option value={selectedEmb.unidadeBase}>{selectedEmb.unidadeBase}</option>
+                    {selectedEmb.unidadeBase === "litro" && <option value="ml">ml (mililitro)</option>}
+                  </select>
+                ) : (
+                  <select
+                    value={unidade}
+                    onChange={(e) => setUnidade(e.target.value)}
+                    className="app-input w-24"
+                  >
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="saco">saco</option>
+                    <option value="sacola">sacola</option>
+                    <option value="litro">litro</option>
+                    <option value="un">unidade</option>
+                  </select>
+                )}
+              </div>
+            </Field>
+          </div>
+
+          {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") && Number(qtd) > 0 && selectedEmb.pesoEmbalagem && (
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+              💡 {qtd} {selectedEmb.tipoEmbalagem}(s) de {selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase} = <strong className="text-foreground">{Number(qtd) * selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase}</strong> no estoque
+              {precoKg && ` (R$ ${(Number(precoKg.replace(",", ".")) * selectedEmb.pesoEmbalagem).toFixed(2)} por ${selectedEmb.tipoEmbalagem})`}
+            </div>
+          )}
+          {(unidade === "g" || unidade === "ml") && (selectedEmb.unidadeBase === "kg" || selectedEmb.unidadeBase === "litro") && Number(qtd) > 0 && (
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+              💡 {qtd} {unidade} = <strong className="text-foreground">{(Number(qtd) / 1000).toFixed(3)} {selectedEmb.unidadeBase}</strong>
+            </div>
+          )}
+
+          {valorAuto > 0 && (
+            <p className="text-sm">
+              Valor total calculado:{" "}
+              <span className="font-bold text-emerald-600 text-base">{fmtBRL(valorAuto)}</span>
+            </p>
+          )}
+        </div>
+
+
+
+        <Field label={valorAuto > 0 ? "Valor (auto)" : "Valor total (R$)"}>
+          <input
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9.,]*"
+            value={valorAuto > 0 ? valorAuto.toFixed(2) : valorManual}
+            disabled={valorAuto > 0}
+            onChange={(e) => setValorManual(e.target.value.replace(/[^0-9.,]/g, ""))}
+            className="app-input disabled:opacity-70"
+            placeholder="Ex: 150,00"
+          />
+        </Field>
+
+        <button
+          disabled={saveMut.isPending}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+        >
+          {saveMut.isPending ? "Salvando..." : "Salvar"}
+        </button>
+      </form>
 
       {/* Resumo geral */}
       <section className="rounded-2xl border bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-3">
@@ -1079,250 +1276,6 @@ function CaixaPage() {
         </section>
       )}
 
-      {/* Form */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          saveMut.mutate();
-        }}
-        className="space-y-4 rounded-2xl bg-card border p-5"
-      >
-        <h2 className="font-bold">Novo lançamento</h2>
-
-        <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
-          <button
-            type="button"
-            onClick={() => setTipo("despesa")}
-            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "despesa" ? "bg-destructive text-destructive-foreground shadow" : "text-muted-foreground"}`}
-          >
-            <TrendingDown className="size-4" /> Despesa
-          </button>
-          <button
-            type="button"
-            onClick={() => setTipo("receita")}
-            className={`h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow" : "text-muted-foreground"}`}
-          >
-            <TrendingUp className="size-4" /> Receita
-          </button>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Viveiro">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => { setViveiroId(TODOS); setSelectedViveiros(new Set()); }}
-                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === TODOS ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
-                  🔄 Rateado (todos)
-                </button>
-                <button type="button" onClick={() => { setViveiroId(NAO_RATEADO); setSelectedViveiros(new Set()); }}
-                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${selectedViveiros.size === 0 && viveiroId === NAO_RATEADO ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
-                  🚫 Não rateado
-                </button>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                {viveiros.map((v) => {
-                  const isSelected = selectedViveiros.has(v.id) || (selectedViveiros.size === 0 && v.id === viveiroId);
-                  return (
-                    <button key={v.id} type="button" onClick={() => {
-                      const n = new Set(selectedViveiros);
-                      if (n.has(v.id)) { n.delete(v.id); } else {
-                        if (n.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "" && viveiroId !== v.id) n.add(viveiroId);
-                        n.add(v.id);
-                      }
-                      if (n.size === 0) setViveiroId(TODOS);
-                      setSelectedViveiros(n);
-                    }} className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-left truncate ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:bg-muted text-muted-foreground"}`}>
-                      {isSelected ? "✓ " : ""}{v.nome}
-                    </button>
-                  );
-                })}
-              </div>
-              {selectedViveiros.size > 0 && (
-                <p className="text-[11px] text-muted-foreground">{selectedViveiros.size} viveiro(s) — valor de <strong>{fmtBRL(valorFinal)}</strong> dividido em <strong>{fmtBRL(valorFinal / selectedViveiros.size)}</strong> cada</p>
-              )}
-              {(selectedViveiros.size === 0 && viveiroId !== TODOS && viveiroId !== NAO_RATEADO && viveiroId !== "") && (
-                <p className="text-[11px] text-muted-foreground">1 viveiro selecionado. Toque em outros para adicionar mais.</p>
-              )}
-            </div>
-          </Field>
-          <Field label="Data">
-            <input
-              required
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              className="app-input"
-            />
-          </Field>
-        </div>
-
-
-        {tipo === "despesa" && (
-          <Field label="📦 Selecionar Produto Cadastrado (Opcional - Puxa valor e Aumenta o Estoque)">
-            <select
-              value={produtoId}
-              onChange={(e) => {
-                const pId = e.target.value;
-                setProdutoId(pId);
-                const prod = listaProdutos.find((p) => p.id === pId);
-                if (prod) {
-                  const emb = parseProdutoEmbalagem(prod.unidade);
-                  setDescricao(prod.nome);
-                  if (prod.categoria) setCategoria(prod.categoria);
-                  if (prod.preco_unidade && prod.preco_unidade > 0) {
-                    setPrecoKg(String(prod.preco_unidade));
-                  }
-                  if (emb.temEmbalagem) {
-                    setUnidade(emb.tipoEmbalagem || "saco");
-                  } else {
-                    setUnidade(emb.unidadeBase || "kg");
-                  }
-                }
-              }}
-              className="app-input border-primary/40 bg-primary/5 font-semibold text-primary"
-            >
-              <option value="">— Nenhum produto (Lançamento manual / Serviço) —</option>
-              {listaProdutos.map((p) => {
-                const emb = parseProdutoEmbalagem(p.unidade);
-                let labelPreco = "";
-                if (p.preco_unidade) {
-                  if (emb.temEmbalagem && emb.pesoEmbalagem) {
-                    const precoSaco = p.preco_unidade * emb.pesoEmbalagem;
-                    labelPreco = `(R$ ${p.preco_unidade.toFixed(2)}/${emb.unidadeBase} · R$ ${precoSaco.toFixed(2)}/${emb.tipoEmbalagem} de ${emb.pesoEmbalagem}${emb.unidadeBase})`;
-                  } else {
-                    labelPreco = `(R$ ${p.preco_unidade.toFixed(2)} / ${emb.unidadeBase})`;
-                  }
-                }
-                return (
-                  <option key={p.id} value={p.id}>
-                    📦 {p.nome} {labelPreco}
-                  </option>
-                );
-              })}
-            </select>
-          </Field>
-        )}
-
-        <Field label="Descrição">
-          <input
-            required
-            value={descricao}
-            onChange={(e) => {
-              setDescricao(e.target.value);
-              setProdutoId("");
-            }}
-            className="app-input"
-            placeholder="Ex: Ração 40%, energia, transporte..."
-          />
-        </Field>
-
-        <Field label="Categoria (opcional)">
-          <input
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-            className="app-input"
-            placeholder="Ex: ração, energia, manutenção"
-          />
-        </Field>
-
-        <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Calcular por preço × quantidade (opcional)
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={`Preço por ${selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") ? selectedEmb.unidadeBase : (unidade || "un")} (R$)`}>
-              <input
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9.,]*"
-                value={precoKg}
-                onChange={(e) => setPrecoKg(e.target.value.replace(/[^0-9.,]/g, ""))}
-                className="app-input font-bold"
-                placeholder="Ex: 5,00"
-              />
-            </Field>
-            <Field label="Quantidade">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  pattern="[0-9.,]*"
-                  value={qtd}
-                  onChange={(e) => setQtd(e.target.value.replace(/[^0-9.,]/g, ""))}
-                  className="app-input flex-1 font-bold"
-                  placeholder="Ex: 1"
-                />
-                {selectedEmb.temEmbalagem ? (
-                  <select
-                    value={unidade}
-                    onChange={(e) => setUnidade(e.target.value)}
-                    className="app-input w-36 font-semibold text-primary"
-                  >
-                    <option value={selectedEmb.tipoEmbalagem}>{selectedEmb.tipoEmbalagem} ({selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase})</option>
-                    {selectedEmb.unidadeBase === "kg" && <option value="g">g (gramas)</option>}
-                    <option value={selectedEmb.unidadeBase}>{selectedEmb.unidadeBase}</option>
-                    {selectedEmb.unidadeBase === "litro" && <option value="ml">ml (mililitro)</option>}
-                  </select>
-                ) : (
-                  <select
-                    value={unidade}
-                    onChange={(e) => setUnidade(e.target.value)}
-                    className="app-input w-24"
-                  >
-                    <option value="kg">kg</option>
-                    <option value="g">g</option>
-                    <option value="saco">saco</option>
-                    <option value="sacola">sacola</option>
-                    <option value="litro">litro</option>
-                    <option value="un">unidade</option>
-                  </select>
-                )}
-              </div>
-            </Field>
-          </div>
-
-          {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") && Number(qtd) > 0 && selectedEmb.pesoEmbalagem && (
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
-              💡 {qtd} {selectedEmb.tipoEmbalagem}(s) de {selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase} = <strong className="text-foreground">{Number(qtd) * selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase}</strong> no estoque
-              {precoKg && ` (R$ ${(Number(precoKg.replace(",", ".")) * selectedEmb.pesoEmbalagem).toFixed(2)} por ${selectedEmb.tipoEmbalagem})`}
-            </div>
-          )}
-          {(unidade === "g" || unidade === "ml") && (selectedEmb.unidadeBase === "kg" || selectedEmb.unidadeBase === "litro") && Number(qtd) > 0 && (
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
-              💡 {qtd} {unidade} = <strong className="text-foreground">{(Number(qtd) / 1000).toFixed(3)} {selectedEmb.unidadeBase}</strong>
-            </div>
-          )}
-
-          {valorAuto > 0 && (
-            <p className="text-sm">
-              Valor total calculado:{" "}
-              <span className="font-bold text-emerald-600 text-base">{fmtBRL(valorAuto)}</span>
-            </p>
-          )}
-        </div>
-
-
-
-        <Field label={valorAuto > 0 ? "Valor (auto)" : "Valor total (R$)"}>
-          <input
-            type="text"
-            inputMode="decimal"
-            pattern="[0-9.,]*"
-            value={valorAuto > 0 ? valorAuto.toFixed(2) : valorManual}
-            disabled={valorAuto > 0}
-            onChange={(e) => setValorManual(e.target.value.replace(/[^0-9.,]/g, ""))}
-            className="app-input disabled:opacity-70"
-            placeholder="Ex: 150,00"
-          />
-        </Field>
-
-        <button
-          disabled={saveMut.isPending}
-          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
-        >
-          {saveMut.isPending ? "Salvando..." : "Salvar"}
-        </button>
-      </form>
 
       {!isLoading && lancamentos.length === 0 && (
         <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
@@ -1330,129 +1283,6 @@ function CaixaPage() {
         </div>
       )}
 
-      {lancamentos.length > 0 && (
-        <section className="rounded-2xl bg-card border p-5 space-y-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div>
-              <h2 className="font-bold">Histórico geral</h2>
-              <p className="text-xs text-muted-foreground">
-                {selectedIds.size > 0
-                  ? `${selectedIds.size} selecionado(s)`
-                  : `${lancamentos.length} lançamento(s)`}
-              </p>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {selectedIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="h-9 px-3 rounded-lg border text-xs font-semibold hover:bg-muted"
-                >
-                  Limpar
-                </button>
-              )}
-              <button
-                type="button"
-                disabled={selectedIds.size === 0}
-                onClick={() => {
-                  const rows = lancamentos.filter((l) => selectedIds.has(l.id));
-                  const doc = new jsPDF();
-                  buildFlatPDF(doc, rows, viveiroMap, "Caixa · Selecionados");
-                  openPdf(doc, `caixa-selecionados-${new Date().toISOString().slice(0, 10)}.pdf`);
-                  toast.success("PDF gerado");
-                }}
-                className="h-9 px-3 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 disabled:opacity-40 flex items-center gap-1.5"
-              >
-                <FileDown className="size-3.5" /> Imprimir selecionados
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const doc = new jsPDF();
-                  buildFlatPDF(doc, lancamentos, viveiroMap, "Caixa · Histórico completo");
-                  openPdf(doc, `caixa-completo-${new Date().toISOString().slice(0, 10)}.pdf`);
-                  toast.success("PDF gerado");
-                }}
-                className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 flex items-center gap-1.5"
-              >
-                <Download className="size-3.5" /> Imprimir tudo
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 pb-2 border-b">
-            <input
-              type="checkbox"
-              checked={selectedIds.size === lancamentos.length && lancamentos.length > 0}
-              onChange={(e) => {
-                if (e.target.checked) setSelectedIds(new Set(lancamentos.map((l) => l.id)));
-                else setSelectedIds(new Set());
-              }}
-              className="size-4"
-            />
-            <span className="text-xs font-semibold text-muted-foreground">Selecionar todos</span>
-          </div>
-
-          <ul className="divide-y">
-            {lancamentos.map((l) => {
-              const checked = selectedIds.has(l.id);
-              const vivLabel = l.categoria === NR_CAT
-                ? "Não rateado"
-                : l.viveiro_id
-                  ? (viveiroMap.get(l.viveiro_id) ?? "—")
-                  : "Rateado";
-              return (
-                <li key={l.id} className="flex items-center gap-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(e) => {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(l.id);
-                        else next.delete(l.id);
-                        return next;
-                      });
-                    }}
-                    className="size-4 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{l.descricao}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {fmtDate(l.data_lancamento)} · {vivLabel}
-                    </p>
-                  </div>
-                  <span
-                    className={`font-semibold tabular-nums text-sm shrink-0 ${l.tipo === "receita" ? "text-emerald-600" : "text-destructive"}`}
-                  >
-                    {l.tipo === "receita" ? "+" : "−"} {fmtBRL(Number(l.valor ?? 0))}
-                  </span>
-                  <div className="flex gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(l)}
-                      className="size-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center justify-center"
-                      aria-label="Editar"
-                    >
-                      <Pencil className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(`Apagar "${l.descricao}"?`)) delMut.mutate(l.id);
-                      }}
-                      className="size-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                      aria-label="Apagar"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
 
 
 
