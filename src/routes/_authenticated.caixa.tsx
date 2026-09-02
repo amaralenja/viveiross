@@ -846,6 +846,8 @@ function CaixaPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          const vaiRatear = selectedViveiros.size === 0 && viveiroId === TODOS;
+          if (vaiRatear && !confirm("Atenção: o destino está em \"🔄 Rateado (todos)\", então o valor será DIVIDIDO entre TODOS os viveiros.\n\nSe for pra um viveiro só, cancele e toque no viveiro (ele fica azul). Continuar rateando?")) return;
           saveMut.mutate();
         }}
         className="space-y-4 rounded-2xl bg-card border p-5"
