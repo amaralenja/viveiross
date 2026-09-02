@@ -919,93 +919,14 @@ function CaixaPage() {
           />
         </Field>
 
-        <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Calcular por preço × quantidade (opcional)
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={`Preço por ${selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") ? selectedEmb.unidadeBase : (unidade || "un")} (R$)`}>
-              <input
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9.,]*"
-                value={precoKg}
-                onChange={(e) => setPrecoKg(e.target.value.replace(/[^0-9.,]/g, ""))}
-                className="app-input font-bold"
-                placeholder="Ex: 5,00"
-              />
-            </Field>
-            <Field label="Quantidade">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  pattern="[0-9.,]*"
-                  value={qtd}
-                  onChange={(e) => setQtd(e.target.value.replace(/[^0-9.,]/g, ""))}
-                  className="app-input flex-1 font-bold"
-                  placeholder="Ex: 1"
-                />
-                {selectedEmb.temEmbalagem ? (
-                  <select
-                    value={unidade}
-                    onChange={(e) => setUnidade(e.target.value)}
-                    className="app-input w-36 font-semibold text-primary"
-                  >
-                    <option value={selectedEmb.tipoEmbalagem}>{selectedEmb.tipoEmbalagem} ({selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase})</option>
-                    {selectedEmb.unidadeBase === "kg" && <option value="g">g (gramas)</option>}
-                    <option value={selectedEmb.unidadeBase}>{selectedEmb.unidadeBase}</option>
-                    {selectedEmb.unidadeBase === "litro" && <option value="ml">ml (mililitro)</option>}
-                  </select>
-                ) : (
-                  <select
-                    value={unidade}
-                    onChange={(e) => setUnidade(e.target.value)}
-                    className="app-input w-24"
-                  >
-                    <option value="kg">kg</option>
-                    <option value="g">g</option>
-                    <option value="saco">saco</option>
-                    <option value="sacola">sacola</option>
-                    <option value="litro">litro</option>
-                    <option value="un">unidade</option>
-                  </select>
-                )}
-              </div>
-            </Field>
-          </div>
-
-          {selectedEmb.temEmbalagem && (unidade.toLowerCase().includes(selectedEmb.tipoEmbalagem) || unidade === "saco") && Number(qtd) > 0 && selectedEmb.pesoEmbalagem && (
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
-              💡 {qtd} {selectedEmb.tipoEmbalagem}(s) de {selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase} = <strong className="text-foreground">{Number(qtd) * selectedEmb.pesoEmbalagem} {selectedEmb.unidadeBase}</strong> no estoque
-              {precoKg && ` (R$ ${(Number(precoKg.replace(",", ".")) * selectedEmb.pesoEmbalagem).toFixed(2)} por ${selectedEmb.tipoEmbalagem})`}
-            </div>
-          )}
-          {(unidade === "g" || unidade === "ml") && (selectedEmb.unidadeBase === "kg" || selectedEmb.unidadeBase === "litro") && Number(qtd) > 0 && (
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
-              💡 {qtd} {unidade} = <strong className="text-foreground">{(Number(qtd) / 1000).toFixed(3)} {selectedEmb.unidadeBase}</strong>
-            </div>
-          )}
-
-          {valorAuto > 0 && (
-            <p className="text-sm">
-              Valor total calculado:{" "}
-              <span className="font-bold text-emerald-600 text-base">{fmtBRL(valorAuto)}</span>
-            </p>
-          )}
-        </div>
-
-
-
-        <Field label={valorAuto > 0 ? "Valor (auto)" : "Valor total (R$)"}>
+        <Field label="Valor total (R$)">
           <input
             type="text"
             inputMode="decimal"
             pattern="[0-9.,]*"
-            value={valorAuto > 0 ? valorAuto.toFixed(2) : valorManual}
-            disabled={valorAuto > 0}
+            value={valorManual}
             onChange={(e) => setValorManual(e.target.value.replace(/[^0-9.,]/g, ""))}
-            className="app-input disabled:opacity-70"
+            className="app-input"
             placeholder="Ex: 150,00"
           />
         </Field>
