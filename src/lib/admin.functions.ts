@@ -19,7 +19,7 @@ async function sendAccessEmail(to: string, password: string): Promise<{ ok: bool
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: "RESEND_API_KEY não configurada no Vercel." };
   const from = process.env.RESEND_FROM || "Viveiros <no-reply@nota1000.shop>";
-  const loginUrl = process.env.APP_URL || "https://viveiross.lovable.app";
+  const loginUrl = process.env.APP_URL || "https://viveiross.vercel.app";
   const html = `
     <div style="font-family:system-ui,Arial,sans-serif;max-width:480px;margin:0 auto;color:#0f172a">
       <div style="background:#10b981;color:#fff;padding:20px;border-radius:14px 14px 0 0">
@@ -28,11 +28,12 @@ async function sendAccessEmail(to: string, password: string): Promise<{ ok: bool
       <div style="border:1px solid #e2e8f0;border-top:0;padding:20px;border-radius:0 0 14px 14px">
         <p>Seu acesso ao sistema Viveiros foi criado. Use os dados abaixo para entrar:</p>
         <p style="background:#f1f5f9;padding:12px;border-radius:8px;margin:16px 0">
+          <strong>Link de acesso:</strong> <a href="${loginUrl}" style="color:#10b981">${loginUrl}</a><br/>
           <strong>E-mail:</strong> ${to}<br/>
           <strong>Senha:</strong> ${password}
         </p>
         <p><a href="${loginUrl}" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold">Entrar no sistema</a></p>
-        <p style="color:#64748b;font-size:13px;margin-top:16px">Recomendamos trocar a senha após o primeiro acesso.</p>
+        <p style="color:#64748b;font-size:13px;margin-top:16px">Ou copie o link: ${loginUrl}<br/>Recomendamos trocar a senha após o primeiro acesso.</p>
       </div>
     </div>`;
   try {
