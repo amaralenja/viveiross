@@ -103,6 +103,16 @@ type Despesa = {
   observacao: string | null;
 };
 
+type CaixaDespesa = {
+  id: string;
+  viveiro_id: string | null;
+  data_lancamento: string;
+  descricao: string;
+  categoria: string | null;
+  valor: number;
+  tipo: string;
+};
+
 function formatBRL(v: number | null | undefined) {
   if (v == null) return null;
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -151,7 +161,7 @@ function UnidadeSelect({ value, onChange }: { value: string; onChange: (v: strin
 
 function ProdutosPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras">("produtos");
+  const [tab, setTab] = useState<"produtos" | "funcionarios" | "estoque" | "compras" | "despesas">("produtos");
   const [openProd, setOpenProd] = useState(false);
   const [editandoProd, setEditandoProd] = useState<Produto | null>(null);
   const [openFunc, setOpenFunc] = useState(false);
@@ -279,9 +289,25 @@ function ProdutosPage() {
     },
   });
 
+  const caixaDespesasQuery = useQuery({
+    queryKey: ["caixa", "despesas_produtos"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from("caixa_lancamentos")
+          .select("id, viveiro_id, data_lancamento, descricao, categoria, valor, tipo")
+          .eq("tipo", "despesa")
+          .order("data_lancamento", { ascending: false });
+        if (error) { console.error("Erro ao buscar despesas do caixa:", error); return []; }
+        return (data ?? []) as CaixaDespesa[];
+      } catch { return []; }
+    },
+  });
+
   const produtos = produtosQuery.data ?? [];
   const funcionarios = funcionariosQuery.data ?? [];
   const viveiros = viveirosQuery.data ?? [];
+  const caixaDespesas = caixaDespesasQuery.data ?? [];
   const entradas = entradasQuery.data ?? [];
   const consumo = consumoQuery.data ?? [];
   const despesas = despesasQuery.data ?? [];
@@ -435,18 +461,20 @@ function ProdutosPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <BtnTutorial videoId="LBYUg7FA3Mo" label="Produtos" />
-          <button
-            onClick={openNovo}
-            className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
-          >
-            <Plus className="size-5" />
-            {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : "Novo"}
-          </button>
+          {tab !== "despesas" && (
+            <button
+              onClick={openNovo}
+              className="h-12 px-5 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 shrink-0"
+            >
+              <Plus className="size-5" />
+              {tab === "estoque" ? "Entrada" : tab === "compras" ? "Compra" : "Novo"}
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex gap-2 p-1 rounded-xl bg-muted overflow-x-auto">
-        {(["produtos", "estoque", "compras"] as const).map((t) => (
+        {(["produtos", "estoque", "compras", "despesas"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -456,7 +484,7 @@ function ProdutosPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : "Compras"}
+            {t === "produtos" ? "Produtos" : t === "funcionarios" ? "Funcionários" : t === "estoque" ? "Estoque" : t === "compras" ? "Compras" : "Despesas"}
           </button>
         ))}
       </div>
@@ -656,15 +684,7 @@ function ProdutosPage() {
         />
 
       ) : (
-        <DespesasView
-          despesas={despesas}
-          viveiros={viveiros}
-          onNova={() => setOpenDesp(true)}
-          onEdit={(d: Despesa) => setEditandoDesp(d)}
-          onDel={(d: Despesa) => {
-            if (confirm(`Remover "${d.descricao}"?`)) delDespMut.mutate(d.id);
-          }}
-        />
+        <CaixaDespesasView despesas={caixaDespesas} viveiros={viveiros} />
       )}
 
 
@@ -1591,6 +1611,144 @@ async function gerarPdfCompras(
   const pdfUrl = URL.createObjectURL(pdfBlob);
   window.open(pdfUrl, "_blank");
   toast.success("PDF de Compras gerado com sucesso!");
+}
+
+function CaixaDespesasView({ despesas, viveiros }: { despesas: CaixaDespesa[]; viveiros: ViveiroOpt[] }) {
+  const [periodo, setPeriodo] = useState<"mes" | "30d" | "tudo" | "custom">("mes");
+  const [de, setDe] = useState("");
+  const [ate, setAte] = useState("");
+  const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtData = (iso: string) => { const p = (iso || "").slice(0, 10).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; };
+  const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
+  const labelViveiro = (d: CaixaDespesa) =>
+    d.viveiro_id ? (viveiroMap.get(d.viveiro_id) ?? "Viveiro")
+      : d.categoria === "nao_rateado" ? "Isento / Não rateado"
+        : "Rateado (todos)";
+
+  const filtradas = useMemo(() => {
+    const hoje = new Date();
+    let ini: string | null = null, fim: string | null = null;
+    if (periodo === "mes") { const y = hoje.getFullYear(), m = String(hoje.getMonth() + 1).padStart(2, "0"); ini = `${y}-${m}-01`; fim = `${y}-${m}-31`; }
+    else if (periodo === "30d") { const d = new Date(hoje); d.setDate(d.getDate() - 30); ini = d.toISOString().slice(0, 10); fim = hoje.toISOString().slice(0, 10); }
+    else if (periodo === "custom") { ini = de || null; fim = ate || null; }
+    return despesas.filter((x) => {
+      const dt = (x.data_lancamento || "").slice(0, 10);
+      if (ini && dt < ini) return false;
+      if (fim && dt > fim) return false;
+      return true;
+    });
+  }, [despesas, periodo, de, ate]);
+
+  const total = filtradas.reduce((s, x) => s + Number(x.valor ?? 0), 0);
+  const periodoLabel = periodo === "mes" ? "Mês atual" : periodo === "30d" ? "Últimos 30 dias" : periodo === "custom" ? `${de ? fmtData(de) : "início"} a ${ate ? fmtData(ate) : "hoje"}` : "Todo o período";
+
+  const porViveiro = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const x of filtradas) { const k = labelViveiro(x); m.set(k, (m.get(k) ?? 0) + Number(x.valor ?? 0)); }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtradas]);
+
+  async function gerarPdf() {
+    if (filtradas.length === 0) { toast.error("Nada para imprimir nesse período."); return; }
+    const [pdfModule, tableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const jsPDF = pdfModule.default;
+    const autoTable = (tableModule as unknown as { default: (d: unknown, o: unknown) => void }).default;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    doc.setFillColor(220, 38, 38); doc.rect(0, 0, 210, 22, "F");
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+    doc.text("Relatório de Despesas", 14, 14);
+    doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+    doc.text(`Período: ${periodoLabel}`, 14, 30);
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 36);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+    doc.text(`Total: ${brl(total)}`, 14, 45);
+    autoTable(doc, {
+      startY: 50,
+      head: [["Resumo por viveiro", "Total"]],
+      body: porViveiro.map(([nome, v]) => [nome, brl(v)]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [71, 85, 105] },
+      columnStyles: { 1: { halign: "right" } },
+    });
+    const y2 = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60;
+    autoTable(doc, {
+      startY: y2 + 6,
+      head: [["Data", "Descrição", "Viveiro", "Categoria", "Valor"]],
+      body: filtradas.map((x) => [fmtData(x.data_lancamento), x.descricao || "—", labelViveiro(x), x.categoria || "—", brl(Number(x.valor ?? 0))]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [220, 38, 38] },
+      columnStyles: { 4: { halign: "right" } },
+    });
+    doc.save(`despesas-${periodoLabel.replace(/[^0-9A-Za-z]+/g, "-").toLowerCase()}.pdf`);
+    toast.success("PDF gerado");
+  }
+
+  const btnCls = (on: boolean) => `h-9 px-3 rounded-lg text-xs font-bold transition ${on ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Receipt className="size-5 text-destructive" />
+          <div>
+            <h2 className="font-bold text-base">Despesas do Caixa</h2>
+            <p className="text-xs text-muted-foreground">Tudo que foi lançado como despesa, com o viveiro de destino.</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => setPeriodo("mes")} className={btnCls(periodo === "mes")}>Mês atual</button>
+          <button onClick={() => setPeriodo("30d")} className={btnCls(periodo === "30d")}>Últimos 30 dias</button>
+          <button onClick={() => setPeriodo("tudo")} className={btnCls(periodo === "tudo")}>Tudo</button>
+          <button onClick={() => setPeriodo("custom")} className={btnCls(periodo === "custom")}>Personalizado</button>
+        </div>
+        {periodo === "custom" && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs font-semibold text-muted-foreground">De<input type="date" value={de} onChange={(e) => setDe(e.target.value)} className="input mt-1 w-full" /></label>
+            <label className="text-xs font-semibold text-muted-foreground">Até<input type="date" value={ate} onChange={(e) => setAte(e.target.value)} className="input mt-1 w-full" /></label>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Total ({periodoLabel})</p>
+            <p className="text-2xl font-black text-destructive tabular-nums">{brl(total)}</p>
+            <p className="text-[11px] text-muted-foreground">{filtradas.length} lançamento(s)</p>
+          </div>
+          <button onClick={gerarPdf} className="h-11 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center gap-2 hover:bg-primary/90 shrink-0"><FileDown className="size-4" /> Imprimir (PDF)</button>
+        </div>
+      </div>
+
+      {porViveiro.length > 0 && (
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Por viveiro</p>
+          <div className="space-y-1.5">
+            {porViveiro.map(([nome, v]) => (
+              <div key={nome} className="flex items-center justify-between gap-2 text-sm">
+                <span className="truncate">{nome}</span>
+                <span className="font-bold tabular-nums text-destructive shrink-0">{brl(v)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {filtradas.length === 0 ? (
+        <div className="p-8 rounded-2xl border-2 border-dashed text-center text-sm text-muted-foreground">Nenhuma despesa nesse período.</div>
+      ) : (
+        <div className="rounded-2xl border bg-card divide-y">
+          {filtradas.map((x) => (
+            <div key={x.id} className="p-3.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">{x.descricao || "—"}</p>
+                <p className="text-[11px] text-muted-foreground">{fmtData(x.data_lancamento)} · <span className="font-medium text-foreground">{labelViveiro(x)}</span>{x.categoria ? ` · ${x.categoria}` : ""}</p>
+              </div>
+              <span className="font-black tabular-nums text-destructive shrink-0">{brl(Number(x.valor ?? 0))}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ComprasView({
