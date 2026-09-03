@@ -862,9 +862,9 @@ function CaixaPage() {
         <BtnTutorial videoId="WDe74R9yfes" label="Caixa" />
       </div>
 
-      <div className="flex gap-1 p-1 rounded-xl bg-muted">
-        <button type="button" onClick={() => setCaixaAba("receitas")} className={`flex-1 h-10 rounded-lg font-semibold text-sm transition ${caixaAba === "receitas" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Receitas</button>
-        <button type="button" onClick={() => setCaixaAba("despesas")} className={`flex-1 h-10 rounded-lg font-semibold text-sm transition ${caixaAba === "despesas" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Despesas</button>
+      <div className="flex gap-2 p-1 rounded-xl bg-muted">
+        <button type="button" onClick={() => setCaixaAba("receitas")} className={`flex-1 h-11 rounded-lg font-bold text-sm flex items-center justify-center gap-1.5 transition ${caixaAba === "receitas" ? "bg-emerald-600 text-white shadow" : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-600/10"}`}><TrendingUp className="size-4" /> Receitas</button>
+        <button type="button" onClick={() => setCaixaAba("despesas")} className={`flex-1 h-11 rounded-lg font-bold text-sm flex items-center justify-center gap-1.5 transition ${caixaAba === "despesas" ? "bg-rose-600 text-white shadow" : "text-rose-600 dark:text-rose-400 hover:bg-rose-600/10"}`}><TrendingDown className="size-4" /> Despesas</button>
       </div>
 
       {caixaAba === "despesas" ? (

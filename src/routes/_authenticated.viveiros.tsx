@@ -263,6 +263,7 @@ function ViveirosPage() {
   }
 
   const [pdfBusy, setPdfBusy] = useState(false);
+  const fmt = (n: number, d = 2) => n.toLocaleString("pt-BR", { maximumFractionDigits: d });
   async function handleGerarPdf(alvo: Viveiro | Viveiro[], print: boolean) {
     try {
       setPdfBusy(true);
