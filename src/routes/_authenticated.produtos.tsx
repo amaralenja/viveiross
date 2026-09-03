@@ -452,7 +452,7 @@ function ProdutosPage() {
       </div>
 
       <div className="flex gap-1 p-1 rounded-xl bg-muted">
-        {(["produtos", "estoque", "compras", "despesas"] as const).map((t) => (
+        {(["produtos", "estoque", "compras"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}

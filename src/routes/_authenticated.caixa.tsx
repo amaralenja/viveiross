@@ -10,6 +10,7 @@ import ExcelJS from "exceljs";
 import { sortByViveiroNome } from "@/lib/sort";
 import { parseProdutoEmbalagem, getUnidadeBase } from "@/lib/embalagem";
 import { BtnTutorial } from "@/components/BtnTutorial";
+import { DespesasExtras } from "@/components/DespesasExtras";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
   head: () => ({ meta: [{ title: "Caixa" }] }),
@@ -461,6 +462,7 @@ function CaixaPage() {
   const [detailView, setDetailView] = useState<ViveiroRel | null>(null);
 
   const [tipo, setTipo] = useState<"despesa" | "receita">("receita");
+  const [caixaAba, setCaixaAba] = useState<"receitas" | "despesas">("receitas");
   const [viveiroId, setViveiroId] = useState<string>("");
   const [selectedViveiros, setSelectedViveiros] = useState<Set<string>>(new Set());
   const [data, setData] = useState(todayLocal());
@@ -859,6 +861,16 @@ function CaixaPage() {
         </div>
         <BtnTutorial videoId="WDe74R9yfes" label="Caixa" />
       </div>
+
+      <div className="flex gap-1 p-1 rounded-xl bg-muted">
+        <button type="button" onClick={() => setCaixaAba("receitas")} className={`flex-1 h-10 rounded-lg font-semibold text-sm transition ${caixaAba === "receitas" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Receitas</button>
+        <button type="button" onClick={() => setCaixaAba("despesas")} className={`flex-1 h-10 rounded-lg font-semibold text-sm transition ${caixaAba === "despesas" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Despesas</button>
+      </div>
+
+      {caixaAba === "despesas" ? (
+        <DespesasExtras />
+      ) : (
+      <>
       {/* Form */}
       <form
         onSubmit={(e) => {
@@ -1141,9 +1153,8 @@ function CaixaPage() {
           Sem despesas ainda.
         </div>
       )}
-
-
-
+      </>
+      )}
 
 
       {editing && (
