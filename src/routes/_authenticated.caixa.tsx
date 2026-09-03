@@ -618,6 +618,17 @@ function CaixaPage() {
     },
   });
 
+  const { data: despesasExtras = [] } = useQuery({
+    queryKey: ["despesas_gerais", "caixa"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("despesas_gerais")
+        .select("id, viveiro_id, descricao, valor, data_despesa, rateio");
+      if (error) { console.error("Erro despesas_gerais:", error); return []; }
+      return (data ?? []) as Array<{ id: string; viveiro_id: string | null; descricao: string; valor: number; data_despesa: string; rateio: string }>;
+    },
+  });
+
   const { data: lancamentos = [], isLoading } = useQuery({
     queryKey: ["caixa", "lancamentos"],
     queryFn: async () => {
@@ -781,14 +792,26 @@ function CaixaPage() {
     const sign = (l: Lanc) => (l.tipo === "receita" ? 1 : -1);
     const val = (l: Lanc) => Number(l.valor ?? 0);
 
-    const totalDespesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
+    const nAtivos = viveiros.length || 1;
+
+    // Despesas extras (Produtos → Despesas): geral (rateado) ou por viveiro
+    const extrasRateadoLista = despesasExtras.filter((d) => d.rateio === "todos" || !d.viveiro_id);
+    const extrasRateadoTotal = extrasRateadoLista.reduce((s, d) => s + Number(d.valor ?? 0), 0);
+    const rateioExtra = extrasRateadoTotal / nAtivos;
+    const extrasTotalGeral = despesasExtras.reduce((s, d) => s + Number(d.valor ?? 0), 0);
+    const mkExtra = (d: { id: string; viveiro_id: string | null; descricao: string; valor: number; data_despesa: string }, rateadoFlag: boolean, valorLinha: number): Lanc => ({
+      id: (rateadoFlag ? "exr-" : "ex-") + d.id, viveiro_id: d.viveiro_id, data_lancamento: d.data_despesa,
+      descricao: rateadoFlag ? `${d.descricao} (extra rateado)` : `${d.descricao} (extra)`, categoria: "despesa_extra",
+      valor: valorLinha, observacao: null, tipo: "despesa", quantidade: null, unidade: null, socio_id: null,
+    });
+
+    const totalDespesas = lancamentos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0) + extrasTotalGeral;
     const totalReceitas = lancamentos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
     const saldoGeral = totalReceitas - totalDespesas;
 
     const rateados = lancamentos.filter((l) => !l.viveiro_id && l.categoria !== NR_CAT);
     const despesasGerais = rateados.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
     const receitasGerais = rateados.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
-    const nAtivos = viveiros.length || 1;
     const rateioDesp = despesasGerais / nAtivos;
     const rateioRec = receitasGerais / nAtivos;
 
@@ -796,10 +819,14 @@ function CaixaPage() {
       const diretos = lancamentos.filter((l) => l.viveiro_id === v.id);
       const despDireto = diretos.filter((l) => l.tipo !== "receita").reduce((s, l) => s + val(l), 0);
       const recDireto = diretos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
-      const historico = diretos
-        .map((l) => ({ l, rateado: false, valorMostrado: val(l) * sign(l) }))
-        .sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
-      const despesaTotal = despDireto + rateioDesp;
+      const extrasIndivLista = despesasExtras.filter((d) => d.rateio !== "todos" && d.viveiro_id === v.id);
+      const extraIndiv = extrasIndivLista.reduce((s, d) => s + Number(d.valor ?? 0), 0);
+      const historico = [
+        ...diretos.map((l) => ({ l, rateado: false, valorMostrado: val(l) * sign(l) })),
+        ...extrasIndivLista.map((d) => ({ l: mkExtra(d, false, Number(d.valor ?? 0)), rateado: false, valorMostrado: -Number(d.valor ?? 0) })),
+        ...extrasRateadoLista.map((d) => ({ l: mkExtra(d, true, Number(d.valor ?? 0) / nAtivos), rateado: true, valorMostrado: -(Number(d.valor ?? 0) / nAtivos) })),
+      ].sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
+      const despesaTotal = despDireto + rateioDesp + rateioExtra + extraIndiv;
       const receitaTotal = recDireto + rateioRec;
       return {
         id: v.id,
@@ -814,7 +841,7 @@ function CaixaPage() {
     });
 
     return { totalDespesas, totalReceitas, saldoGeral, despesasGerais, receitasGerais, porViveiro, nAtivos };
-  }, [lancamentos, viveiros]);
+  }, [lancamentos, viveiros, despesasExtras]);
 
   const socioMap = useMemo(() => new Map(socios.map((s) => [s.id, s.nome])), [socios]);
   const viveiroMap = useMemo(() => new Map(viveiros.map((v) => [v.id, v.nome])), [viveiros]);
