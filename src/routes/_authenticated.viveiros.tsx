@@ -168,13 +168,14 @@ function ViveirosPage() {
     peso_medio_g: number;
     crescimento_semanal_g: number | null;
     sobrevivencia_percent: number | null;
+    amostras: number | null;
   };
   const { data: biometriasPorViveiro = {} } = useQuery({
     queryKey: ["viveiros", "biometrias"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("biometrias")
-        .select("id, viveiro_id, data_biometria, peso_medio_g, crescimento_semanal_g, sobrevivencia_percent")
+        .select("id, viveiro_id, data_biometria, peso_medio_g, crescimento_semanal_g, sobrevivencia_percent, amostras")
         .order("data_biometria", { ascending: false });
       if (error) throw error;
       const map: Record<string, BioItem[]> = {};
@@ -561,14 +562,44 @@ function ViveirosPage() {
                   </div>
                 );
               })()}
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setBiometriaViveiro(v)} className="h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/90">
+              <div className="mt-2">
+                <button type="button" onClick={() => setBiometriaViveiro(v)} className="w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/90">
                   <Ruler className="size-4" /> Fazer biometria
                 </button>
-                <button type="button" onClick={() => setHistBiometriaViveiro(v)} className="h-10 rounded-xl border text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-muted">
-                  <History className="size-4" /> Ver histórico
-                </button>
               </div>
+              {(() => {
+                const bios = biometriasPorViveiro[v.id] ?? [];
+                if (bios.length === 0) return null;
+                const racaoKg = racaoPorViveiro[v.id] ?? 0;
+                return (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2 px-0.5">
+                      <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">📏 Biometrias feitas ({bios.length})</p>
+                      <p className="text-[10px] text-muted-foreground">Povoamento: {v.qtd_povoada != null ? Number(v.qtd_povoada).toLocaleString("pt-BR") : "—"} · Ração: {fmt(racaoKg, 1)} kg</p>
+                    </div>
+                    {bios.slice(0, 8).map((b) => {
+                      const amostras = b.amostras ?? null;
+                      const pesoTot = amostras && amostras > 0 ? Number(b.peso_medio_g) * amostras : null;
+                      let dias: number | null = null;
+                      if (v.data_povoamento) dias = Math.max(1, Math.round((new Date(b.data_biometria + "T00:00:00").getTime() - new Date(v.data_povoamento + "T00:00:00").getTime()) / 86400000) + 1);
+                      return (
+                        <div key={b.id} className="rounded-xl border bg-muted/20 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-foreground">{formatDateBR(b.data_biometria)}</span>
+                            {dias != null && <span className="text-[10px] text-muted-foreground">{dias} dias povoado</span>}
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                            <span><span className="text-muted-foreground">Peso médio:</span> <strong className="text-primary">{fmt(Number(b.peso_medio_g), 2)} g</strong></span>
+                            {pesoTot != null && <span><span className="text-muted-foreground">Amostra:</span> <strong>{fmt(pesoTot, 0)} g / {amostras} camarões</strong></span>}
+                            {b.crescimento_semanal_g != null && <span><span className="text-muted-foreground">Cresc./sem:</span> <strong className="text-emerald-600">+{fmt(Number(b.crescimento_semanal_g), 2)} g</strong></span>}
+                            {b.sobrevivencia_percent != null && <span><span className="text-muted-foreground">Sobrev.:</span> <strong>{fmt(Number(b.sobrevivencia_percent), 0)}%</strong></span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
               <div className="mt-2 flex items-center justify-end gap-2">
                 <span className="text-[11px] text-muted-foreground mr-auto">Relatório deste viveiro:</span>
                 <button type="button" onClick={() => handleGerarPdf(v, false)} disabled={pdfBusy} className="h-9 px-3 rounded-lg border text-xs font-semibold flex items-center gap-1.5 hover:bg-muted disabled:opacity-50">
@@ -594,10 +625,6 @@ function ViveirosPage() {
           onSaved={() => { qc.invalidateQueries({ queryKey: ["viveiros"] }); setBiometriaViveiro(null); }} />
       )}
 
-      {histBiometriaViveiro && (
-        <BiometriaHistoricoModal viveiro={histBiometriaViveiro} onClose={() => setHistBiometriaViveiro(null)}
-          onNova={() => { const v = histBiometriaViveiro; setHistBiometriaViveiro(null); setBiometriaViveiro(v); }} />
-      )}
 
       {open && (
         <NovoViveiroModal
