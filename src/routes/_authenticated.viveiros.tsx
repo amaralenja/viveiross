@@ -130,6 +130,25 @@ function ViveirosPage() {
   const racaoPorViveiro = totaisPorViveiro.racao ?? {};
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
 
+  type LancViv = { id: string; data_lancamento: string; produto_nome: string; quantidade: number | null; unidade: string | null; tipo: string };
+  const { data: lancamentosPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "lancamentos_lista"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .select("id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, tipo")
+        .order("data_lancamento", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, LancViv[]> = {};
+      for (const l of (data ?? []) as Array<LancViv & { viveiro_id: string }>) {
+        if (!l.viveiro_id) continue;
+        (map[l.viveiro_id] ??= []).push(l);
+      }
+      return map;
+    },
+  });
+
   const { data: receitasPorViveiro = {} } = useQuery({
     queryKey: ["viveiros", "receitas"],
     queryFn: async () => {
@@ -597,6 +616,28 @@ function ViveirosPage() {
                         </div>
                       );
                     })}
+                  </div>
+                );
+              })()}
+              {(() => {
+                const lancs = lancamentosPorViveiro[v.id] ?? [];
+                if (lancs.length === 0) return null;
+                const tipoLabel = (t: string) => t === "racao" ? "Ração" : t === "probiotico" ? "Probiótico" : t === "fertilizante" ? "Fertilizante" : t === "medicamento" ? "Medicamento" : "Outro";
+                return (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground px-0.5">🧾 Insumos lançados ({lancs.length})</p>
+                    <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+                      {lancs.map((l) => (
+                        <div key={l.id} className="flex items-center justify-between gap-2 text-[11px] rounded-lg bg-muted/20 border px-2.5 py-1.5">
+                          <div className="min-w-0">
+                            <span className="text-muted-foreground">{formatDateBR(l.data_lancamento)}</span>{" "}
+                            <span className="font-medium text-foreground">{l.produto_nome}</span>
+                            <span className="ml-1 text-[9px] uppercase text-primary/70 font-semibold">{tipoLabel(l.tipo)}</span>
+                          </div>
+                          <span className="font-bold shrink-0 tabular-nums">{Number(l.quantidade ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {l.unidade || ""}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })()}
