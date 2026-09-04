@@ -823,13 +823,13 @@ function CaixaPage() {
       const recDireto = diretos.filter((l) => l.tipo === "receita").reduce((s, l) => s + val(l), 0);
       const extrasIndivLista = despesasExtras.filter((d) => d.rateio !== "todos" && d.viveiro_id === v.id);
       const extraIndiv = extrasIndivLista.reduce((s, d) => s + Number(d.valor ?? 0), 0);
+      // Cada viveiro mostra SÓ o que é dele (sem rateio automático) — feedback dos usuários.
       const historico = [
         ...diretos.map((l) => ({ l, rateado: false, valorMostrado: val(l) * sign(l) })),
         ...extrasIndivLista.map((d) => ({ l: mkExtra(d, false, Number(d.valor ?? 0)), rateado: false, valorMostrado: -Number(d.valor ?? 0) })),
-        ...extrasRateadoLista.map((d) => ({ l: mkExtra(d, true, Number(d.valor ?? 0) / nAtivos), rateado: true, valorMostrado: -(Number(d.valor ?? 0) / nAtivos) })),
       ].sort((a, b) => (a.l.data_lancamento < b.l.data_lancamento ? 1 : -1));
-      const despesaTotal = despDireto + rateioDesp + rateioExtra + extraIndiv;
-      const receitaTotal = recDireto + rateioRec;
+      const despesaTotal = despDireto + extraIndiv;
+      const receitaTotal = recDireto;
       return {
         id: v.id,
         nome: v.nome,

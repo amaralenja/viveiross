@@ -330,9 +330,9 @@ function PessoalTab() {
         <button onClick={() => novoLancGlobal()} className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition">
           <Plus className="size-5" /> Novo lançamento
         </button>
-        <button onClick={novaPessoa} className="h-14 px-4 rounded-2xl border font-bold text-sm flex items-center justify-center gap-1.5 hover:bg-muted shrink-0"><Users className="size-5" /><span className="hidden sm:inline">Nova pessoa</span></button>
+        <button onClick={novaPessoa} className="h-14 px-3 rounded-2xl border font-bold text-[10px] flex flex-col items-center justify-center gap-0.5 hover:bg-muted shrink-0"><Users className="size-5" /><span>Cadastro</span></button>
         {pessoasList.length > 0 && (
-          <button onClick={pdfGeral} title="PDF geral" className="h-14 px-4 rounded-2xl border font-bold flex items-center justify-center hover:bg-muted shrink-0"><FileDown className="size-5" /></button>
+          <button onClick={pdfGeral} title="Resumo geral" className="h-14 px-3 rounded-2xl border font-bold text-[10px] flex flex-col items-center justify-center gap-0.5 hover:bg-muted shrink-0"><FileDown className="size-5" /><span>Resumo geral</span></button>
         )}
       </div>
 
@@ -481,8 +481,8 @@ function PessoalTab() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setTipo("receita")} className={`h-16 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>💰 Recebi<span className="text-[10px] font-medium opacity-80 mt-0.5">entrou dinheiro pra você</span></button>
-              <button type="button" onClick={() => setTipo("despesa")} className={`h-16 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>💸 Dei / paguei<span className="text-[10px] font-medium opacity-80 mt-0.5">saiu dinheiro de você</span></button>
+              <button type="button" onClick={() => setTipo("receita")} className={`h-16 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "receita" ? "bg-emerald-600 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>💰 Recebi<span className="text-[10px] font-medium opacity-80 mt-0.5">Crédito · entrou pra você</span></button>
+              <button type="button" onClick={() => setTipo("despesa")} className={`h-16 rounded-xl font-bold text-sm flex flex-col items-center justify-center leading-tight transition ${tipo === "despesa" ? "bg-rose-500 text-white shadow-sm" : "bg-muted text-muted-foreground"}`}>💸 Dei / paguei<span className="text-[10px] font-medium opacity-80 mt-0.5">Débito · saiu de você</span></button>
             </div>
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-muted-foreground font-bold">Valor</label>
