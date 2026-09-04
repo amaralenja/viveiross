@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark, ChevronRight, Paperclip, Archive, ArchiveRestore } from "lucide-react";
+import { Trash2, Plus, Link2, MessageCircle, Printer, FileDown, Zap, Check, Repeat, Pencil, Receipt, History, DollarSign, Users, RotateCcw, Tag, List, BarChart3, TrendingUp, TrendingDown, PieChart, Wallet, Landmark, ChevronRight, Paperclip, Archive, ArchiveRestore, ChevronUp, ChevronDown } from "lucide-react";
 import { BtnTutorial } from "@/components/BtnTutorial";
 
 
@@ -41,7 +41,7 @@ function FinanceiroPage() {
 
 const CAT_PADRAO = ["Salário", "Alimentação", "Transporte", "Moradia", "Energia", "Água", "Internet", "Saúde", "Educação", "Lazer", "Freelance", "Compras", "Investimento", "Outros"];
 type FpLanc = { id: string; tipo: string; descricao: string; valor: number; categoria: string; data: string; observacao: string | null; anexo_url?: string | null; created_at?: string };
-type FpCat = { id: string; nome: string; icone: string; excluida: boolean; arquivada?: boolean };
+type FpCat = { id: string; nome: string; icone: string; excluida: boolean; arquivada?: boolean; ordem?: number | null };
 
 function PessoalTab() {
   const qc = useQueryClient();
@@ -73,6 +73,12 @@ function PessoalTab() {
   }, [lancs]);
 
   const arquivadasSet = useMemo(() => new Set(cats.filter((c) => c.arquivada && !c.excluida).map((c) => c.nome)), [cats]);
+  const ordemPorNome = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of cats) { if (!c.excluida && c.ordem != null) m.set(c.nome, Number(c.ordem)); }
+    return m;
+  }, [cats]);
+  const temOrdem = ordemPorNome.size > 0;
   const pessoasList = useMemo(() => {
     const s = new Set<string>();
     cats.filter((c) => !c.excluida).forEach((c) => s.add(c.nome));
@@ -81,11 +87,18 @@ function PessoalTab() {
       .filter((n) => n !== "geral" || contas[n])
       .filter((n) => (verArquivados ? arquivadasSet.has(n) : !arquivadasSet.has(n)))
       .sort((a, b) => {
+        // Se o usuário definiu ordem manual (setinhas), usa ela
+        if (temOrdem) {
+          const oa = ordemPorNome.has(a) ? ordemPorNome.get(a)! : 9999;
+          const ob = ordemPorNome.has(b) ? ordemPorNome.get(b)! : 9999;
+          if (oa !== ob) return oa - ob;
+          return a.localeCompare(b);
+        }
         const sa = Math.abs((contas[a]?.credito ?? 0) - (contas[a]?.debito ?? 0));
         const sb = Math.abs((contas[b]?.credito ?? 0) - (contas[b]?.debito ?? 0));
         return sb - sa || a.localeCompare(b);
       });
-  }, [cats, contas, verArquivados, arquivadasSet]);
+  }, [cats, contas, verArquivados, arquivadasSet, temOrdem, ordemPorNome]);
   const qtdArquivadas = arquivadasSet.size;
 
   const { totDeb, totCred } = useMemo(() => {
@@ -177,6 +190,29 @@ function PessoalTab() {
       }
     },
     onSuccess: (_d, v) => { toast.success(v.arquivar ? "Conta arquivada" : "Conta desarquivada"); setReportPessoa(null); qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const moverPessoaMut = useMutation({
+    mutationFn: async ({ nome, dir }: { nome: string; dir: "up" | "down" }) => {
+      const arr = [...pessoasList];
+      const i = arr.indexOf(nome);
+      const j = dir === "up" ? i - 1 : i + 1;
+      if (i < 0 || j < 0 || j >= arr.length) return;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      for (let k = 0; k < arr.length; k++) {
+        const cat = cats.find((c) => c.nome === arr[k] && !c.excluida);
+        if (cat) {
+          const { error } = await supabase.from("categorias_financeiro").update({ ordem: k }).eq("id", cat.id);
+          if (error) throw error;
+        } else if (uid) {
+          const { error } = await supabase.from("categorias_financeiro").insert({ user_id: uid, nome: arr[k], icone: "👤", ordem: k });
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fp_cats"] }); },
     onError: (e: Error) => toast.error(e.message),
   });
   const desarquivarTodasMut = useMutation({
@@ -319,17 +355,25 @@ function PessoalTab() {
           const saldo = x.credito - x.debito;
           const recentes = lancs.filter((l) => l.categoria === nome).slice(0, 3);
           return (
-            <button key={nome} onClick={() => setReportPessoa(nome)} className="w-full text-left rounded-2xl border bg-card p-3.5 space-y-2.5 hover:bg-muted/30 transition">
-              <div className="flex items-center gap-3">
-                <div className="size-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-lg shrink-0">{nome.charAt(0).toUpperCase()}</div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-base leading-tight break-words">{nome}</p>
-                  <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className={`text-xl font-black tabular-nums leading-none ${saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldo)}</p>
-                  <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">saldo</p>
-                </div>
+            <div key={nome} className="w-full rounded-2xl border bg-card p-3.5 space-y-2.5 hover:bg-muted/30 transition">
+              <div className="flex items-center gap-2">
+                {!verArquivados && (
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <button type="button" onClick={() => moverPessoaMut.mutate({ nome, dir: "up" })} disabled={moverPessoaMut.isPending} aria-label="Subir" className="size-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
+                    <button type="button" onClick={() => moverPessoaMut.mutate({ nome, dir: "down" })} disabled={moverPessoaMut.isPending} aria-label="Descer" className="size-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
+                  </div>
+                )}
+                <button onClick={() => setReportPessoa(nome)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                  <div className="size-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-lg shrink-0">{nome.charAt(0).toUpperCase()}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-base leading-tight break-words">{nome}</p>
+                    <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-xl font-black tabular-nums leading-none ${saldo >= 0 ? "text-blue-600" : "text-rose-600"}`}>{brl(saldo)}</p>
+                    <p className="text-[9px] uppercase text-muted-foreground font-bold mt-0.5">saldo</p>
+                  </div>
+                </button>
               </div>
               {recentes.length > 0 && (
                 <div className="border-t pt-2 space-y-1">
@@ -343,10 +387,10 @@ function PessoalTab() {
                       </div>
                     );
                   })}
-                  <p className="text-[10px] text-primary font-semibold pt-0.5">Ver histórico completo →</p>
+                  <button type="button" onClick={() => setReportPessoa(nome)} className="text-[10px] text-primary font-semibold pt-0.5 hover:underline">Ver histórico completo →</button>
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
         {pessoasList.length === 0 && (verArquivados
