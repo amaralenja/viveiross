@@ -263,7 +263,9 @@ function DespesaModal({ despesa, viveiros, onClose, onSaved }: {
       const res = await supabase.from("despesas_gerais").insert({ ...base, rateio: "todos", viveiro_id: null });
       error = res.error;
     } else {
-      const rows = viveiroIds.map((vid) => ({ ...base, rateio: "individual", viveiro_id: vid }));
+      // Divide o valor igualmente entre os viveiros selecionados (ex: R$1000 em 2 viveiros = R$500 cada)
+      const valorPorViveiro = Number(valor) / viveiroIds.length;
+      const rows = viveiroIds.map((vid) => ({ ...base, valor: valorPorViveiro, rateio: "individual", viveiro_id: vid }));
       const res = await supabase.from("despesas_gerais").insert(rows);
       error = res.error;
     }
@@ -306,8 +308,11 @@ function DespesaModal({ despesa, viveiros, onClose, onSaved }: {
               })}
             </div>
             {viveiros.length === 0 && <p className="text-xs text-muted-foreground mt-1">Nenhum viveiro cadastrado.</p>}
-            {!despesa && rateio === "individual" && viveiroIds.length > 1 && (
-              <p className="text-xs text-muted-foreground mt-1">Será criada uma despesa para cada viveiro selecionado.</p>
+            {!despesa && rateio === "individual" && viveiroIds.length > 1 && Number(valor) > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">Valor <strong>dividido</strong> entre {viveiroIds.length} viveiros: <strong>{(Number(valor) / viveiroIds.length).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong> em cada.</p>
+            )}
+            {!despesa && rateio === "individual" && viveiroIds.length > 1 && !(Number(valor) > 0) && (
+              <p className="text-xs text-muted-foreground mt-1">O valor será <strong>dividido</strong> igualmente entre os {viveiroIds.length} viveiros selecionados.</p>
             )}
           </Field>
           <Field label="Observação (opcional)">
