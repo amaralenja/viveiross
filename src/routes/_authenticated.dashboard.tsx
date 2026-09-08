@@ -64,6 +64,18 @@ function fmtDiaMes(iso: string): string {
 }
 
 // Adivinha o tipo do insumo pelo nome do produto, pra não precisar escolher de novo
+type TipoInsumo = "racao" | "probiotico" | "medicamento" | "fertilizante" | "outro";
+// Usa a CATEGORIA cadastrada do produto pra definir o tipo do lançamento (respeita "outros" etc.)
+function categoriaToTipo(cat: string | null | undefined): TipoInsumo | null {
+  const c = (cat || "").toLowerCase().trim();
+  if (!c) return null;
+  if (/(prob[ií]ot|bacter)/.test(c)) return "probiotico";
+  if (/(medic|rem[ée]dio|antibi)/.test(c)) return "medicamento";
+  if (/(fertil|adub)/.test(c)) return "fertilizante";
+  if (/(ra[çc][aã]o|racao|alimento)/.test(c)) return "racao";
+  if (/(outro|outros)/.test(c)) return "outro";
+  return "outro"; // qualquer outra categoria personalizada entra como "outro" (não vira ração)
+}
 function guessTipoInsumo(nome: string): "racao" | "probiotico" | "medicamento" | "fertilizante" | "outro" | null {
   const n = (nome || "").toLowerCase();
   if (/(prob[ií]ot|probiot|bacter|lactob|bacillus|prob\b)/.test(n)) return "probiotico";
@@ -300,11 +312,11 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, nome, unidade, preco_unidade, ordem")
+        .select("id, nome, unidade, preco_unidade, ordem, categoria")
         .order("ordem", { ascending: true, nullsFirst: false })
         .order("nome");
       if (error) throw error;
-      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null; ordem: number | null }[];
+      return (data ?? []) as { id: string; nome: string; unidade: string; preco_unidade: number | null; ordem: number | null; categoria: string | null }[];
     },
   });
 
@@ -613,7 +625,7 @@ function Dashboard() {
                   const emb = parseProdutoEmbalagem(p.unidade);
                   setEmbInfo(emb);
                   setUnidadeLancamento(emb.unidadeBase || "kg");
-                  setTipoLancamento(guessTipoInsumo(p.nome) ?? "racao");
+                  setTipoLancamento(categoriaToTipo(p.categoria) ?? guessTipoInsumo(p.nome) ?? "racao");
                 } else {
                   setProduto("");
                 }

@@ -462,7 +462,7 @@ function CaixaPage() {
   const [detailView, setDetailView] = useState<ViveiroRel | null>(null);
 
   const [tipo, setTipo] = useState<"despesa" | "receita">("receita");
-  const [caixaAba, setCaixaAba] = useState<"receitas" | "despesas">("receitas");
+  const [caixaAba, setCaixaAba] = useState<"receitas" | "despesas">("despesas");
   const [viveiroId, setViveiroId] = useState<string>("");
   const [selectedViveiros, setSelectedViveiros] = useState<Set<string>>(new Set());
   const [data, setData] = useState(todayLocal());
