@@ -92,22 +92,31 @@ function ViveirosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lancamentos")
-        .select("viveiro_id, quantidade, unidade, custo_total, preco_unidade, data_lancamento, produtos(preco_unidade, unidade)")
-        .eq("tipo", "racao");
+        .select("viveiro_id, tipo, quantidade, unidade, custo_total, preco_unidade, data_lancamento, produtos(preco_unidade, unidade, categoria)");
       if (error) throw error;
+      // "Ração total" conta pela CATEGORIA do produto (não pelo tipo gravado no lançamento).
+      // Assim, produto "outros" (Puim, Melaço, BM-Pro...) não entra como ração, mesmo em lançamentos antigos.
+      const ehRacao = (cat: string | null | undefined, tipoLanc: string | null): boolean => {
+        const c = (cat || "").toLowerCase().trim();
+        if (c) return /ra[çc][aã]o|racao|alimento/.test(c);
+        return tipoLanc === "racao"; // produto sem categoria: usa o tipo do lançamento
+      };
       const racao: Record<string, number> = {};
       const custo: Record<string, number> = {};
       for (const l of (data ?? []) as Array<{
         viveiro_id: string;
+        tipo: string | null;
         quantidade: number | null;
         unidade: string | null;
         custo_total: number | null;
         preco_unidade: number | null;
         data_lancamento: string | null;
-        produtos: { preco_unidade: number | null; unidade: string | null } | { preco_unidade: number | null; unidade: string | null }[] | null;
+        produtos: { preco_unidade: number | null; unidade: string | null; categoria: string | null } | { preco_unidade: number | null; unidade: string | null; categoria: string | null }[] | null;
       }>) {
-        const qtd = Number(l.quantidade ?? 0);
+        if (!l.viveiro_id) continue;
         const prod = Array.isArray(l.produtos) ? l.produtos[0] : l.produtos;
+        if (!ehRacao(prod?.categoria, l.tipo)) continue; // só ração conta em Ração total / Gasto ração
+        const qtd = Number(l.quantidade ?? 0);
         const qtdKg = quantidadeEmKg(l.unidade, qtd, prod?.unidade) ?? qtd;
         racao[l.viveiro_id] = (racao[l.viveiro_id] ?? 0) + qtdKg;
         let valor: number | null = null;
