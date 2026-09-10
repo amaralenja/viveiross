@@ -559,7 +559,7 @@ function Dashboard() {
         </div>
       )}
       {/* Top Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-primary to-emerald-700 p-5 text-white shadow-lg shadow-emerald-500/20">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 via-primary to-blue-700 p-5 text-white shadow-lg shadow-blue-500/20">
         <div className="absolute inset-0 bg-black/10" />
         <div className="relative z-10 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
           <div>

@@ -178,7 +178,7 @@ export function CalculadoraPopup() {
             setIsOpen(true);
             setIsMinimized(false);
           }}
-          className="group h-12 px-4 rounded-full bg-gradient-to-r from-emerald-600 via-primary to-emerald-700 text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5 border border-white/20"
+          className="group h-12 px-4 rounded-full bg-gradient-to-r from-blue-600 via-primary to-blue-700 text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5 border border-white/20"
           title="Calculadora Rápida"
         >
           <CalcIcon className="size-5 text-white animate-pulse" />
@@ -198,7 +198,7 @@ export function CalculadoraPopup() {
           className="w-[320px] sm:w-[340px] rounded-3xl border bg-card/95 backdrop-blur-md shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           {/* Top Bar / Header da Janela */}
-          <div className="bg-gradient-to-r from-emerald-600 via-primary to-emerald-700 px-4 py-3 text-white flex items-center justify-between">
+          <div className="bg-gradient-to-r from-blue-600 via-primary to-blue-700 px-4 py-3 text-white flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-sm">
               <CalcIcon className="size-4" />
               <span>Calculadora</span>
