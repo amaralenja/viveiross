@@ -55,7 +55,9 @@ function SenhasPage() {
       }
     }
     savePwConfig(user?.id, { enabled, pin, sections });
-    toast.success("Configurações salvas");
+    // Re-trava tudo: limpa desbloqueios antigos pra a senha valer nas abas de novo.
+    lockApp();
+    toast.success(enabled ? "Senha ativada — as abas escolhidas vão pedir a senha." : "Configurações salvas");
   }
 
 
