@@ -440,11 +440,16 @@ function Dashboard() {
   }, [ultimos]);
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfDe, setPdfDe] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 2); return ymd(d); });
+  const [pdfAte, setPdfAte] = useState(() => todayLocal());
 
-  async function handleExportPdf() {
+  async function handleExportPdf(deArg?: string, ateArg?: string) {
     try {
       setIsGeneratingPdf(true);
       const hoje = todayLocal();
+      const periodoDe = deArg || pdfDe;
+      const periodoAte = ateArg || pdfAte;
       const ontemDate = new Date();
       ontemDate.setDate(ontemDate.getDate() - 1);
       const ontem = ymd(ontemDate);
@@ -462,7 +467,8 @@ function Dashboard() {
           .order("data_biometria", { ascending: false }),
         supabase.from("lancamentos")
           .select("id, viveiro_id, data_lancamento, produto_nome, quantidade, unidade, tipo, custo_total, viveiros(nome)")
-          .in("data_lancamento", [hoje, ontem, anteontem])
+          .gte("data_lancamento", periodoDe)
+          .lte("data_lancamento", periodoAte)
           .order("data_lancamento", { ascending: false })
           .order("created_at", { ascending: false }),
       ]);
@@ -517,7 +523,8 @@ function Dashboard() {
       const sorted = sortByViveiroNome(rows, (r) => r.nome);
       const detalhe = (detRes.data ?? []) as Lanc[];
 
-      await gerarPdfInicio(detalhe, { hoje, ontem, rows: sorted });
+      await gerarPdfInicio(detalhe, { hoje, ontem, rows: sorted, periodoDe, periodoAte });
+      setPdfModalOpen(false);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -527,6 +534,30 @@ function Dashboard() {
 
   return (
     <div className="max-w-xl mx-auto space-y-5">
+      {pdfModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => !isGeneratingPdf && setPdfModalOpen(false)}>
+          <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2"><FileDown className="size-5 text-primary" /> PDF por período</h2>
+              <button onClick={() => setPdfModalOpen(false)} className="size-8 rounded-lg hover:bg-muted flex items-center justify-center">✕</button>
+            </div>
+            <p className="text-xs text-muted-foreground">Escolha o período dos lançamentos que quer imprimir.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs font-semibold text-muted-foreground">De<input type="date" value={pdfDe} onChange={(e) => setPdfDe(e.target.value)} className="app-input mt-1 w-full" /></label>
+              <label className="text-xs font-semibold text-muted-foreground">Até<input type="date" value={pdfAte} onChange={(e) => setPdfAte(e.target.value)} className="app-input mt-1 w-full" /></label>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => { const h = todayLocal(); setPdfDe(h); setPdfAte(h); }} className="h-8 px-3 rounded-lg bg-muted text-xs font-bold hover:bg-muted/70">Hoje</button>
+              <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() - 2); setPdfDe(ymd(d)); setPdfAte(todayLocal()); }} className="h-8 px-3 rounded-lg bg-muted text-xs font-bold hover:bg-muted/70">Últimos 3 dias</button>
+              <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() - 6); setPdfDe(ymd(d)); setPdfAte(todayLocal()); }} className="h-8 px-3 rounded-lg bg-muted text-xs font-bold hover:bg-muted/70">Últimos 7 dias</button>
+              <button type="button" onClick={() => { const n = new Date(); setPdfDe(`${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`); setPdfAte(todayLocal()); }} className="h-8 px-3 rounded-lg bg-muted text-xs font-bold hover:bg-muted/70">Este mês</button>
+            </div>
+            <button type="button" onClick={() => handleExportPdf()} disabled={isGeneratingPdf} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+              <FileDown className="size-5" /> {isGeneratingPdf ? "Gerando..." : "Gerar PDF"}
+            </button>
+          </div>
+        </div>
+      )}
       {/* Top Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-primary to-emerald-700 p-5 text-white shadow-lg shadow-emerald-500/20">
         <div className="absolute inset-0 bg-black/10" />
@@ -543,7 +574,7 @@ function Dashboard() {
                 {totalHoje.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
               </span>
             </div>
-            <button type="button" onClick={handleExportPdf} disabled={isGeneratingPdf}
+            <button type="button" onClick={() => setPdfModalOpen(true)} disabled={isGeneratingPdf}
               className="h-10 px-3 rounded-xl bg-white/20 backdrop-blur hover:bg-white/30 font-bold text-xs flex items-center gap-1.5 transition shrink-0 active:scale-95 text-white">
               <FileDown className="size-4" /> {isGeneratingPdf ? "Gerando..." : "PDF"}
             </button>
@@ -969,8 +1000,12 @@ type PdfRow = {
 
 async function gerarPdfInicio(
   ultimosHoje: Lanc[],
-  dados: { hoje: string; ontem: string; rows: PdfRow[] }
+  dados: { hoje: string; ontem: string; rows: PdfRow[]; periodoDe?: string; periodoAte?: string }
 ) {
+  const fmtD = (iso?: string) => { const p = (iso || "").slice(0, 10).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : (iso || ""); };
+  const periodoLabel = dados.periodoDe && dados.periodoAte
+    ? (dados.periodoDe === dados.periodoAte ? fmtD(dados.periodoDe) : `${fmtD(dados.periodoDe)} a ${fmtD(dados.periodoAte)}`)
+    : "período";
   const [pdfModule, autoTableModule] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -1078,13 +1113,13 @@ async function gerarPdfInicio(
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 41, 59);
-  doc.text(`LANÇAMENTOS DOS ÚLTIMOS 3 DIAS (${ultimosHoje.length})`, 14, currentY);
+  doc.text(`LANÇAMENTOS · ${periodoLabel} (${ultimosHoje.length})`, 14, currentY);
 
   if (ultimosHoje.length === 0) {
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 116, 139);
-    doc.text("Nenhum lançamento nos últimos 3 dias.", 14, currentY + 6);
+    doc.text("Nenhum lançamento no período.", 14, currentY + 6);
   } else {
     const diaLabel = (d: string) => (d === dados.hoje ? "Hoje" : d === dados.ontem ? "Ontem" : "Anteontem");
     autoTable(doc, {
