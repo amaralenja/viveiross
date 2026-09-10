@@ -471,6 +471,12 @@ function CaixaPage() {
   const [categoria, setCategoria] = useState("");
   const [precoKg, setPrecoKg] = useState("");
   const [valorManual, setValorManual] = useState("");
+  // Detalhes da venda de camarão (receita)
+  const [vPeso, setVPeso] = useState("");        // kg vendido
+  const [vPreco, setVPreco] = useState("");      // preço por kg
+  const [vQtdCam, setVQtdCam] = useState("");    // nº de camarões
+  const [vCusto, setVCusto] = useState("");      // custo (pra ver lucro)
+  const [vComprador, setVComprador] = useState(""); // comprador
   const [qtd, setQtd] = useState("");
   const [unidade, setUnidade] = useState<string>("kg");
   const [socioId, setSocioId] = useState<string>("");
@@ -677,7 +683,12 @@ function CaixaPage() {
     return pKg * qInput;
   }, [precoKg, qtd, unidade, selectedEmb]);
 
-  const valorFinal = valorAuto > 0 ? valorAuto : Number(valorManual.replace(",", ".")) || 0;
+  const vPesoNum = Number(vPeso.replace(",", ".")) || 0;
+  const vPrecoNum = Number(vPreco.replace(",", ".")) || 0;
+  const vTotal = vPesoNum > 0 && vPrecoNum > 0 ? vPesoNum * vPrecoNum : 0;
+  const vCustoNum = Number(vCusto.replace(",", ".")) || 0;
+  const vLucro = vTotal - vCustoNum;
+  const valorFinal = vTotal > 0 ? vTotal : (valorAuto > 0 ? valorAuto : Number(valorManual.replace(",", ".")) || 0);
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -707,6 +718,11 @@ function CaixaPage() {
           quantidade: qNum > 0 ? (isMulti ? qNum / targets.length : qNum) : null,
           unidade: qNum > 0 ? unidade : null,
           socio_id: socioId || null,
+          peso_kg: tipo === "receita" && vPesoNum > 0 ? vPesoNum : null,
+          preco_kg: tipo === "receita" && vPrecoNum > 0 ? vPrecoNum : null,
+          custo: tipo === "receita" && vCustoNum > 0 ? vCustoNum : null,
+          qtd_camaroes: tipo === "receita" && Number(vQtdCam) > 0 ? Number(vQtdCam) : null,
+          comprador: tipo === "receita" && vComprador.trim() ? vComprador.trim() : null,
         });
         if (error) throw error;
       }
@@ -767,6 +783,7 @@ function CaixaPage() {
       setPrecoKg("");
       setQtd("");
       setValorManual("");
+      setVPeso(""); setVPreco(""); setVQtdCam(""); setVCusto(""); setVComprador("");
       setSocioId("");
       setSelectedViveiros(new Set());
       qc.invalidateQueries({ queryKey: ["caixa"] });
@@ -939,17 +956,50 @@ function CaixaPage() {
           />
         </Field>
 
-        <Field label="Valor total (R$)">
+        <Field label="Comprador (opcional)">
+          <input value={vComprador} onChange={(e) => setVComprador(e.target.value)} className="app-input" placeholder="Ex: Peixaria do João" />
+        </Field>
+
+        <div className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/5 p-3 space-y-3">
+          <p className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400">🦐 Detalhes da venda</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Peso vendido (kg)">
+              <input type="text" inputMode="decimal" value={vPeso} onChange={(e) => setVPeso(e.target.value.replace(/[^0-9.,]/g, ""))} className="app-input font-bold" placeholder="Ex: 120" />
+            </Field>
+            <Field label="Preço por kg (R$)">
+              <input type="text" inputMode="decimal" value={vPreco} onChange={(e) => setVPreco(e.target.value.replace(/[^0-9.,]/g, ""))} className="app-input font-bold" placeholder="Ex: 22,00" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Nº de camarões (opcional)">
+              <input type="text" inputMode="numeric" value={vQtdCam} onChange={(e) => setVQtdCam(e.target.value.replace(/[^0-9]/g, ""))} className="app-input" placeholder="Ex: 4200" />
+            </Field>
+            <Field label="Custo (opcional)">
+              <input type="text" inputMode="decimal" value={vCusto} onChange={(e) => setVCusto(e.target.value.replace(/[^0-9.,]/g, ""))} className="app-input" placeholder="Ex: 1500,00" />
+            </Field>
+          </div>
+        </div>
+
+        <Field label={vTotal > 0 ? "Total da venda (crédito) — auto" : "Valor total (R$)"}>
           <input
             type="text"
             inputMode="decimal"
             pattern="[0-9.,]*"
-            value={valorManual}
+            value={vTotal > 0 ? vTotal.toFixed(2) : valorManual}
+            disabled={vTotal > 0}
             onChange={(e) => setValorManual(e.target.value.replace(/[^0-9.,]/g, ""))}
-            className="app-input"
+            className="app-input font-black text-lg disabled:opacity-90"
             placeholder="Ex: 150,00"
           />
         </Field>
+        {vTotal > 0 && (
+          <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-2.5 text-xs flex flex-wrap gap-x-3 gap-y-0.5">
+            <span><span className="text-muted-foreground">Crédito:</span> <strong className="text-emerald-600">{fmtBRL(vTotal)}</strong></span>
+            {vCustoNum > 0 && <span><span className="text-muted-foreground">Custo:</span> <strong className="text-rose-600">{fmtBRL(vCustoNum)}</strong></span>}
+            {vCustoNum > 0 && <span><span className="text-muted-foreground">Lucro:</span> <strong className={vLucro >= 0 ? "text-emerald-600" : "text-rose-600"}>{fmtBRL(vLucro)}</strong></span>}
+            {Number(vQtdCam) > 0 && vPesoNum > 0 && <span><span className="text-muted-foreground">Peso médio:</span> <strong>{((vPesoNum * 1000) / Number(vQtdCam)).toFixed(1)} g</strong></span>}
+          </div>
+        )}
 
         <button
           disabled={saveMut.isPending}
