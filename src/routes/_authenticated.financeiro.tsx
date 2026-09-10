@@ -366,7 +366,7 @@ function PessoalTab() {
                 <button onClick={() => setReportPessoa(nome)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                   <div className="size-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-lg shrink-0">{nome.charAt(0).toUpperCase()}</div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-base leading-tight break-words">{nome}</p>
+                    <p className="font-bold text-[13px] leading-tight break-words line-clamp-2">{nome}</p>
                     <p className="text-[11px] mt-0.5 tabular-nums text-muted-foreground">Déb {brl(x.debito)} · Créd {brl(x.credito)}</p>
                   </div>
                   <div className="text-right shrink-0">

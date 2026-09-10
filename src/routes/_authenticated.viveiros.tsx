@@ -67,6 +67,7 @@ function ViveirosPage() {
       const { data, error } = await supabase
         .from("viveiros")
         .select("id, nome, status, data_povoamento, data_preparacao, qtd_povoada, preco_milheiro, created_at, fornecedor, biomassa_manual, fazendas(nome)")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return sortByViveiroNome((data ?? []) as Viveiro[], (v) => v.nome);
@@ -218,14 +219,35 @@ function ViveirosPage() {
 
   const delMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("viveiros").delete().eq("id", id);
+      // Soft delete: vai pra lixeira (recuperável), não apaga de vez
+      const { error } = await supabase.from("viveiros").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["viveiros"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success("Viveiro removido");
+      toast.success("Viveiro movido para a lixeira (dá pra recuperar)");
     },
+  });
+
+  const [verLixeira, setVerLixeira] = useState(false);
+  const { data: lixeira = [] } = useQuery({
+    queryKey: ["viveiros", "lixeira"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("viveiros").select("id, nome, deleted_at").not("deleted_at", "is", null).order("deleted_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as { id: string; nome: string; deleted_at: string }[];
+    },
+  });
+  const restaurarMut = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("viveiros").update({ deleted_at: null }).eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Viveiro recuperado!"); qc.invalidateQueries({ queryKey: ["viveiros"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const apagarDefMut = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("viveiros").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Apagado definitivamente"); qc.invalidateQueries({ queryKey: ["viveiros"] }); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const statusMut = useMutation({
@@ -333,6 +355,26 @@ function ViveirosPage() {
           </button>
         </div>
       </div>
+
+      {lixeira.length > 0 && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3">
+          <button type="button" onClick={() => setVerLixeira((s) => !s)} className="w-full flex items-center justify-between gap-2 text-sm font-bold text-amber-700 dark:text-amber-400">
+            <span className="flex items-center gap-2"><Trash2 className="size-4" /> Lixeira ({lixeira.length}) — viveiros apagados</span>
+            <span>{verLixeira ? "▲" : "▼"}</span>
+          </button>
+          {verLixeira && (
+            <div className="mt-2 space-y-1.5">
+              {lixeira.map((v) => (
+                <div key={v.id} className="flex items-center justify-between gap-2 rounded-lg bg-card border p-2.5 text-sm">
+                  <span className="font-medium truncate min-w-0 flex-1">{v.nome}</span>
+                  <button type="button" onClick={() => restaurarMut.mutate(v.id)} disabled={restaurarMut.isPending} className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shrink-0">Recuperar</button>
+                  <button type="button" onClick={() => { if (confirm(`Apagar "${v.nome}" DEFINITIVAMENTE? Não dá pra recuperar depois.`)) apagarDefMut.mutate(v.id); }} disabled={apagarDefMut.isPending} className="size-8 rounded-lg border border-destructive/40 text-destructive flex items-center justify-center hover:bg-destructive/10 shrink-0" title="Apagar de vez"><Trash2 className="size-3.5" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-muted-foreground">Carregando...</p>
