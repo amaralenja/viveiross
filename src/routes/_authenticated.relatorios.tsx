@@ -383,66 +383,34 @@ function RelatoriosPage() {
         y += 6;
       }
 
-      // Bloco de métricas compacto
-      const metrics: [string, string][] = [
-        ["Fornecedor", l.fornecedor],
-        ["Povoamento", l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"],
-        ["Pós-larvas", l.qtdPovoada.toLocaleString("pt-BR")],
-        ["Ração total", `${formatNumber(l.racaoKg)} kg`],
-        ["Custo ração", formatBRL(l.custoRacao)],
-        ["Desp. rateadas", formatBRL(l.custoDespRateio + l.custoCaixaRateio)],
-        ["Desp. próprias", formatBRL(l.custoDespIndiv + l.custoCaixaIndiv)],
-        ["Custo total", formatBRL(l.custoTotal)],
-        ["Peso médio", l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"],
-        ["Biomassa", l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"],
-        ["FCA", l.fca != null ? formatNumber(l.fca) : "—"],
-        ["Receitas", formatBRL(l.receitas)],
-        ["Lucro est.", formatBRL(l.lucro)],
-        ["Saldo caixa", formatBRL(l.saldoCaixa)],
-        ["Lançamentos", String(l.nLancamentos)],
-        ["Biometrias", String(l.nBiometrias)],
-        ["Últ. biom.", l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"],
-        ["Status", l.status],
+      // 1) TOPO: Despesa · Receita · Saldo (só o que é do viveiro, sem rateio)
+      const despesaViv = l.custoRacao + l.custoDespIndiv + l.custoCaixaIndiv;
+      const receitaViv = l.receitas;
+      const saldoViv = receitaViv - despesaViv;
+      const cards3: [string, string, [number, number, number]][] = [
+        ["DESPESA", formatBRL(despesaViv), [225, 29, 72]],
+        ["RECEITA", formatBRL(receitaViv), [16, 185, 129]],
+        ["SALDO", formatBRL(saldoViv), saldoViv >= 0 ? [37, 99, 235] : [225, 29, 72]],
       ];
-      const cols = 6;
-      const mW = (pageW - 20 - (cols - 1) * 2) / cols;
-      const mH = 11;
-      metrics.forEach((m, i) => {
-        const row = Math.floor(i / cols);
-        const col = i % cols;
-        const x = 10 + col * (mW + 2);
-        const yy = y + row * (mH + 1.5);
+      const cW = (pageW - 20 - 2 * 4) / 3;
+      const cH = 16;
+      cards3.forEach(([lab, val, color], i) => {
+        const x = 10 + i * (cW + 4);
         doc.setFillColor(245, 247, 250);
-        doc.roundedRect(x, yy, mW, mH, 1, 1, "F");
-        doc.setFontSize(6);
-        doc.setTextColor(...MUTED);
-        doc.text(m[0].toUpperCase(), x + 1.5, yy + 3.2);
-        doc.setFontSize(8);
-        doc.setTextColor(...DARK);
-        doc.setFont("helvetica", "bold");
-        doc.text(m[1], x + 1.5, yy + 8.5);
+        doc.roundedRect(x, y, cW, cH, 2, 2, "F");
+        doc.setFontSize(7); doc.setTextColor(...MUTED); doc.setFont("helvetica", "bold");
+        doc.text(lab, x + 3, y + 5);
+        doc.setFontSize(12); doc.setTextColor(color[0], color[1], color[2]);
+        doc.text(val, x + 3, y + 12);
         doc.setFont("helvetica", "normal");
       });
-      y = y + Math.ceil(metrics.length / cols) * (mH + 1.5) + 3;
+      y += cH + 4;
+      doc.setFontSize(7); doc.setTextColor(...MUTED);
+      doc.text(`Povoado: ${l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"}  ·  Pós-larvas: ${l.qtdPovoada.toLocaleString("pt-BR")}  ·  Ração total: ${formatNumber(l.racaoKg)} kg  ·  FCA: ${l.fca != null ? formatNumber(l.fca) : "—"}`, 10, y);
+      doc.setTextColor(...DARK);
+      y += 6;
 
-
-      if (l.bios.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.text("Biometrias", 14, y);
-        y += 2;
-        at(doc, {
-          startY: y,
-          head: [["Data", "Peso médio (g)"]],
-          body: l.bios.map((b) => [formatDate(b.data_biometria), formatNumber(Number(b.peso_medio_g ?? 0))]),
-          styles: { fontSize: 8, cellPadding: 1.5 },
-          headStyles: { fillColor: TEAL, textColor: 255 },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 10, right: 10 },
-        });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-      }
-
+      // 2) RAÇÃO DIA A DIA
       if (l.racaoDiaria.length > 0) {
         if (y > pageH - 40) { doc.addPage(); y = 20; }
         doc.setFont("helvetica", "bold");
@@ -463,29 +431,7 @@ function RelatoriosPage() {
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
 
-      if (l.lancs.length > 0) {
-        if (y > pageH - 40) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.text("Lançamentos", 14, y);
-        y += 2;
-        at(doc, {
-          startY: y,
-          head: [["Data", "Produto", "Tipo", "Qtd", "Custo"]],
-          body: l.lancs.map((x) => [
-            formatDate(x.data_lancamento),
-            x.produto_nome,
-            x.tipo,
-            `${formatNumber(Number(x.quantidade ?? 0))} ${x.unidade}`,
-            formatBRL(Number(x.custo_total ?? 0)),
-          ]),
-          styles: { fontSize: 8, cellPadding: 1.5 },
-          headStyles: { fillColor: TEAL, textColor: 255 },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 10, right: 10 },
-        });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-      }
+      // 3) DESPESAS GERAIS (abaixo)
 
       if (l.despesasLista.length > 0) {
         if (y > pageH - 40) { doc.addPage(); y = 20; }
@@ -512,55 +458,12 @@ function RelatoriosPage() {
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
 
-      if (l.funcionarios.length > 0) {
-        if (y > pageH - 40) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.text("Funcionários", 14, y);
-        y += 2;
-        at(doc, {
-          startY: y,
-          head: [["Nome", "Salário", "Vales (total)", "Status"]],
-          body: l.funcionarios.map((f) => [
-            f.nome,
-            formatBRL(Number(f.salario ?? 0)),
-            formatBRL(f.totalVales),
-            f.ativo ? "Ativo" : "Inativo",
-          ]),
-          foot: [["Total", formatBRL(l.totalSalarios), formatBRL(l.totalValesViv), ""]],
-          styles: { fontSize: 8, cellPadding: 1.5 },
-          headStyles: { fillColor: TEAL, textColor: 255 },
-          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 10, right: 10 },
-        });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-
-        const valesDetalhe = l.funcionarios.flatMap((f) => f.vales.map((v) => ({ f: f.nome, v })));
-        if (valesDetalhe.length > 0) {
-          if (y > pageH - 40) { doc.addPage(); y = 20; }
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(11);
-          doc.text("Vales (detalhe)", 14, y);
-          y += 2;
-          at(doc, {
-            startY: y,
-            head: [["Data", "Funcionário", "Motivo", "Valor"]],
-            body: valesDetalhe.map(({ f, v }) => [formatDate(v.data_vale), f, v.motivo ?? "—", formatBRL(Number(v.valor ?? 0))]),
-            styles: { fontSize: 8, cellPadding: 1.5 },
-            headStyles: { fillColor: TEAL, textColor: 255 },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
-            margin: { left: 10, right: 10 },
-          });
-          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-        }
-      }
-
+      // 4) VENDAS / DESPESCAS
       if (l.receitasLista.length > 0) {
         if (y > pageH - 40) { doc.addPage(); y = 20; }
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
-        doc.text("Receitas", 14, y);
+        doc.text("Vendas / Despescas", 14, y);
         y += 2;
         at(doc, {
           startY: y,
@@ -582,31 +485,6 @@ function RelatoriosPage() {
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
 
-      if (l.caixaDoViv.length > 0) {
-        if (y > pageH - 40) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.text("Caixa (todos os lançamentos)", 14, y);
-        y += 2;
-        at(doc, {
-          startY: y,
-          head: [["Data", "Tipo", "Descrição", "Categoria", "Qtd", "Valor"]],
-          body: l.caixaDoViv.map((c) => [
-            formatDate(c.data_lancamento),
-            c.tipo,
-            c.descricao,
-            c.categoria,
-            c.quantidade != null ? `${formatNumber(Number(c.quantidade))} ${c.unidade ?? ""}` : "—",
-            `${c.tipo === "receita" ? "+" : "-"} ${formatBRL(Number(c.valor ?? 0))}`,
-          ]),
-          foot: [["", "", "", "", "Saldo", formatBRL(l.saldoCaixa)]],
-          styles: { fontSize: 8, cellPadding: 1.8 },
-          headStyles: { fillColor: TEAL, textColor: 255 },
-          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 10, right: 10 },
-        });
-      }
     }
 
     footer();
