@@ -225,9 +225,9 @@ function PessoalTab() {
   });
 
   function reset() { setShowForm(false); setEditing(null); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); }
-  function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); setReportPessoa(null); setShowForm(true); }
+  function novoLanc(pessoa: string, t: "despesa" | "receita") { setEditing(null); setPessoaForm(pessoa); setTipo(t); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); setShowForm(true); }
   function novoLancGlobal() { setEditing(null); if (!pessoaForm || !pessoasList.includes(pessoaForm)) setPessoaForm(lancs[0]?.categoria ?? pessoasList[0] ?? ""); setTipo("despesa"); setVal(""); setDesc(""); setForma(""); setDt(todayISO()); setAnexoFile(null); setAnexoAtual(null); setReportPessoa(null); setShowForm(true); }
-  function editLanc(l: FpLanc) { setEditing(l); setPessoaForm(l.categoria); setTipo(l.tipo === "receita" ? "receita" : "despesa"); setVal(String(l.valor)); setDesc(l.descricao); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setDt(l.data); setAnexoFile(null); setAnexoAtual(l.anexo_url ?? null); setReportPessoa(null); setShowForm(true); }
+  function editLanc(l: FpLanc) { setEditing(l); setPessoaForm(l.categoria); setTipo(l.tipo === "receita" ? "receita" : "despesa"); setVal(String(l.valor)); setDesc(l.descricao); setForma(["Pix", "Dinheiro", "Outro"].includes(l.observacao || "") ? (l.observacao || "") : ""); setDt(l.data); setAnexoFile(null); setAnexoAtual(l.anexo_url ?? null); setShowForm(true); }
   async function abrirComprovante(path: string) {
     const { data, error } = await supabase.storage.from("comprovantes").createSignedUrl(path, 3600);
     if (error || !data?.signedUrl) { toast.error("Não foi possível abrir o comprovante."); return; }
