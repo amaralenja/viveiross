@@ -473,7 +473,8 @@ function CaixaPage() {
   const [valorManual, setValorManual] = useState("");
   // Detalhes da venda de camarão (receita)
   const [vPeso, setVPeso] = useState("");        // kg vendido
-  const [vPreco, setVPreco] = useState("");      // preço por kg
+  const [vPreco, setVPreco] = useState("");      // preço (por kg ou por grama, conforme vUnidadePreco)
+  const [vUnidadePreco, setVUnidadePreco] = useState<"kg" | "g">("kg"); // precificar por kg ou por grama
   const [vQtdCam, setVQtdCam] = useState("");    // nº de camarões
   const [vCusto, setVCusto] = useState("");      // custo (pra ver lucro)
   const [vComprador, setVComprador] = useState(""); // comprador
@@ -685,7 +686,9 @@ function CaixaPage() {
 
   const vPesoNum = Number(vPeso.replace(",", ".")) || 0;
   const vPrecoNum = Number(vPreco.replace(",", ".")) || 0;
-  const vTotal = vPesoNum > 0 && vPrecoNum > 0 ? vPesoNum * vPrecoNum : 0;
+  // Preço equivalente por kg (pra salvar sempre em kg no banco). Se precificar por grama, 1 kg = 1000 g.
+  const vPrecoKg = vUnidadePreco === "g" ? vPrecoNum * 1000 : vPrecoNum;
+  const vTotal = vPesoNum > 0 && vPrecoNum > 0 ? vPesoNum * vPrecoKg : 0;
   const vCustoNum = Number(vCusto.replace(",", ".")) || 0;
   const vLucro = vTotal - vCustoNum;
   const valorFinal = vTotal > 0 ? vTotal : (valorAuto > 0 ? valorAuto : Number(valorManual.replace(",", ".")) || 0);
@@ -719,7 +722,7 @@ function CaixaPage() {
           unidade: qNum > 0 ? unidade : null,
           socio_id: socioId || null,
           peso_kg: tipo === "receita" && vPesoNum > 0 ? vPesoNum : null,
-          preco_kg: tipo === "receita" && vPrecoNum > 0 ? vPrecoNum : null,
+          preco_kg: tipo === "receita" && vPrecoNum > 0 ? vPrecoKg : null,
           custo: tipo === "receita" && vCustoNum > 0 ? vCustoNum : null,
           qtd_camaroes: tipo === "receita" && Number(vQtdCam) > 0 ? Number(vQtdCam) : null,
           comprador: tipo === "receita" && vComprador.trim() ? vComprador.trim() : null,
@@ -962,12 +965,21 @@ function CaixaPage() {
 
         <div className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/5 p-3 space-y-3">
           <p className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400">🦐 Detalhes da venda</p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-muted-foreground">Preço por:</span>
+            <div className="inline-flex rounded-lg bg-muted p-0.5">
+              <button type="button" onClick={() => setVUnidadePreco("kg")} className={`px-3 h-7 rounded-md text-xs font-bold transition ${vUnidadePreco === "kg" ? "bg-emerald-600 text-white shadow" : "text-muted-foreground"}`}>Kg</button>
+              <button type="button" onClick={() => setVUnidadePreco("g")} className={`px-3 h-7 rounded-md text-xs font-bold transition ${vUnidadePreco === "g" ? "bg-emerald-600 text-white shadow" : "text-muted-foreground"}`}>Grama</button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Peso vendido (kg)">
               <input type="text" inputMode="decimal" value={vPeso} onChange={(e) => setVPeso(e.target.value.replace(/[^0-9.,]/g, ""))} className="app-input font-bold" placeholder="Ex: 120" />
+              {vPesoNum > 0 && <p className="mt-1 text-[11px] text-muted-foreground">= {(vPesoNum * 1000).toLocaleString("pt-BR")} g</p>}
             </Field>
-            <Field label="Preço por kg (R$)">
-              <input type="text" inputMode="decimal" value={vPreco} onChange={(e) => setVPreco(e.target.value.replace(/[^0-9.,]/g, ""))} className="app-input font-bold" placeholder="Ex: 22,00" />
+            <Field label={vUnidadePreco === "g" ? "Valor da grama (R$)" : "Preço por kg (R$)"}>
+              <input type="text" inputMode="decimal" value={vPreco} onChange={(e) => setVPreco(e.target.value.replace(/[^0-9.,]/g, ""))} className="app-input font-bold" placeholder={vUnidadePreco === "g" ? "Ex: 0,022" : "Ex: 22,00"} />
+              {vUnidadePreco === "g" && vPrecoNum > 0 && <p className="mt-1 text-[11px] text-muted-foreground">= {fmtBRL(vPrecoKg)} / kg</p>}
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -994,6 +1006,11 @@ function CaixaPage() {
         </Field>
         {vTotal > 0 && (
           <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-2.5 text-xs flex flex-wrap gap-x-3 gap-y-0.5">
+            <span className="w-full text-muted-foreground">
+              {vUnidadePreco === "g"
+                ? `${(vPesoNum * 1000).toLocaleString("pt-BR")} g × ${fmtBRL(vPrecoNum)}/g = ${fmtBRL(vTotal)}`
+                : `${vPesoNum.toLocaleString("pt-BR")} kg × ${fmtBRL(vPrecoNum)}/kg = ${fmtBRL(vTotal)}`}
+            </span>
             <span><span className="text-muted-foreground">Crédito:</span> <strong className="text-emerald-600">{fmtBRL(vTotal)}</strong></span>
             {vCustoNum > 0 && <span><span className="text-muted-foreground">Custo:</span> <strong className="text-rose-600">{fmtBRL(vCustoNum)}</strong></span>}
             {vCustoNum > 0 && <span><span className="text-muted-foreground">Lucro:</span> <strong className={vLucro >= 0 ? "text-emerald-600" : "text-rose-600"}>{fmtBRL(vLucro)}</strong></span>}
@@ -1022,8 +1039,15 @@ function CaixaPage() {
         </label>
       </form>
 
+      {!isLoading && lancamentos.length === 0 && (
+        <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
+          Nenhuma receita lançada ainda.
+        </div>
+      )}
+      </>
+      )}
 
-      {/* Carrossel de caixas por viveiro */}
+      {/* Caixa por viveiro — histórico aparece nas duas abas (receita e despesa) */}
       {relatorio.porViveiro.length > 0 && (
         <section className="space-y-3">
           <div className="px-1">
@@ -1195,15 +1219,6 @@ function CaixaPage() {
             ))}
           </div>
         </section>
-      )}
-
-
-      {!isLoading && lancamentos.length === 0 && (
-        <div className="p-5 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground">
-          Sem despesas ainda.
-        </div>
-      )}
-      </>
       )}
 
 
