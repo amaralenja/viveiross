@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, Clock, AlertTriangle, Infinity as InfinityIcon, MessageCircle, Pencil, Check, Send } from "lucide-react";
+import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, Clock, AlertTriangle, Infinity as InfinityIcon, MessageCircle, Pencil, Check, Send, Copy, X } from "lucide-react";
 import {
   listUsersFn,
   createUserFn,
@@ -24,6 +24,17 @@ function waLink(raw: string | null): string | null {
   if (!d) return null;
   if (d.length <= 11) d = "55" + d; // adiciona DDI Brasil se veio só com DDD+numero
   return `https://wa.me/${d}`;
+}
+
+// URL do app (o domínio onde o admin está aberto). Fallback pro domínio de produção.
+function appLink(): string {
+  if (typeof window !== "undefined" && window.location?.origin) return window.location.origin;
+  return "https://viveiross.vercel.app";
+}
+
+// Mensagem pronta pra mandar no WhatsApp com o acesso da pessoa
+function buildAccessMessage(email: string, password: string, link: string): string {
+  return `🦐 *Viveiros — Seu acesso*\n\n🔗 Link: ${link}\n👤 E-mail: ${email}\n🔑 Senha: ${password}\n\nÉ só abrir o link e entrar com o e-mail e a senha acima. Qualquer dúvida, me chama!`;
 }
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -69,6 +80,22 @@ function AdminPage() {
   const [password, setPassword] = useState("");
   const [dias, setDias] = useState("30");
   const [whatsapp, setWhatsappInput] = useState("");
+  // Credenciais recém-geradas (criação ou reenvio) pra montar a mensagem de acesso
+  const [creds, setCreds] = useState<{ email: string; password: string; whatsapp: string | null } | null>(null);
+
+  async function copyCredsMsg() {
+    if (!creds) return;
+    const msg = buildAccessMessage(creds.email, creds.password, appLink());
+    try { await navigator.clipboard.writeText(msg); toast.success("Mensagem copiada!"); }
+    catch { toast.error("Não consegui copiar — selecione o texto e copie manual."); }
+  }
+  function sendCredsWa() {
+    if (!creds) return;
+    const msg = buildAccessMessage(creds.email, creds.password, appLink());
+    const wa = waLink(creds.whatsapp);
+    const url = wa ? `${wa}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  }
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["admin", "users"] }); qc.invalidateQueries({ queryKey: ["admin", "envios"] }); };
 
@@ -86,6 +113,8 @@ function AdminPage() {
     onSuccess: (res: { emailed?: boolean; emailError?: string | null }) => {
       toast.success(res?.emailed ? "Usuário criado — e-mail enviado com a senha" : "Usuário criado");
       if (!res?.emailed && res?.emailError) toast.error(`E-mail não enviado: ${res.emailError}`, { duration: 15000 });
+      // Guarda as credenciais pra montar a mensagem (a senha só existe em texto agora)
+      setCreds({ email: email.trim(), password, whatsapp: whatsapp.trim() || null });
       setEmail(""); setPassword(""); setDias("30"); setWhatsappInput("");
       invalidate();
     },
@@ -150,6 +179,30 @@ function AdminPage() {
         </button>
       </form>
 
+      {creds && (
+        <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/5 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-bold inline-flex items-center gap-2"><Check className="size-5 text-emerald-600" /> Acesso pronto pra enviar</h3>
+            <button onClick={() => setCreds(null)} title="Fechar" className="size-8 rounded-lg hover:bg-muted inline-flex items-center justify-center"><X className="size-4" /></button>
+          </div>
+          <p className="text-xs text-muted-foreground">Copie a mensagem e mande pra pessoa. A senha só aparece <strong>agora</strong> — depois fica protegida.</p>
+          <textarea readOnly rows={7}
+            value={buildAccessMessage(creds.email, creds.password, appLink())}
+            onFocus={(e) => e.currentTarget.select()}
+            className="app-input w-full text-sm font-mono resize-none leading-relaxed" />
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={copyCredsMsg}
+              className="h-11 rounded-xl bg-primary text-primary-foreground font-semibold inline-flex items-center justify-center gap-1.5">
+              <Copy className="size-4" /> Copiar mensagem
+            </button>
+            <button onClick={sendCredsWa}
+              className="h-11 rounded-xl bg-green-600 text-white font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-green-700">
+              <MessageCircle className="size-4" /> Enviar no WhatsApp
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         <h2 className="font-bold text-lg">Usuários ({users.length})</h2>
         {isLoading ? (
@@ -190,6 +243,8 @@ function AdminPage() {
                         toast.success(`Nova senha: ${r?.password ?? "—"} — copie e envie manualmente.`, { duration: 15000 });
                         if (r?.emailError) toast.error(`E-mail não enviado: ${r.emailError}`, { duration: 15000 });
                       }
+                      // Se veio uma nova senha em texto, prepara a mensagem pra copiar/enviar
+                      if (r?.password) setCreds({ email: u.email, password: r.password, whatsapp: u.whatsapp });
                       invalidate();
                     })
                     .catch((e) => toast.error((e as Error).message))
