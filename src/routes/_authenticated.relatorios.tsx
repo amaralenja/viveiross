@@ -441,17 +441,17 @@ function RelatoriosPage() {
         y += 2;
         at(doc, {
           startY: y,
-          head: [["Data", "Descrição", "Categoria", "Rateio", "Valor total", "Atribuído"]],
+          head: [["Data", "Descrição", "Categoria", "Valor"]],
           body: l.despesasLista.map((d) => [
             formatDate(d.data_despesa),
             textValue(d.descricao),
             textValue(d.categoria, "—"),
-            d.tipoRateio === "rateado" ? "Rateado" : "Individual",
-            formatBRL(Number(d.valor ?? 0)),
             formatBRL(d.share),
           ]),
+          foot: [["Total", "", "", formatBRL(l.despesasLista.reduce((s, d) => s + d.share, 0))]],
           styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: TEAL, textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
           alternateRowStyles: { fillColor: [248, 250, 252] },
           margin: { left: 10, right: 10 },
         });
@@ -765,10 +765,6 @@ function RelatoriosPage() {
 
 
 
-      <div className="no-print">
-        <ResumoCard icon={<FileText className="size-4" />} label="Viveiros" value={String(totais.viveiros)} />
-      </div>
-
       <div className="no-print flex gap-1 p-1 rounded-xl bg-muted">
         <button onClick={() => setVerArquivados(false)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition ${!verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>Ativos</button>
         <button onClick={() => setVerArquivados(true)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1 ${verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}><Archive className="size-3.5" />Arquivados{qtdArquivados > 0 ? ` (${qtdArquivados})` : ""}</button>
@@ -829,31 +825,123 @@ function RelatoriosPage() {
 
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 md:grid-cols-4">
-                <Info label="Fornecedor" value={l.fornecedor} />
-                <Info label="Povoamento" value={l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"} />
-                <Info label="Pós-larvas" value={l.qtdPovoada.toLocaleString("pt-BR")} />
-                <Info label="Ração total" value={`${formatNumber(l.racaoKg)} kg`} />
-                <Info label="Custo ração" value={formatBRL(l.custoRacao)} />
-                <Info label="Despesas (rateadas)" value={formatBRL(l.custoDespRateio + l.custoCaixaRateio)} />
-                <Info label="Despesas (próprias)" value={formatBRL(l.custoDespIndiv + l.custoCaixaIndiv)} />
-                <Info label="Custo total" value={formatBRL(l.custoTotal)} />
-                <Info label="Peso médio" value={l.pesoMedio ? `${formatNumber(l.pesoMedio)} g` : "—"} />
-                <Info label="Biomassa" value={l.biomassa ? `${formatNumber(l.biomassa)} kg` : "—"} />
-                <Info label="FCA" value={l.fca != null ? formatNumber(l.fca) : "—"} />
-                <Info label="Lançamentos" value={String(l.nLancamentos)} />
-                <Info label="Biometrias" value={String(l.nBiometrias)} />
-                <Info label="Última biometria" value={l.ultimaBioData ? formatDate(l.ultimaBioData) : "—"} />
-                <Info label="Receitas (vendas)" value={formatBRL(l.receitas)} />
-                <Info label="Lucro (vendas − custos)" value={formatBRL(l.lucro)} />
-              </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                <strong>Receitas</strong> = vendas de camarão lançadas no Caixa para este viveiro. <strong>Lucro</strong> = receitas − custo total (ração + despesas). Toque em "Receitas" abaixo para ver de onde vem cada valor.
-              </p>
+              {(() => {
+                const despesaViv = l.custoRacao + l.custoDespIndiv + l.custoCaixaIndiv;
+                const receitaViv = l.receitas;
+                const saldoViv = receitaViv - despesaViv;
+                return (
+                  <>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-xl border bg-muted/30 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Despesa</p>
+                        <p className="mt-0.5 text-base font-bold text-rose-600 break-words">{formatBRL(despesaViv)}</p>
+                      </div>
+                      <div className="rounded-xl border bg-muted/30 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Receita</p>
+                        <p className="mt-0.5 text-base font-bold text-emerald-600 break-words">{formatBRL(receitaViv)}</p>
+                      </div>
+                      <div className="rounded-xl border bg-muted/30 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Saldo</p>
+                        <p className={`mt-0.5 text-base font-bold break-words ${saldoViv >= 0 ? "text-blue-600" : "text-rose-600"}`}>{formatBRL(saldoViv)}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted-foreground break-words">
+                      Povoado: {l.dataPovoamento ? formatDate(l.dataPovoamento) : "—"} · Pós-larvas: {l.qtdPovoada.toLocaleString("pt-BR")} · Ração total: {formatNumber(l.racaoKg)} kg · FCA: {l.fca != null ? formatNumber(l.fca) : "—"}
+                    </p>
+                  </>
+                );
+              })()}
+
+              {l.racaoDiaria.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ração dia a dia</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-right">Ração (kg)</th>
+                          <th className="p-2 text-right">Custo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.racaoDiaria.map((r, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-2">{formatDate(r.data)}</td>
+                            <td className="p-2 text-right">{formatNumber(r.kg)}</td>
+                            <td className="p-2 text-right">{formatBRL(r.custo)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2">Total</td>
+                          <td className="p-2 text-right">{formatNumber(l.racaoKg)}</td>
+                          <td className="p-2 text-right">{formatBRL(l.custoRacao)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {l.despesasLista.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Despesas gerais</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-left">Descrição</th>
+                          <th className="p-2 text-left">Categoria</th>
+                          <th className="p-2 text-right">Valor</th>
+                          <th className="no-print p-2 text-right w-24">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.despesasLista.map((d) => (
+                          <tr key={`${d.source}-${d.id}`} className="border-t">
+                            <td className="p-2">{formatDate(d.data_despesa)}</td>
+                            <td className="p-2">{textValue(d.descricao)}</td>
+                            <td className="p-2 capitalize">{textValue(d.categoria, "—")}</td>
+                            <td className="p-2 text-right">{formatBRL(d.share)}</td>
+                            <td className="no-print p-2 text-right">
+                              <div className="inline-flex gap-1">
+                                <button
+                                  onClick={() => setRedist({ source: d.source, id: d.id, descricao: textValue(d.descricao), valor: Number(d.valor ?? 0) })}
+                                  className="h-7 px-2 rounded hover:bg-primary/10 hover:text-primary text-[11px] font-semibold"
+                                  aria-label="Redistribuir"
+                                >
+                                  Redist.
+                                </button>
+                                <button
+                                  onClick={() => confirmDelDespesa(d.source, d.id)}
+                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
+                                  aria-label="Apagar"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2" colSpan={3}>Total</td>
+                          <td className="p-2 text-right">{formatBRL(l.despesasLista.reduce((s, d) => s + d.share, 0))}</td>
+                          <td className="no-print p-2"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {l.receitasLista.length > 0 && (
                 <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Receitas</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vendas / Despescas</p>
                   <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-xs">
                       <thead className="bg-muted">
@@ -902,161 +990,6 @@ function RelatoriosPage() {
                           <td className="no-print p-2"></td>
                         </tr>
                       </tfoot>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {l.bios.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Biometrias</p>
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="p-2 text-left">Data</th>
-                          <th className="p-2 text-right">Peso médio (g)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {l.bios.map((b) => (
-                          <tr key={b.id} className="border-t">
-                            <td className="p-2">{formatDate(b.data_biometria)}</td>
-                            <td className="p-2 text-right">{formatNumber(Number(b.peso_medio_g ?? 0))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {l.racaoDiaria.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ração dia a dia</p>
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="p-2 text-left">Data</th>
-                          <th className="p-2 text-right">Ração (kg)</th>
-                          <th className="p-2 text-right">Custo</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {l.racaoDiaria.map((r, i) => (
-                          <tr key={i} className="border-t">
-                            <td className="p-2">{formatDate(r.data)}</td>
-                            <td className="p-2 text-right">{formatNumber(r.kg)}</td>
-                            <td className="p-2 text-right">{formatBRL(r.custo)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-muted/50 font-semibold">
-                        <tr>
-                          <td className="p-2">Total</td>
-                          <td className="p-2 text-right">{formatNumber(l.racaoKg)}</td>
-                          <td className="p-2 text-right">{formatBRL(l.custoRacao)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {l.lancs.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lançamentos</p>
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="p-2 text-left">Data</th>
-                          <th className="p-2 text-left">Produto</th>
-                          <th className="p-2 text-left">Tipo</th>
-                          <th className="p-2 text-right">Qtd</th>
-                          <th className="p-2 text-right">Custo</th>
-                          <th className="no-print p-2 text-right w-24">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {l.lancs.map((x) => (
-                          <tr key={x.id} className="border-t">
-                            <td className="p-2">{formatDate(x.data_lancamento)}</td>
-                            <td className="p-2">{textValue(x.produto_nome)}</td>
-                            <td className="p-2">{textValue(x.tipo)}</td>
-                            <td className="p-2 text-right">{formatNumber(Number(x.quantidade ?? 0))} {textValue(x.unidade, "")}</td>
-                            <td className="p-2 text-right">{formatBRL(Number(x.custo_total ?? 0))}</td>
-                            <td className="no-print p-2 text-right">
-                              <div className="inline-flex gap-1">
-                                <button
-                                  onClick={() => setEditLanc(x)}
-                                  className="size-7 rounded hover:bg-primary/10 hover:text-primary inline-flex items-center justify-center"
-                                  aria-label="Editar"
-                                >
-                                  <Pencil className="size-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => confirmDelLanc(x.id)}
-                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
-                                  aria-label="Apagar"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {l.despesasLista.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Despesas gerais</p>
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="p-2 text-left">Data</th>
-                          <th className="p-2 text-left">Descrição</th>
-                          <th className="p-2 text-left">Rateio</th>
-                          <th className="p-2 text-right">Valor total</th>
-                          <th className="p-2 text-right">Atribuído</th>
-                          <th className="no-print p-2 text-right w-24">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {l.despesasLista.map((d) => (
-                          <tr key={`${d.source}-${d.id}`} className="border-t">
-                            <td className="p-2">{formatDate(d.data_despesa)}</td>
-                            <td className="p-2">{textValue(d.descricao)}</td>
-                            <td className="p-2 capitalize">{d.tipoRateio === "rateado" ? "Rateado" : "Individual"}</td>
-                            <td className="p-2 text-right">{formatBRL(Number(d.valor ?? 0))}</td>
-                            <td className="p-2 text-right">{formatBRL(d.share)}</td>
-                            <td className="no-print p-2 text-right">
-                              <div className="inline-flex gap-1">
-                                <button
-                                  onClick={() => setRedist({ source: d.source, id: d.id, descricao: textValue(d.descricao), valor: Number(d.valor ?? 0) })}
-                                  className="h-7 px-2 rounded hover:bg-primary/10 hover:text-primary text-[11px] font-semibold"
-                                  aria-label="Redistribuir"
-                                >
-                                  Redist.
-                                </button>
-                                <button
-                                  onClick={() => confirmDelDespesa(d.source, d.id)}
-                                  className="size-7 rounded hover:bg-destructive/10 hover:text-destructive inline-flex items-center justify-center"
-                                  aria-label="Apagar"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
                     </table>
                   </div>
                 </div>

@@ -184,14 +184,16 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       .map(([data, r]) => ({ data, kg: r.kg, custo: r.custo }))
       .sort((a, b) => (a.data < b.data ? 1 : -1));
 
-    // Lançamentos de funcionário/folha não entram na lista de "Despesas gerais" (só o que é lançado ali).
-    const ehFuncionario = (c: { descricao?: string | null; categoria?: string | null }) =>
-      (!!c.descricao && /funcion|folha|sal[áa]rio/i.test(c.descricao)) || c.categoria === "folha_pagamento";
-
+    // "Despesas gerais" = SÓ as despesas próprias do viveiro (energia, funcionário, manutenção...)
+    // lançadas individualmente. SEM rateado, SEM insumo/ração/povoamento (larva) — isso não é "geral" do viveiro.
     const despesasLista = [
-      ...despesasDoViveiro.filter((d) => !ehFuncionario(d)).map((d) => ({ ...d, share: Number(d.valor ?? 0), tipoRateio: "individual" as const, source: "despesa" as const })),
-      ...(isAtivo ? despesasRateadas.filter((d) => !ehFuncionario(d)).map((d) => ({ ...d, share: Number(d.valor ?? 0) / nAtivos, tipoRateio: "rateado" as const, source: "despesa" as const })) : []),
-      ...caixaDespIndivViv.filter((c) => !ehFuncionario(c)).map((c) => ({
+      ...despesasDoViveiro.map((d) => ({
+        ...d,
+        share: Number(d.valor ?? 0),
+        tipoRateio: "individual" as const,
+        source: "despesa" as const,
+      })),
+      ...caixaDespIndivViv.map((c) => ({
         id: c.id,
         viveiro_id: c.viveiro_id,
         descricao: c.descricao,
@@ -203,18 +205,6 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
         tipoRateio: "individual" as const,
         source: "caixa" as const,
       })),
-      ...(isAtivo ? caixaDespesaRateada.filter((c) => !ehFuncionario(c)).map((c) => ({
-        id: c.id,
-        viveiro_id: c.viveiro_id,
-        descricao: c.descricao,
-        categoria: c.categoria ?? "caixa",
-        valor: Number(c.valor ?? 0),
-        data_despesa: c.data_lancamento,
-        rateio: "todos",
-        share: Number(c.valor ?? 0) / nAtivos,
-        tipoRateio: "rateado" as const,
-        source: "caixa" as const,
-      })) : []),
     ];
 
     // Funcionários ligados a este viveiro + total de vales por funcionário
