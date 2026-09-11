@@ -185,26 +185,32 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       .sort((a, b) => (a.data < b.data ? 1 : -1));
 
     // "Despesas gerais" = SÓ as despesas próprias do viveiro (energia, funcionário, manutenção...)
-    // lançadas individualmente. SEM rateado, SEM insumo/ração/povoamento (larva) — isso não é "geral" do viveiro.
+    // lançadas individualmente. SEM rateado, SEM insumo/ração e SEM povoamento/larva — isso não é
+    // "geral" do viveiro (o custo da larva/povoamento já entra no total, mas não é despesa "manual").
+    const ehPovoamentoLarva = (txt?: string | null) => !!txt && /povoa|larva|p[óo]s[- ]?larva/i.test(txt);
     const despesasLista = [
-      ...despesasDoViveiro.map((d) => ({
-        ...d,
-        share: Number(d.valor ?? 0),
-        tipoRateio: "individual" as const,
-        source: "despesa" as const,
-      })),
-      ...caixaDespIndivViv.map((c) => ({
-        id: c.id,
-        viveiro_id: c.viveiro_id,
-        descricao: c.descricao,
-        categoria: c.categoria ?? "caixa",
-        valor: Number(c.valor ?? 0),
-        data_despesa: c.data_lancamento,
-        rateio: "individual",
-        share: Number(c.valor ?? 0),
-        tipoRateio: "individual" as const,
-        source: "caixa" as const,
-      })),
+      ...despesasDoViveiro
+        .filter((d) => !ehPovoamentoLarva(d.categoria) && !ehPovoamentoLarva(d.descricao))
+        .map((d) => ({
+          ...d,
+          share: Number(d.valor ?? 0),
+          tipoRateio: "individual" as const,
+          source: "despesa" as const,
+        })),
+      ...caixaDespIndivViv
+        .filter((c) => !ehPovoamentoLarva(c.categoria) && !ehPovoamentoLarva(c.descricao))
+        .map((c) => ({
+          id: c.id,
+          viveiro_id: c.viveiro_id,
+          descricao: c.descricao,
+          categoria: c.categoria ?? "caixa",
+          valor: Number(c.valor ?? 0),
+          data_despesa: c.data_lancamento,
+          rateio: "individual",
+          share: Number(c.valor ?? 0),
+          tipoRateio: "individual" as const,
+          source: "caixa" as const,
+        })),
     ];
 
     // Funcionários ligados a este viveiro + total de vales por funcionário
@@ -266,6 +272,7 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       qtdPovoada,
       racaoKg,
       custoRacao,
+      custoOutrosLanc,
       custoOutros,
       custoDespRateio,
       custoDespIndiv,

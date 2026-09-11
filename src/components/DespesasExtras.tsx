@@ -255,17 +255,19 @@ function DespesaModal({ despesa, viveiros, onClose, onSaved }: {
     if (!userId) { toast.error("Sessão expirada."); setSaving(false); return; }
     const base = { user_id: userId, descricao: descricao.trim(), categoria: categoria.trim() || null, valor: Number(valor), data_despesa: data, observacao: observacao.trim() || null };
     let error: { message: string } | null = null;
+    // Destino final: "Todos" = todos os viveiros ativos; senão os selecionados.
+    const alvoIds = rateio === "todos" ? viveiros.map((v) => v.id) : viveiroIds;
     if (despesa) {
       const payload = { ...base, rateio, viveiro_id: rateio === "individual" ? (viveiroIds[0] ?? null) : null };
       const res = await supabase.from("despesas_gerais").update(payload).eq("id", despesa.id);
       error = res.error;
-    } else if (rateio === "todos") {
-      const res = await supabase.from("despesas_gerais").insert({ ...base, rateio: "todos", viveiro_id: null });
-      error = res.error;
     } else {
-      // Divide o valor igualmente entre os viveiros selecionados (ex: R$1000 em 2 viveiros = R$500 cada)
-      const valorPorViveiro = Number(valor) / viveiroIds.length;
-      const rows = viveiroIds.map((vid) => ({ ...base, valor: valorPorViveiro, rateio: "individual", viveiro_id: vid }));
+      if (alvoIds.length === 0) { toast.error("Nenhum viveiro pra lançar."); setSaving(false); return; }
+      // Divide o valor igualmente entre os viveiros de destino (ex: R$1000 em 2 = R$500 cada).
+      // "Todos" também é dividido e vira uma entrada POR viveiro — assim aparece no card de cada um
+      // e um viveiro criado depois não herda a despesa (não é rateio dinâmico).
+      const valorPorViveiro = Number(valor) / alvoIds.length;
+      const rows = alvoIds.map((vid) => ({ ...base, valor: valorPorViveiro, rateio: "individual", viveiro_id: vid }));
       const res = await supabase.from("despesas_gerais").insert(rows);
       error = res.error;
     }
@@ -313,6 +315,13 @@ function DespesaModal({ despesa, viveiros, onClose, onSaved }: {
             )}
             {!despesa && rateio === "individual" && viveiroIds.length > 1 && !(Number(valor) > 0) && (
               <p className="text-xs text-muted-foreground mt-1">O valor será <strong>dividido</strong> igualmente entre os {viveiroIds.length} viveiros selecionados.</p>
+            )}
+            {!despesa && rateio === "todos" && viveiros.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {Number(valor) > 0
+                  ? <>Vai pros <strong>{viveiros.length} viveiros</strong>: <strong>{(Number(valor) / viveiros.length).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong> em cada.</>
+                  : <>O valor será <strong>dividido</strong> igualmente entre os {viveiros.length} viveiros ativos.</>}
+              </p>
             )}
           </Field>
           <Field label="Observação (opcional)">

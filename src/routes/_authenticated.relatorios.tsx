@@ -384,7 +384,7 @@ function RelatoriosPage() {
       }
 
       // 1) TOPO: Despesa · Receita · Saldo (só o que é do viveiro, sem rateio)
-      const despesaViv = l.custoRacao + l.custoDespIndiv + l.custoCaixaIndiv;
+      const despesaViv = l.custoRacao + l.custoOutrosLanc + l.custoDespIndiv + l.custoCaixaIndiv;
       const receitaViv = l.receitas;
       const saldoViv = receitaViv - despesaViv;
       const cards3: [string, string, [number, number, number]][] = [
@@ -826,7 +826,7 @@ function RelatoriosPage() {
               </div>
 
               {(() => {
-                const despesaViv = l.custoRacao + l.custoDespIndiv + l.custoCaixaIndiv;
+                const despesaViv = l.custoRacao + l.custoOutrosLanc + l.custoDespIndiv + l.custoCaixaIndiv;
                 const receitaViv = l.receitas;
                 const saldoViv = receitaViv - despesaViv;
                 return (
