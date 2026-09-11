@@ -431,6 +431,32 @@ function RelatoriosPage() {
         y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
       }
 
+      // 2b) INSUMOS / PRODUTOS (não-ração)
+      if (l.insumosLista.length > 0) {
+        if (y > pageH - 40) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Insumos", 14, y);
+        y += 2;
+        at(doc, {
+          startY: y,
+          head: [["Data", "Produto", "Qtd", "Custo"]],
+          body: l.insumosLista.map((x) => [
+            formatDate(x.data),
+            x.produto,
+            x.quantidade != null ? `${formatNumber(x.quantidade)} ${x.unidade}`.trim() : "—",
+            formatBRL(x.custo),
+          ]),
+          foot: [["Total", "", "", formatBRL(l.custoOutrosLanc)]],
+          styles: { fontSize: 8, cellPadding: 1.5 },
+          headStyles: { fillColor: TEAL, textColor: 255 },
+          footStyles: { fillColor: [226, 232, 240], textColor: DARK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 10, right: 10 },
+        });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
       // 3) DESPESAS GERAIS (abaixo)
 
       if (l.despesasLista.length > 0) {
@@ -878,6 +904,40 @@ function RelatoriosPage() {
                           <td className="p-2">Total</td>
                           <td className="p-2 text-right">{formatNumber(l.racaoKg)}</td>
                           <td className="p-2 text-right">{formatBRL(l.custoRacao)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {l.insumosLista.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Insumos</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-left">Produto</th>
+                          <th className="p-2 text-right">Qtd</th>
+                          <th className="p-2 text-right">Custo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.insumosLista.map((x) => (
+                          <tr key={x.id} className="border-t">
+                            <td className="p-2">{formatDate(x.data)}</td>
+                            <td className="p-2">{x.produto}</td>
+                            <td className="p-2 text-right">{x.quantidade != null ? `${formatNumber(x.quantidade)} ${x.unidade}`.trim() : "—"}</td>
+                            <td className="p-2 text-right">{formatBRL(x.custo)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-semibold">
+                        <tr>
+                          <td className="p-2" colSpan={3}>Total</td>
+                          <td className="p-2 text-right">{formatBRL(l.custoOutrosLanc)}</td>
                         </tr>
                       </tfoot>
                     </table>

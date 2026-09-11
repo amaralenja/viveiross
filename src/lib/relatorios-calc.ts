@@ -184,34 +184,41 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       .map(([data, r]) => ({ data, kg: r.kg, custo: r.custo }))
       .sort((a, b) => (a.data < b.data ? 1 : -1));
 
-    // "Despesas gerais" = SÓ as despesas próprias do viveiro (energia, funcionário, manutenção...)
-    // lançadas individualmente. SEM rateado, SEM insumo/ração e SEM povoamento/larva — isso não é
-    // "geral" do viveiro (o custo da larva/povoamento já entra no total, mas não é despesa "manual").
-    const ehPovoamentoLarva = (txt?: string | null) => !!txt && /povoa|larva|p[óo]s[- ]?larva/i.test(txt);
+    // "Despesas gerais" = despesas PRÓPRIAS do viveiro (individual): manuais (energia, funcionário)
+    // + o povoamento/larva do próprio viveiro. SEM rateado (custo de outros viveiros) e SEM insumo/ração
+    // (esses vão nos blocos "Ração dia a dia" e "Insumos").
     const despesasLista = [
-      ...despesasDoViveiro
-        .filter((d) => !ehPovoamentoLarva(d.categoria) && !ehPovoamentoLarva(d.descricao))
-        .map((d) => ({
-          ...d,
-          share: Number(d.valor ?? 0),
-          tipoRateio: "individual" as const,
-          source: "despesa" as const,
-        })),
-      ...caixaDespIndivViv
-        .filter((c) => !ehPovoamentoLarva(c.categoria) && !ehPovoamentoLarva(c.descricao))
-        .map((c) => ({
-          id: c.id,
-          viveiro_id: c.viveiro_id,
-          descricao: c.descricao,
-          categoria: c.categoria ?? "caixa",
-          valor: Number(c.valor ?? 0),
-          data_despesa: c.data_lancamento,
-          rateio: "individual",
-          share: Number(c.valor ?? 0),
-          tipoRateio: "individual" as const,
-          source: "caixa" as const,
-        })),
+      ...despesasDoViveiro.map((d) => ({
+        ...d,
+        share: Number(d.valor ?? 0),
+        tipoRateio: "individual" as const,
+        source: "despesa" as const,
+      })),
+      ...caixaDespIndivViv.map((c) => ({
+        id: c.id,
+        viveiro_id: c.viveiro_id,
+        descricao: c.descricao,
+        categoria: c.categoria ?? "caixa",
+        valor: Number(c.valor ?? 0),
+        data_despesa: c.data_lancamento,
+        rateio: "individual",
+        share: Number(c.valor ?? 0),
+        tipoRateio: "individual" as const,
+        source: "caixa" as const,
+      })),
     ];
+
+    // Insumos/produtos lançados (não-ração): Puim, silicato, gesso, etc. Aparecem no bloco "Insumos".
+    const insumosLista = lancsOutros
+      .map((l) => ({
+        id: l.id,
+        data: l.data_lancamento,
+        produto: textValue((l as { produto_nome?: string | null }).produto_nome, "—"),
+        quantidade: l.quantidade != null ? Number(l.quantidade) : null,
+        unidade: (l as { unidade?: string | null }).unidade ?? "",
+        custo: Number(l.custo_total ?? 0),
+      }))
+      .sort((a, b) => (a.data < b.data ? 1 : -1));
 
     // Funcionários ligados a este viveiro + total de vales por funcionário
     const funcsDiretos = funcionarios.filter((f) => f.viveiro_id === v.id);
@@ -291,6 +298,7 @@ export function computeLinhas(bundle: Partial<RelatorioBundle> | null | undefine
       bios,
       racaoDiaria,
       despesasLista,
+      insumosLista,
       funcionarios: funcsComVales,
       totalSalarios,
       totalValesViv,
