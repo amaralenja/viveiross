@@ -3,18 +3,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shield, UserPlus, KeyRound, CalendarPlus, Trash2, Clock, AlertTriangle, Infinity as InfinityIcon, MessageCircle, Pencil, Check, Send, Copy, X } from "lucide-react";
+import { Shield, UserPlus, KeyRound, CalendarPlus, CalendarMinus, Trash2, Clock, AlertTriangle, Infinity as InfinityIcon, MessageCircle, Pencil, Check, Send, Copy, X, RotateCcw, Ban } from "lucide-react";
 import {
   listUsersFn,
   createUserFn,
   updatePasswordFn,
-  setAccessFn,
+  setExpiryFn,
   deleteUserFn,
+  softDeleteUserFn,
+  restoreUserFn,
+  listDeletedUsersFn,
   setViveiroLimitFn,
   setWhatsappFn,
   resendAccessFn,
   listEnviosFn,
   type AdminUser,
+  type DeletedUser,
 } from "@/lib/admin.functions";
 
 // Monta link do WhatsApp a partir de um número livre (só dígitos; assume BR se faltar DDI)
@@ -57,8 +61,11 @@ function AdminPage() {
   const listUsers = useServerFn(listUsersFn);
   const createUser = useServerFn(createUserFn);
   const updatePassword = useServerFn(updatePasswordFn);
-  const setAccess = useServerFn(setAccessFn);
+  const setExpiry = useServerFn(setExpiryFn);
   const deleteUser = useServerFn(deleteUserFn);
+  const softDelete = useServerFn(softDeleteUserFn);
+  const restoreUser = useServerFn(restoreUserFn);
+  const listDeleted = useServerFn(listDeletedUsersFn);
   const setViveiroLimit = useServerFn(setViveiroLimitFn);
   const setWhatsapp = useServerFn(setWhatsappFn);
   const resendAccess = useServerFn(resendAccessFn);
@@ -68,6 +75,19 @@ function AdminPage() {
     queryFn: () => listUsers(),
     retry: false,
   });
+
+  const { data: deletedUsers = [] } = useQuery({
+    queryKey: ["admin", "deleted"],
+    queryFn: () => listDeleted(),
+    retry: false,
+  });
+
+  // Helpers de dias -> chama setExpiry com a data calculada
+  const DAY = 86400000;
+  const setExpiryDo = (user_id: string, iso: string | null, msg: string) =>
+    setExpiry({ data: { user_id, expires_at: iso } })
+      .then(() => { toast.success(msg); invalidate(); })
+      .catch((e) => toast.error((e as Error).message));
 
   const listEnvios = useServerFn(listEnviosFn);
   const { data: envios = [] } = useQuery({
@@ -97,7 +117,7 @@ function AdminPage() {
     window.open(url, "_blank");
   }
 
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["admin", "users"] }); qc.invalidateQueries({ queryKey: ["admin", "envios"] }); };
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["admin", "users"] }); qc.invalidateQueries({ queryKey: ["admin", "deleted"] }); qc.invalidateQueries({ queryKey: ["admin", "envios"] }); };
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -222,16 +242,18 @@ function AdminPage() {
                     .then(() => toast.success("E-mail de reset enviado"))
                     .catch((e) => toast.error((e as Error).message))
                 }
-                onAddDays={(n) =>
-                  setAccess({ data: { user_id: u.user_id, dias: n, addDays: true } })
-                    .then(() => { toast.success(`+${n} dias liberados`); invalidate(); })
-                    .catch((e) => toast.error((e as Error).message))
-                }
-                onSetDays={(n) =>
-                  setAccess({ data: { user_id: u.user_id, dias: n, addDays: false } })
-                    .then(() => { toast.success(`Acesso definido para ${n} dias`); invalidate(); })
-                    .catch((e) => toast.error((e as Error).message))
-                }
+                onAddDays={(n) => {
+                  const now = Date.now();
+                  const curr = u.expires_at ? new Date(u.expires_at).getTime() : 0;
+                  const base = Math.max(now, curr); // soma/subtrai a partir de hoje ou do vencimento futuro
+                  const iso = new Date(base + n * DAY).toISOString();
+                  setExpiryDo(u.user_id, iso, n >= 0 ? `+${n} dias liberados` : `${Math.abs(n)} dias removidos`);
+                }}
+                onSetDays={(n) => {
+                  const iso = new Date(Date.now() + n * DAY).toISOString();
+                  setExpiryDo(u.user_id, iso, `Acesso definido para ${n} dias`);
+                }}
+                onZerar={() => setExpiryDo(u.user_id, new Date().toISOString(), "Dias zerados — acesso bloqueado")}
                 onResend={() =>
                   resendAccess({ data: { user_id: u.user_id, email: u.email } })
                     .then((r: { mode?: "senha" | "link"; emailed?: boolean; emailError?: string | null; password?: string | null }) => {
@@ -250,8 +272,8 @@ function AdminPage() {
                     .catch((e) => toast.error((e as Error).message))
                 }
                 onDelete={() =>
-                  deleteUser({ data: { user_id: u.user_id } })
-                    .then(() => { toast.success("Usuário removido"); invalidate(); })
+                  softDelete({ data: { user_id: u.user_id } })
+                    .then(() => { toast.success("Movido pra Usuários apagados"); invalidate(); })
                     .catch((e) => toast.error((e as Error).message))
                 }
                 onViveiroLimit={(limite) =>
@@ -269,6 +291,48 @@ function AdminPage() {
           </div>
         )}
       </div>
+
+      {deletedUsers.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="font-bold text-lg flex items-center gap-2"><Trash2 className="size-5 text-muted-foreground" /> Usuários apagados ({deletedUsers.length})</h2>
+            <p className="text-xs text-muted-foreground">Ficam guardados aqui. Você pode <span className="font-semibold">reativar</span> ou <span className="font-semibold">excluir de vez</span>.</p>
+          </div>
+          <div className="grid gap-2">
+            {deletedUsers.map((u) => (
+              <div key={u.user_id} className="rounded-2xl border bg-muted/30 p-4 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{u.email}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Apagado em {u.deleted_at ? new Date(u.deleted_at).toLocaleString("pt-BR") : "—"} · {u.viveiros_ativos ?? 0} viveiro(s)
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() =>
+                      restoreUser({ data: { user_id: u.user_id } })
+                        .then(() => { toast.success("Usuário reativado"); invalidate(); })
+                        .catch((e) => toast.error((e as Error).message))
+                    }
+                    className="h-10 px-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-1.5">
+                    <RotateCcw className="size-4" /> Reativar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Excluir DE VEZ ${u.email}? Some do painel do admin (os dados no banco permanecem). Não dá pra desfazer pela tela.`))
+                        deleteUser({ data: { user_id: u.user_id } })
+                          .then(() => { toast.success("Excluído de vez"); invalidate(); })
+                          .catch((e) => toast.error((e as Error).message));
+                    }}
+                    className="h-10 px-3 rounded-xl border border-destructive/40 text-destructive text-sm font-semibold inline-flex items-center gap-1.5 hover:bg-destructive/10">
+                    <Ban className="size-4" /> Excluir de vez
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         <h2 className="font-bold text-lg flex items-center gap-2"><Send className="size-5 text-primary" /> Envios de acesso ({envios.length})</h2>
@@ -302,19 +366,19 @@ function AdminPage() {
 }
 
 function UserCard({
-  u, onPassword, onAddDays, onSetDays, onResend, onDelete, onViveiroLimit, onSetWhatsapp,
+  u, onPassword, onAddDays, onSetDays, onZerar, onResend, onDelete, onViveiroLimit, onSetWhatsapp,
 }: {
   u: AdminUser;
   onPassword: () => void;
   onAddDays: (n: number) => void;
   onSetDays: (n: number) => void;
+  onZerar: () => void;
   onResend: () => void;
   onDelete: () => void;
   onViveiroLimit: (limite: number | null) => void;
   onSetWhatsapp: (wpp: string | null) => void;
 }) {
   const [customDays, setCustomDays] = useState("");
-  const [showCustom, setShowCustom] = useState(false);
   const [editWpp, setEditWpp] = useState(false);
   const [wppInput, setWppInput] = useState(u.whatsapp ?? "");
   const wa = waLink(u.whatsapp);
@@ -380,8 +444,8 @@ function UserCard({
         </div>
         <div className="flex gap-1">
           {!u.is_admin && (
-            <button onClick={() => { if (confirm(`Remover ${u.email}?`)) onDelete(); }}
-              title="Remover usuário"
+            <button onClick={() => { if (confirm(`Apagar ${u.email}? Ele vai pra "Usuários apagados" e pode ser reativado depois.`)) onDelete(); }}
+              title="Apagar (vai pra Usuários apagados)"
               className="size-9 rounded-lg border text-destructive hover:bg-destructive/10 flex items-center justify-center">
               <Trash2 className="size-4" />
             </button>
@@ -414,48 +478,48 @@ function UserCard({
         </div>
       )}
 
-      {/* Ações de renovação */}
+      {/* Controle de dias de acesso */}
       {!u.is_admin && (
-        <div className="grid gap-2">
-          {aguardando ? (
+        <div className="rounded-xl border bg-background/60 p-3 space-y-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Dias de acesso</p>
+          {aguardando && (
             <button onClick={() => onSetDays(30)}
-              className="h-12 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-1">
+              className="w-full h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold inline-flex items-center justify-center gap-1.5">
               <Check className="size-4" /> Liberar conta por 30 dias
             </button>
-          ) : null}
-          <div className="grid grid-cols-2 gap-2">
+          )}
+          <div className="grid grid-cols-4 gap-1.5">
             <button onClick={() => onAddDays(30)}
-              className="h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-1">
-              <CalendarPlus className="size-4" /> +30 dias
+              className="h-10 rounded-lg bg-emerald-600 text-white text-sm font-bold inline-flex items-center justify-center gap-1 hover:bg-emerald-700">
+              <CalendarPlus className="size-3.5" />30
             </button>
             <button onClick={() => onAddDays(7)}
-              className="h-11 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1">
-              +7 dias
+              className="h-10 rounded-lg bg-emerald-600/90 text-white text-sm font-bold inline-flex items-center justify-center gap-1 hover:bg-emerald-700">
+              <CalendarPlus className="size-3.5" />7
+            </button>
+            <button onClick={() => onAddDays(-7)}
+              title="Diminuir 7 dias"
+              className="h-10 rounded-lg border border-amber-500/50 text-amber-700 dark:text-amber-400 text-sm font-bold inline-flex items-center justify-center gap-1 hover:bg-amber-500/10">
+              <CalendarMinus className="size-3.5" />7
+            </button>
+            <button onClick={() => { if (confirm(`Zerar os dias de ${u.email}? O acesso fica bloqueado na hora.`)) onZerar(); }}
+              title="Zerar dias (bloqueia o acesso agora)"
+              className="h-10 rounded-lg border border-destructive/50 text-destructive text-sm font-bold inline-flex items-center justify-center gap-1 hover:bg-destructive/10">
+              <Ban className="size-3.5" />0
             </button>
           </div>
-          {showCustom ? (
-            <div className="flex gap-2">
-              <input value={customDays} onChange={(e) => setCustomDays(e.target.value)}
-                type="number" min="1" autoFocus className="app-input" placeholder="dias" />
-              <button onClick={() => { onAddDays(Number(customDays) || 0); setCustomDays(""); setShowCustom(false); }}
-                className="h-11 px-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold whitespace-nowrap">
-                Somar
-              </button>
-              <button onClick={() => { onSetDays(Number(customDays) || 0); setCustomDays(""); setShowCustom(false); }}
-                className="h-11 px-3 rounded-xl border text-sm font-semibold whitespace-nowrap">
-                Definir
-              </button>
-              <button onClick={() => setShowCustom(false)}
-                className="h-11 px-3 rounded-xl border text-sm">
-                ✕
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setShowCustom(true)}
-              className="text-xs font-medium text-primary hover:underline text-left">
-              Personalizar quantidade de dias
+          <div className="flex gap-1.5">
+            <input value={customDays} onChange={(e) => setCustomDays(e.target.value.replace(/[^0-9]/g, ""))}
+              type="text" inputMode="numeric" className="app-input h-10 flex-1" placeholder="qtd. de dias" />
+            <button onClick={() => { const n = Number(customDays) || 0; if (n > 0) { onSetDays(n); setCustomDays(""); } }}
+              disabled={!customDays}
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold whitespace-nowrap disabled:opacity-40">
+              Definir exato
             </button>
-          )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            <strong>+30/+7</strong> soma · <strong>−7</strong> diminui · <strong>0</strong> zera · <strong>Definir exato</strong> conta a partir de hoje.
+          </p>
         </div>
       )}
 

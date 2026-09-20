@@ -159,6 +159,52 @@ export const setAccessFn = createServerFn({ method: "POST" })
     return { ok: true, expires_at: expires };
   });
 
+// Define a data de expiração diretamente (permite diminuir, zerar e definir exato).
+export const setExpiryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string; expires_at: string | null }) => d)
+  .handler(async ({ data, context }) => {
+    const ctx = context as any;
+    const { data: expires, error } = await ctx.supabase.rpc("admin_set_expiry", {
+      _user_id: data.user_id,
+      _expires: data.expires_at,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, expires_at: expires };
+  });
+
+export type DeletedUser = AdminUser & { deleted_at: string | null };
+export const listDeletedUsersFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<DeletedUser[]> => {
+    const ctx = context as any;
+    const { data, error } = await ctx.supabase.rpc("admin_list_deleted_users");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as DeletedUser[];
+  });
+
+// Manda pra lixeira (recuperável)
+export const softDeleteUserFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string }) => d)
+  .handler(async ({ data, context }) => {
+    const ctx = context as any;
+    const { error } = await ctx.supabase.rpc("admin_soft_delete_user", { _user_id: data.user_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Restaura da lixeira
+export const restoreUserFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string }) => d)
+  .handler(async ({ data, context }) => {
+    const ctx = context as any;
+    const { error } = await ctx.supabase.rpc("admin_restore_user", { _user_id: data.user_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const toggleAdminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { user_id: string; is_admin: boolean }) => d)
@@ -273,7 +319,7 @@ export const getMyAccessFn = createServerFn({ method: "GET" })
     const ctx = context as any;
     const { data: access, error: accessError } = await ctx.supabase
       .from("user_access")
-      .select("expires_at, viveiro_limit")
+      .select("expires_at, viveiro_limit, deleted_at")
       .eq("user_id", ctx.userId)
       .maybeSingle();
     if (accessError) throw new Error(accessError.message);
@@ -282,10 +328,12 @@ export const getMyAccessFn = createServerFn({ method: "GET" })
       _user_id: ctx.userId,
       _role: "admin",
     });
+    // Usuário na lixeira perde o acesso (até ser restaurado).
+    const naLixeira = !!access?.deleted_at;
     return {
-      expires_at: (access?.expires_at as string | null) ?? null,
+      expires_at: naLixeira ? null : (access?.expires_at as string | null) ?? null,
       is_admin: !!isAdmin,
-      has_access: !!access,
+      has_access: !!access && !naLixeira,
       viveiro_limit: (access?.viveiro_limit as number | null) ?? null,
     };
   });
