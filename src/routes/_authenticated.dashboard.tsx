@@ -1052,10 +1052,8 @@ async function gerarPdfInicio(
   const boxes: Array<[string, string, [number, number, number], [number, number, number]]> = [
     ["RAÇÃO HOJE", `${n(tHoje)} kg`, [5, 150, 105], [209, 250, 229]],
     ["RAÇÃO ONTEM", `${n(tOntem)} kg`, [51, 65, 85], [226, 232, 240]],
-    ["RAÇÃO ACUMULADA", `${n(tAcum)} kg`, [37, 99, 235], [219, 234, 254]],
-    ["CUSTO ACUMULADO", brl(tCusto), [217, 119, 6], [254, 243, 199]],
   ];
-  const bw = 45, bx0 = 14, gap = 2, by = 33;
+  const bw = 91, bx0 = 14, gap = 2, by = 33;
   boxes.forEach(([label, val, color, tint], i) => {
     const x = bx0 + i * (bw + gap);
     doc.setFillColor(tint[0], tint[1], tint[2]);
@@ -1197,7 +1195,7 @@ async function gerarImagemInicio(
   const SANS = "-apple-system, Segoe UI, Roboto, Arial, sans-serif";
 
   const W = 1000, PAD = 36, GAP = 22;
-  const headerH = 112, cardH = 104, statsRowsH = 2 * cardH + 14, varH = 46;
+  const headerH = 112, cardH = 108, statsRowsH = cardH, varH = 46;
   const secTitleH = 44, tHead = 46, panRow = 42, panFoot = 46, legendH = 26, lancRow = 40, footerH = 54;
   const nLanc = ultimosHoje.length;
   const H = headerH + GAP + statsRowsH + 8 + varH + GAP
@@ -1264,17 +1262,15 @@ async function gerarImagemInicio(
   const cards: [string, string, string, string][] = [
     ["RAÇÃO HOJE", `${n(tHoje)} kg`, C.green, C.greenT],
     ["RAÇÃO ONTEM", `${n(tOntem)} kg`, C.slate, C.slateT],
-    ["RAÇÃO ACUMULADA", `${n(tAcum)} kg`, C.blue, C.blueT],
-    ["CUSTO ACUMULADO", brl(tCusto), C.amber, C.amberT],
   ];
   const cardW = (W - 2 * PAD - 14) / 2;
   cards.forEach(([lab, val, col, tint], i) => {
-    const cx = PAD + (i % 2) * (cardW + 14);
-    const cy = y + Math.floor(i / 2) * (cardH + 14);
+    const cx = PAD + i * (cardW + 14);
+    const cy = y;
     ctx.fillStyle = tint; rr(cx, cy, cardW, cardH, 16); ctx.fill();
     ctx.fillStyle = col; ctx.textAlign = "left";
-    ctx.font = `700 16px ${SANS}`; ctx.fillText(lab, cx + 22, cy + 36);
-    ctx.font = `800 34px ${SANS}`; ctx.fillText(val, cx + 22, cy + 80);
+    ctx.font = `700 17px ${SANS}`; ctx.fillText(lab, cx + 24, cy + 40);
+    ctx.font = `800 40px ${SANS}`; ctx.fillText(val, cx + 24, cy + 88);
   });
   y += statsRowsH + 8;
 
