@@ -55,6 +55,7 @@ function diasRestantes(iso: string | null) {
   const ms = new Date(iso).getTime() - Date.now();
   return Math.ceil(ms / 86400000);
 }
+const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function AdminPage() {
   const qc = useQueryClient();
@@ -474,6 +475,33 @@ function UserCard({
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Resumo do cliente (controle do pessoal) */}
+      {!u.is_admin && (
+        <div className="rounded-xl border bg-background/60 p-3 space-y-2">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Resumo do cliente</p>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg bg-muted/50 p-2">
+              <p className="text-lg font-black tabular-nums leading-none">
+                {u.viveiros_ativos ?? 0}<span className="text-xs text-muted-foreground font-semibold">/{u.viveiros_total ?? 0}</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground font-semibold mt-1">Viveiros ativos/total</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-2">
+              <p className="text-lg font-black tabular-nums leading-none text-blue-600">{Number(u.povoamento_total ?? 0).toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-muted-foreground font-semibold mt-1">Pós-larvas povoadas</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-2">
+              <p className={`text-base font-black tabular-nums leading-none break-all ${Number(u.saldo_total) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{brl(Number(u.saldo_total ?? 0))}</p>
+              <p className="text-[10px] text-muted-foreground font-semibold mt-1">Saldo caixa</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-xs px-0.5">
+            <span className="text-muted-foreground">Receitas: <strong className="text-emerald-600">{brl(Number(u.receitas_total ?? 0))}</strong></span>
+            <span className="text-muted-foreground">Despesas: <strong className="text-rose-600">{brl(Number(u.despesas_total ?? 0))}</strong></span>
           </div>
         </div>
       )}

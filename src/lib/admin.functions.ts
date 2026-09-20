@@ -10,6 +10,11 @@ export type AdminUser = {
   created_at: string;
   has_access: boolean;
   viveiros_ativos: number;
+  viveiros_total: number;
+  povoamento_total: number | string;
+  saldo_total: number | string;
+  receitas_total: number | string;
+  despesas_total: number | string;
   viveiro_limit: number | null;
   whatsapp: string | null;
 };
