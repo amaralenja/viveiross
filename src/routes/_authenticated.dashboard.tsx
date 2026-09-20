@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight, FileDown, Printer, Calendar as CalendarIcon, Megaphone, Plus, ChevronUp, ChevronDown } from "lucide-react";
+import { Trash2, Pencil, X, ClipboardList, Scale, TrendingUp, TrendingDown, ArrowRight, FileDown, Printer, Calendar as CalendarIcon, Megaphone, Plus, ChevronUp, ChevronDown, Image as ImageIcon } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { sortByViveiroNome } from "@/lib/sort";
 import { Calculadora } from "@/components/Calculadora";
@@ -444,7 +444,7 @@ function Dashboard() {
   const [pdfDe, setPdfDe] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 2); return ymd(d); });
   const [pdfAte, setPdfAte] = useState(() => todayLocal());
 
-  async function handleExportPdf(deArg?: string, ateArg?: string) {
+  async function handleExportPdf(deArg?: string, ateArg?: string, formato: "pdf" | "img" = "pdf") {
     try {
       setIsGeneratingPdf(true);
       const hoje = todayLocal();
@@ -523,7 +523,11 @@ function Dashboard() {
       const sorted = sortByViveiroNome(rows, (r) => r.nome);
       const detalhe = (detRes.data ?? []) as Lanc[];
 
-      await gerarPdfInicio(detalhe, { hoje, ontem, rows: sorted, periodoDe, periodoAte });
+      if (formato === "img") {
+        await gerarImagemInicio(detalhe, { hoje, ontem, rows: sorted, periodoDe, periodoAte });
+      } else {
+        await gerarPdfInicio(detalhe, { hoje, ontem, rows: sorted, periodoDe, periodoAte });
+      }
       setPdfModalOpen(false);
     } catch (e) {
       toast.error((e as Error).message);
@@ -538,10 +542,10 @@ function Dashboard() {
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => !isGeneratingPdf && setPdfModalOpen(false)}>
           <div className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold flex items-center gap-2"><FileDown className="size-5 text-primary" /> PDF por período</h2>
+              <h2 className="text-lg font-bold flex items-center gap-2"><FileDown className="size-5 text-primary" /> Relatório de ração</h2>
               <button onClick={() => setPdfModalOpen(false)} className="size-8 rounded-lg hover:bg-muted flex items-center justify-center">✕</button>
             </div>
-            <p className="text-xs text-muted-foreground">Escolha o período dos lançamentos que quer imprimir.</p>
+            <p className="text-xs text-muted-foreground">Escolha o período e gere em <strong>PDF</strong> ou <strong>Imagem</strong> (a imagem salva na galeria/compartilha no WhatsApp).</p>
             <div className="grid grid-cols-2 gap-2">
               <label className="text-xs font-semibold text-muted-foreground">De<input type="date" value={pdfDe} onChange={(e) => setPdfDe(e.target.value)} className="app-input mt-1 w-full" /></label>
               <label className="text-xs font-semibold text-muted-foreground">Até<input type="date" value={pdfAte} onChange={(e) => setPdfAte(e.target.value)} className="app-input mt-1 w-full" /></label>
@@ -552,9 +556,14 @@ function Dashboard() {
               <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() - 6); setPdfDe(ymd(d)); setPdfAte(todayLocal()); }} className="h-8 px-3 rounded-lg bg-muted text-xs font-bold hover:bg-muted/70">Últimos 7 dias</button>
               <button type="button" onClick={() => { const n = new Date(); setPdfDe(`${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`); setPdfAte(todayLocal()); }} className="h-8 px-3 rounded-lg bg-muted text-xs font-bold hover:bg-muted/70">Este mês</button>
             </div>
-            <button type="button" onClick={() => handleExportPdf()} disabled={isGeneratingPdf} className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 disabled:opacity-50">
-              <FileDown className="size-5" /> {isGeneratingPdf ? "Gerando..." : "Gerar PDF"}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => handleExportPdf(undefined, undefined, "pdf")} disabled={isGeneratingPdf} className="h-12 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+                <FileDown className="size-5" /> {isGeneratingPdf ? "..." : "PDF"}
+              </button>
+              <button type="button" onClick={() => handleExportPdf(undefined, undefined, "img")} disabled={isGeneratingPdf} className="h-12 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-emerald-700">
+                <ImageIcon className="size-5" /> {isGeneratingPdf ? "..." : "Imagem"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1029,49 +1038,49 @@ async function gerarPdfInicio(
   const pctTotal = tOntem > 0 ? (diffTotal / tOntem) * 100 : 0;
 
   // ===== Cabeçalho =====
-  doc.setFillColor(16, 185, 129);
-  doc.rect(0, 0, 210, 24, "F");
+  doc.setFillColor(5, 150, 105); // emerald-600 (mais vivo)
+  doc.rect(0, 0, 210, 27, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
-  doc.text("RELATÓRIO DE RAÇÃO & ALIMENTAÇÃO", 14, 11);
-  doc.setFontSize(8.5);
+  doc.setFontSize(18);
+  doc.text("RELATÓRIO DE RAÇÃO & ALIMENTAÇÃO", 14, 12);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Emitido em ${dataHojeStr} às ${horaStr}  ·  ${nAtivos} viveiro(s) ativo(s) de ${rows.length}`, 14, 18);
+  doc.text(`Emitido em ${dataHojeStr} às ${horaStr}  ·  ${nAtivos} viveiro(s) ativo(s) de ${rows.length}`, 14, 20);
 
-  // ===== Resumo (4 caixas) =====
-  const boxes: Array<[string, string, [number, number, number]]> = [
-    ["RAÇÃO HOJE", `${n(tHoje)} kg`, [16, 185, 129]],
-    ["RAÇÃO ONTEM", `${n(tOntem)} kg`, [30, 41, 59]],
-    ["RAÇÃO ACUMULADA", `${n(tAcum)} kg`, [37, 99, 235]],
-    ["CUSTO ACUMULADO", brl(tCusto), [217, 119, 6]],
+  // ===== Resumo (4 caixas) — fundo colorido vivo =====
+  const boxes: Array<[string, string, [number, number, number], [number, number, number]]> = [
+    ["RAÇÃO HOJE", `${n(tHoje)} kg`, [5, 150, 105], [209, 250, 229]],
+    ["RAÇÃO ONTEM", `${n(tOntem)} kg`, [51, 65, 85], [226, 232, 240]],
+    ["RAÇÃO ACUMULADA", `${n(tAcum)} kg`, [37, 99, 235], [219, 234, 254]],
+    ["CUSTO ACUMULADO", brl(tCusto), [217, 119, 6], [254, 243, 199]],
   ];
-  const bw = 45, bx0 = 14, gap = 2, by = 30;
-  boxes.forEach(([label, val, color], i) => {
+  const bw = 45, bx0 = 14, gap = 2, by = 33;
+  boxes.forEach(([label, val, color, tint], i) => {
     const x = bx0 + i * (bw + gap);
-    doc.setFillColor(245, 247, 250);
-    doc.roundedRect(x, by, bw, 17, 2, 2, "F");
-    doc.setFontSize(6.8);
-    doc.setTextColor(100, 116, 139);
-    doc.setFont("helvetica", "bold");
-    doc.text(label, x + 3, by + 6);
-    doc.setFontSize(11);
+    doc.setFillColor(tint[0], tint[1], tint[2]);
+    doc.roundedRect(x, by, bw, 20, 2.5, 2.5, "F");
+    doc.setFontSize(7.5);
     doc.setTextColor(color[0], color[1], color[2]);
-    doc.text(val, x + 3, by + 13);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, x + 3, by + 7);
+    doc.setFontSize(13);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(val, x + 3, by + 15);
   });
 
   // Linha de variação
-  doc.setFontSize(8);
+  doc.setFontSize(9.5);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(diffTotal >= 0 ? 16 : 220, diffTotal >= 0 ? 160 : 38, diffTotal >= 0 ? 120 : 38);
-  doc.text(`Variação hoje x ontem: ${diffTotal >= 0 ? "+" : ""}${n(diffTotal)} kg (${pctTotal >= 0 ? "+" : ""}${pctTotal.toFixed(1)}%)`, 14, 54);
+  doc.setTextColor(diffTotal >= 0 ? 5 : 220, diffTotal >= 0 ? 150 : 38, diffTotal >= 0 ? 105 : 38);
+  doc.text(`Variação hoje x ontem: ${diffTotal >= 0 ? "+" : ""}${n(diffTotal)} kg (${pctTotal >= 0 ? "+" : ""}${pctTotal.toFixed(1)}%)`, 14, 60);
 
-  let currentY = 60;
+  let currentY = 67;
 
   // ===== Tabela 1: Panorama por viveiro =====
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 41, 59);
+  doc.setTextColor(5, 150, 105);
   doc.text("PANORAMA POR VIVEIRO", 14, currentY);
 
   autoTable(doc, {
@@ -1089,10 +1098,10 @@ async function gerarPdfInicio(
       r.fca > 0 ? n(r.fca, 2) : "—",
     ]),
     foot: [["TOTAL", "", "", n(tHoje), n(tOntem), n(tAcum), tCusto > 0 ? brl(tCusto) : "—", "", ""]],
-    styles: { fontSize: 7.5, cellPadding: 1.6 },
-    headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
-    footStyles: { fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
+    footStyles: { fillColor: [209, 250, 229], textColor: [5, 120, 85], fontStyle: "bold", fontSize: 8.5 },
+    alternateRowStyles: { fillColor: [240, 253, 248] },
     columnStyles: {
       0: { cellWidth: 30 },
       1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" },
@@ -1110,9 +1119,9 @@ async function gerarPdfInicio(
   doc.text("Quantidades em kg. Peso = último peso médio da biometria. FCA = ração acumulada ÷ biomassa.", 14, currentY - 4);
 
   // ===== Tabela 2: Lançamentos dos últimos 3 dias =====
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 41, 59);
+  doc.setTextColor(37, 99, 235);
   doc.text(`LANÇAMENTOS · ${periodoLabel} (${ultimosHoje.length})`, 14, currentY);
 
   if (ultimosHoje.length === 0) {
@@ -1137,9 +1146,9 @@ async function gerarPdfInicio(
           l.custo_total != null && Number(l.custo_total) > 0 ? brl(Number(l.custo_total)) : "—",
         ];
       }),
-      styles: { fontSize: 7.5, cellPadding: 1.6 },
-      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { fontSize: 8.5, cellPadding: 2 },
+      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
+      alternateRowStyles: { fillColor: [239, 246, 255] },
       columnStyles: { 5: { halign: "right" }, 6: { halign: "right" } },
       margin: { left: 14, right: 14 },
     });
@@ -1159,6 +1168,186 @@ async function gerarPdfInicio(
   const nome = `relatorio-inicio-${dataHojeStr.replace(/\//g, "-")}.pdf`;
   doc.save(nome);
   toast.success("PDF gerado!");
+}
+
+// Gera o mesmo relatório como IMAGEM (PNG) — cores vivas e fonte maior. Salva na galeria / compartilha.
+async function gerarImagemInicio(
+  ultimosHoje: Lanc[],
+  dados: { hoje: string; ontem: string; rows: PdfRow[]; periodoDe?: string; periodoAte?: string }
+) {
+  const fmtD = (iso?: string) => { const p = (iso || "").slice(0, 10).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : (iso || ""); };
+  const periodoLabel = dados.periodoDe && dados.periodoAte
+    ? (dados.periodoDe === dados.periodoAte ? fmtD(dados.periodoDe) : `${fmtD(dados.periodoDe)} a ${fmtD(dados.periodoAte)}`)
+    : "período";
+  const n = (x: number, d = 1) => x.toLocaleString("pt-BR", { maximumFractionDigits: d });
+  const brl = (x: number) => `R$ ${x.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const rows = dados.rows;
+  const tHoje = rows.reduce((s, r) => s + r.hoje, 0);
+  const tOntem = rows.reduce((s, r) => s + r.ontem, 0);
+  const tAcum = rows.reduce((s, r) => s + r.acum, 0);
+  const tCusto = rows.reduce((s, r) => s + r.custo, 0);
+  const nAtivos = rows.filter((r) => r.ativo).length;
+  const diff = tHoje - tOntem;
+  const pct = tOntem > 0 ? (diff / tOntem) * 100 : 0;
+  const dataHojeStr = new Date().toLocaleDateString("pt-BR");
+  const horaStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  const C = { green: "#059669", greenT: "#d1fae5", slate: "#334155", slateT: "#e2e8f0", blue: "#2563eb", blueT: "#dbeafe", amber: "#d97706", amberT: "#fef3c7", red: "#dc2626", text: "#0f172a", muted: "#64748b", white: "#ffffff", rowGreen: "#f0fdf8", rowBlue: "#eff6ff" };
+  const SANS = "-apple-system, Segoe UI, Roboto, Arial, sans-serif";
+
+  const W = 1000, PAD = 36, GAP = 22;
+  const headerH = 112, cardH = 104, statsRowsH = 2 * cardH + 14, varH = 46;
+  const secTitleH = 44, tHead = 46, panRow = 42, panFoot = 46, legendH = 26, lancRow = 40, footerH = 54;
+  const nLanc = ultimosHoje.length;
+  const H = headerH + GAP + statsRowsH + 8 + varH + GAP
+    + secTitleH + tHead + rows.length * panRow + panFoot + legendH + GAP
+    + secTitleH + (nLanc === 0 ? 40 : tHead + nLanc * lancRow) + GAP
+    + footerH;
+
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(W * scale);
+  canvas.height = Math.round(H * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) { toast.error("Navegador não suporta gerar imagem."); return; }
+  ctx.scale(scale, scale);
+
+  const rr = (x: number, y: number, w: number, h: number, r: number) => {
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  };
+  const cell = (text: string, x: number, y: number, w: number, h: number, align: "left" | "right" | "center") => {
+    const padX = 12, maxW = w - 2 * padX;
+    let s = text ?? "";
+    if (ctx.measureText(s).width > maxW) { while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1); s += "…"; }
+    if (align === "right") { ctx.textAlign = "right"; ctx.fillText(s, x + w - padX, y + h / 2 + 6); }
+    else if (align === "center") { ctx.textAlign = "center"; ctx.fillText(s, x + w / 2, y + h / 2 + 6); }
+    else { ctx.textAlign = "left"; ctx.fillText(s, x + padX, y + h / 2 + 6); }
+    ctx.textAlign = "left";
+  };
+  type Col = { t: string; w: number; a: "left" | "right" | "center" };
+  const drawTable = (startY: number, cols: Col[], body: string[][], foot: string[] | null, rowH: number, headColor: string, footTint: string, footText: string, rowAlt: string) => {
+    const x0 = PAD, innerW = W - 2 * PAD; let ty = startY;
+    ctx.fillStyle = headColor; rr(x0, ty, innerW, tHead, 10); ctx.fill();
+    ctx.fillStyle = C.white; ctx.font = `700 16px ${SANS}`;
+    let cx = x0; for (const c of cols) { cell(c.t, cx, ty, c.w, tHead, c.a); cx += c.w; }
+    ty += tHead;
+    body.forEach((rowArr, ri) => {
+      if (ri % 2 === 1) { ctx.fillStyle = rowAlt; ctx.fillRect(x0, ty, innerW, rowH); }
+      ctx.fillStyle = C.text; ctx.font = `400 16px ${SANS}`;
+      let bx = x0; cols.forEach((c, ci) => { cell(rowArr[ci] ?? "", bx, ty, c.w, rowH, c.a); bx += c.w; });
+      ty += rowH;
+    });
+    if (foot) {
+      ctx.fillStyle = footTint; rr(x0, ty, innerW, panFoot, 10); ctx.fill();
+      ctx.fillStyle = footText; ctx.font = `700 16px ${SANS}`;
+      let fx = x0; cols.forEach((c, ci) => { cell(foot[ci] ?? "", fx, ty, c.w, panFoot, c.a); fx += c.w; });
+      ty += panFoot;
+    }
+    return ty;
+  };
+
+  // fundo
+  ctx.fillStyle = C.white; ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = "alphabetic";
+
+  // header
+  ctx.fillStyle = C.green; ctx.fillRect(0, 0, W, headerH);
+  ctx.fillStyle = C.white; ctx.textAlign = "left";
+  ctx.font = `800 32px ${SANS}`; ctx.fillText("Relatório de Ração & Alimentação", PAD, 50);
+  ctx.font = `400 18px ${SANS}`; ctx.fillText(`Emitido em ${dataHojeStr} às ${horaStr}  ·  ${nAtivos} viveiro(s) ativo(s) de ${rows.length}`, PAD, 84);
+  let y = headerH + GAP;
+
+  // stat cards 2x2
+  const cards: [string, string, string, string][] = [
+    ["RAÇÃO HOJE", `${n(tHoje)} kg`, C.green, C.greenT],
+    ["RAÇÃO ONTEM", `${n(tOntem)} kg`, C.slate, C.slateT],
+    ["RAÇÃO ACUMULADA", `${n(tAcum)} kg`, C.blue, C.blueT],
+    ["CUSTO ACUMULADO", brl(tCusto), C.amber, C.amberT],
+  ];
+  const cardW = (W - 2 * PAD - 14) / 2;
+  cards.forEach(([lab, val, col, tint], i) => {
+    const cx = PAD + (i % 2) * (cardW + 14);
+    const cy = y + Math.floor(i / 2) * (cardH + 14);
+    ctx.fillStyle = tint; rr(cx, cy, cardW, cardH, 16); ctx.fill();
+    ctx.fillStyle = col; ctx.textAlign = "left";
+    ctx.font = `700 16px ${SANS}`; ctx.fillText(lab, cx + 22, cy + 36);
+    ctx.font = `800 34px ${SANS}`; ctx.fillText(val, cx + 22, cy + 80);
+  });
+  y += statsRowsH + 8;
+
+  // variação
+  ctx.font = `700 19px ${SANS}`; ctx.fillStyle = diff >= 0 ? C.green : C.red; ctx.textAlign = "left";
+  ctx.fillText(`Variação hoje x ontem: ${diff >= 0 ? "+" : ""}${n(diff)} kg (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)`, PAD, y + 28);
+  y += varH + GAP;
+
+  // panorama
+  ctx.fillStyle = C.green; ctx.font = `800 22px ${SANS}`; ctx.textAlign = "left";
+  ctx.fillText("PANORAMA POR VIVEIRO", PAD, y + 28);
+  y += secTitleH;
+  const panCols: Col[] = [
+    { t: "Viveiro", w: 250, a: "left" }, { t: "Hoje", w: 120, a: "right" }, { t: "Ontem", w: 120, a: "right" },
+    { t: "Acum.", w: 140, a: "right" }, { t: "Custo", w: 170, a: "right" }, { t: "FCA", w: 128, a: "center" },
+  ];
+  const panBody = rows.map((r) => [
+    r.nome + (r.ativo ? "" : " (inativo)"), n(r.hoje), n(r.ontem), n(r.acum),
+    r.custo > 0 ? brl(r.custo) : "—", r.fca > 0 ? n(r.fca, 2) : "—",
+  ]);
+  const panFootRow = ["TOTAL", n(tHoje), n(tOntem), n(tAcum), tCusto > 0 ? brl(tCusto) : "—", ""];
+  y = drawTable(y, panCols, panBody, panFootRow, panRow, C.green, C.greenT, "#047857", C.rowGreen);
+  ctx.fillStyle = C.muted; ctx.font = `italic 14px ${SANS}`; ctx.textAlign = "left";
+  ctx.fillText("Quantidades em kg. FCA = ração acumulada ÷ biomassa.", PAD, y + 18);
+  y += legendH + GAP;
+
+  // lançamentos
+  ctx.fillStyle = C.blue; ctx.font = `800 22px ${SANS}`; ctx.textAlign = "left";
+  ctx.fillText(`LANÇAMENTOS · ${periodoLabel} (${nLanc})`, PAD, y + 28);
+  y += secTitleH;
+  if (nLanc === 0) {
+    ctx.fillStyle = C.muted; ctx.font = `italic 16px ${SANS}`;
+    ctx.fillText("Nenhum lançamento no período.", PAD, y + 20);
+    y += 40;
+  } else {
+    const lancCols: Col[] = [
+      { t: "Data", w: 90, a: "left" }, { t: "Viveiro", w: 180, a: "left" }, { t: "Produto", w: 300, a: "left" },
+      { t: "Qtd", w: 190, a: "right" }, { t: "Custo", w: 168, a: "right" },
+    ];
+    const lancBody = ultimosHoje.map((l) => {
+      const [, m, d] = l.data_lancamento.split("-");
+      return [
+        `${d}/${m}`, relName(l.viveiros) || "—", l.produto_nome,
+        `${Number(l.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${l.unidade ?? "kg"}`,
+        l.custo_total != null && Number(l.custo_total) > 0 ? brl(Number(l.custo_total)) : "—",
+      ];
+    });
+    y = drawTable(y, lancCols, lancBody, null, lancRow, C.blue, C.blueT, C.blue, C.rowBlue);
+  }
+  y += GAP;
+
+  // footer
+  ctx.fillStyle = C.muted; ctx.font = `500 14px ${SANS}`; ctx.textAlign = "left";
+  ctx.fillText(`Viveiros App · ${dataHojeStr} às ${horaStr}`, PAD, y + 24);
+
+  const nome = `relatorio-racao-${dataHojeStr.replace(/\//g, "-")}.png`;
+  await new Promise<void>((resolve) => {
+    canvas.toBlob(async (blob) => {
+      if (!blob) { toast.error("Não consegui gerar a imagem."); resolve(); return; }
+      const file = new File([blob], nome, { type: "image/png" });
+      const navAny = navigator as unknown as { canShare?: (d: unknown) => boolean; share?: (d: unknown) => Promise<void> };
+      if (navAny.canShare && navAny.canShare({ files: [file] }) && navAny.share) {
+        try { await navAny.share({ files: [file], title: "Relatório de Ração" }); toast.success("Imagem pronta!"); resolve(); return; }
+        catch (e) { if ((e as Error)?.name === "AbortError") { resolve(); return; } /* senão baixa */ }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = nome;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast.success("Imagem salva na galeria/downloads!");
+      resolve();
+    }, "image/png");
+  });
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
