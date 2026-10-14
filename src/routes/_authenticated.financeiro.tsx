@@ -46,6 +46,8 @@ type FpCat = { id: string; nome: string; icone: string; excluida: boolean; arqui
 function PessoalTab() {
   const qc = useQueryClient();
   const [reportPessoa, setReportPessoa] = useState<string | null>(null);
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
+  const toggleSel = (nome: string) => setSelecionadas((prev) => { const s = new Set(prev); if (s.has(nome)) s.delete(nome); else s.add(nome); return s; });
   const [transferTo, setTransferTo] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<FpLanc | null>(null);
@@ -294,21 +296,25 @@ function PessoalTab() {
     toast.success("PDF gerado!");
   }
 
-  async function pdfGeral() {
+  async function pdfGeral(nomes?: string[]) {
+    const lista = nomes && nomes.length > 0 ? pessoasList.filter((n) => nomes.includes(n)) : pessoasList;
+    const totD = lista.reduce((s, n) => s + (contas[n]?.debito ?? 0), 0);
+    const totC = lista.reduce((s, n) => s + (contas[n]?.credito ?? 0), 0);
+    const sal = totC - totD;
     const [pdfModule, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
     const jsPDF = pdfModule.default; const autoTable = (autoTableModule as unknown as { default: (doc: unknown, opts: unknown) => void }).default;
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     doc.setFillColor(16, 185, 129); doc.rect(0, 0, 210, 22, "F");
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
     doc.text("FINANCEIRO - PESSOAS", 14, 11);
-    doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.text(`Emitido em ${fmtDate(todayISO())}`, 14, 18);
+    doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.text(`Emitido em ${fmtDate(todayISO())}${nomes && nomes.length > 0 ? ` · ${lista.length} selecionada(s)` : ""}`, 14, 18);
     doc.setTextColor(30, 41, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-    doc.text(`Débito total: ${brl(totDeb)}    Crédito total: ${brl(totCred)}    Saldo: ${brl(saldoGeral)}`, 14, 30);
+    doc.text(`Débito total: ${brl(totD)}    Crédito total: ${brl(totC)}    Saldo: ${brl(sal)}`, 14, 30);
     autoTable(doc, {
       startY: 35,
       head: [["Pessoa", "Débito", "Crédito", "Saldo"]],
-      body: pessoasList.map((nome) => { const x = contas[nome] ?? { debito: 0, credito: 0 }; const saldo = x.credito - x.debito; return [nome, brl(x.debito), brl(x.credito), brl(saldo)]; }),
-      foot: [["TOTAL", brl(totDeb), brl(totCred), brl(saldoGeral)]],
+      body: lista.map((nome) => { const x = contas[nome] ?? { debito: 0, credito: 0 }; const saldo = x.credito - x.debito; return [nome, brl(x.debito), brl(x.credito), brl(saldo)]; }),
+      foot: [["TOTAL", brl(totD), brl(totC), brl(sal)]],
       styles: { fontSize: 8.5, cellPadding: 2 },
       headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
       footStyles: { fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: "bold" },
@@ -341,6 +347,13 @@ function PessoalTab() {
         <button onClick={() => setVerArquivados(true)} className={`flex-1 h-9 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1 ${verArquivados ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}><Archive className="size-3.5" />Arquivados{qtdArquivadas > 0 ? ` (${qtdArquivadas})` : ""}</button>
       </div>
 
+      {selecionadas.size > 0 && (
+        <div className="flex gap-2">
+          <button onClick={() => pdfGeral(Array.from(selecionadas))} className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-primary/90"><FileDown className="size-4" />Imprimir marcados ({selecionadas.size})</button>
+          <button onClick={() => setSelecionadas(new Set())} className="h-11 px-4 rounded-xl border text-sm font-semibold hover:bg-muted">Limpar</button>
+        </div>
+      )}
+
 
       {verArquivados && pessoasList.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
@@ -357,6 +370,13 @@ function PessoalTab() {
           return (
             <div key={nome} className="w-full rounded-2xl border bg-card p-3.5 space-y-2.5 hover:bg-muted/30 transition">
               <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selecionadas.has(nome)}
+                  onChange={() => toggleSel(nome)}
+                  aria-label={`Selecionar ${nome} para imprimir`}
+                  className="size-5 accent-primary shrink-0"
+                />
                 {!verArquivados && (
                   <div className="flex flex-col gap-0.5 shrink-0">
                     <button type="button" onClick={() => moverPessoaMut.mutate({ nome, dir: "up" })} disabled={moverPessoaMut.isPending} aria-label="Subir" className="size-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
