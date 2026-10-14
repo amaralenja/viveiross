@@ -1742,6 +1742,19 @@ function HistoricoModal({
     },
   });
 
+  const { data: biometriasHist = [] } = useQuery({
+    queryKey: ["biometrias", "viveiro-hist", viveiro.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("biometrias")
+        .select("data_biometria, peso_medio_g, amostras, crescimento_semanal_g")
+        .eq("viveiro_id", viveiro.id)
+        .order("data_biometria", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as { data_biometria: string; peso_medio_g: number; amostras: number | null; crescimento_semanal_g: number | null }[];
+    },
+  });
+
   const totalDias = baseDate ? diasDeCultivo(baseDate) : 0;
 
   type Lanc = (typeof lancamentos)[number];
@@ -1774,8 +1787,20 @@ function HistoricoModal({
 
   function buildShareText(): string {
     const linhas: string[] = [];
-    linhas.push(`*${viveiro.nome}* — Lançamentos de ração`);
+    linhas.push(`*${viveiro.nome}* — Histórico`);
     if (baseDate) linhas.push(`DOC atual: ${totalDias} dias (desde ${formatDateBR(baseDate)})`);
+    linhas.push("");
+    // Biometrias no topo do histórico (pedido do cliente)
+    if (biometriasHist.length > 0) {
+      linhas.push("📏 *Biometrias*");
+      for (const b of biometriasHist) {
+        const doc = baseDate ? ` (DOC ${diasDeCultivo(b.data_biometria)})` : "";
+        const cresc = b.crescimento_semanal_g != null ? ` · +${Number(b.crescimento_semanal_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g/sem` : "";
+        linhas.push(`  • ${formatDateBR(b.data_biometria)}${doc}: ${Number(b.peso_medio_g).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g${cresc}`);
+      }
+      linhas.push("");
+    }
+    linhas.push("*Lançamentos de ração*");
     linhas.push("");
     for (const d of datas) {
       const itens = porData.get(d)!;
@@ -1795,11 +1820,11 @@ function HistoricoModal({
 
   async function handleShare() {
     const text = buildShareText();
-    if (!text || datas.length === 0) {
-      toast.error("Sem lançamentos para compartilhar");
+    if (!text || (datas.length === 0 && biometriasHist.length === 0)) {
+      toast.error("Sem histórico para compartilhar");
       return;
     }
-    const title = `Lançamentos - ${viveiro.nome}`;
+    const title = `Histórico - ${viveiro.nome}`;
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share({ title, text });
@@ -1826,9 +1851,9 @@ function HistoricoModal({
           </div>
           <button
             onClick={handleShare}
-            disabled={isLoading || datas.length === 0}
+            disabled={isLoading || (datas.length === 0 && biometriasHist.length === 0)}
             className="size-10 rounded-lg hover:bg-muted flex items-center justify-center disabled:opacity-40"
-            title="Compartilhar lançamentos"
+            title="Compartilhar/imprimir histórico"
           >
             <Share2 className="size-5" />
           </button>
