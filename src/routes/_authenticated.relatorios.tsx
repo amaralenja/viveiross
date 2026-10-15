@@ -912,6 +912,30 @@ function RelatoriosPage() {
                 );
               })()}
 
+              {l.bios.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Biometrias</p>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Data</th>
+                          <th className="p-2 text-right">Peso médio (g)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {l.bios.map((b) => (
+                          <tr key={b.id} className="border-t">
+                            <td className="p-2">{formatDate(b.data_biometria)}</td>
+                            <td className="p-2 text-right">{formatNumber(Number(b.peso_medio_g ?? 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {l.racaoDiaria.length > 0 && (
                 <div className="mt-5">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ração dia a dia</p>
