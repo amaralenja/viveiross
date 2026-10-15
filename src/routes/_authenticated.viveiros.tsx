@@ -505,19 +505,6 @@ function ViveirosPage() {
                     <Pencil className="size-3.5" />
                   </span>
                 </button>
-                <InfoBlock
-                  label="Ração total"
-                  value={`${(racaoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
-                  hint="kg"
-                />
-                <InfoBlock
-                  label="Gasto ração"
-                  value={(custoPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                  highlight
-                />
               </div>
               {v.data_povoamento && (
                 <button
