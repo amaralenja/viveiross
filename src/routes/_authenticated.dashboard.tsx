@@ -1031,7 +1031,6 @@ async function gerarPdfInicio(
   const rows = dados.rows;
   const tHoje = rows.reduce((s, r) => s + r.hoje, 0);
   const tOntem = rows.reduce((s, r) => s + r.ontem, 0);
-  const tAcum = rows.reduce((s, r) => s + r.acum, 0);
   const tCusto = rows.reduce((s, r) => s + r.custo, 0);
   const nAtivos = rows.filter((r) => r.ativo).length;
   const diffTotal = tHoje - tOntem;
@@ -1083,28 +1082,25 @@ async function gerarPdfInicio(
 
   autoTable(doc, {
     startY: currentY + 2.5,
-    head: [["Viveiro", "Dias", "Povoada", "Hoje", "Ontem", "Acum.", "Custo", "Peso", "FCA"]],
+    head: [["Viveiro", "Dias", "Povoada", "Hoje", "Ontem", "Custo", "Peso"]],
     body: rows.map((r) => [
       r.nome + (r.ativo ? "" : " (inativo)"),
       r.dias != null ? String(r.dias) : "—",
       r.povoada != null ? n(r.povoada, 0) : "—",
       n(r.hoje),
       n(r.ontem),
-      n(r.acum),
       r.custo > 0 ? brl(r.custo) : "—",
       r.peso != null ? `${n(r.peso, 1)} g` : "—",
-      r.fca > 0 ? n(r.fca, 2) : "—",
     ]),
-    foot: [["TOTAL", "", "", n(tHoje), n(tOntem), n(tAcum), tCusto > 0 ? brl(tCusto) : "—", "", ""]],
+    foot: [["TOTAL", "", "", n(tHoje), n(tOntem), tCusto > 0 ? brl(tCusto) : "—", ""]],
     styles: { fontSize: 8.5, cellPadding: 2 },
     headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
     footStyles: { fillColor: [209, 250, 229], textColor: [5, 120, 85], fontStyle: "bold", fontSize: 8.5 },
     alternateRowStyles: { fillColor: [240, 253, 248] },
     columnStyles: {
-      0: { cellWidth: 30 },
+      0: { cellWidth: 36 },
       1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" },
       4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" },
-      7: { halign: "right" }, 8: { halign: "center" },
     },
     margin: { left: 14, right: 14 },
   });
@@ -1114,7 +1110,7 @@ async function gerarPdfInicio(
   doc.setFontSize(6.5);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(120, 130, 145);
-  doc.text("Quantidades em kg. Peso = último peso médio da biometria. FCA = ração acumulada ÷ biomassa.", 14, currentY - 4);
+  doc.text("Quantidades em kg. Peso = último peso médio da biometria.", 14, currentY - 4);
 
   // ===== Tabela 2: Lançamentos dos últimos 3 dias =====
   doc.setFontSize(12);
@@ -1183,7 +1179,6 @@ async function gerarImagemInicio(
   const rows = dados.rows;
   const tHoje = rows.reduce((s, r) => s + r.hoje, 0);
   const tOntem = rows.reduce((s, r) => s + r.ontem, 0);
-  const tAcum = rows.reduce((s, r) => s + r.acum, 0);
   const tCusto = rows.reduce((s, r) => s + r.custo, 0);
   const nAtivos = rows.filter((r) => r.ativo).length;
   const diff = tHoje - tOntem;
@@ -1284,17 +1279,15 @@ async function gerarImagemInicio(
   ctx.fillText("PANORAMA POR VIVEIRO", PAD, y + 28);
   y += secTitleH;
   const panCols: Col[] = [
-    { t: "Viveiro", w: 250, a: "left" }, { t: "Hoje", w: 120, a: "right" }, { t: "Ontem", w: 120, a: "right" },
-    { t: "Acum.", w: 140, a: "right" }, { t: "Custo", w: 170, a: "right" }, { t: "FCA", w: 128, a: "center" },
+    { t: "Viveiro", w: 400, a: "left" }, { t: "Hoje", w: 160, a: "right" }, { t: "Ontem", w: 160, a: "right" }, { t: "Custo", w: 208, a: "right" },
   ];
   const panBody = rows.map((r) => [
-    r.nome + (r.ativo ? "" : " (inativo)"), n(r.hoje), n(r.ontem), n(r.acum),
-    r.custo > 0 ? brl(r.custo) : "—", r.fca > 0 ? n(r.fca, 2) : "—",
+    r.nome + (r.ativo ? "" : " (inativo)"), n(r.hoje), n(r.ontem), r.custo > 0 ? brl(r.custo) : "—",
   ]);
-  const panFootRow = ["TOTAL", n(tHoje), n(tOntem), n(tAcum), tCusto > 0 ? brl(tCusto) : "—", ""];
+  const panFootRow = ["TOTAL", n(tHoje), n(tOntem), tCusto > 0 ? brl(tCusto) : "—"];
   y = drawTable(y, panCols, panBody, panFootRow, panRow, C.green, C.greenT, "#047857", C.rowGreen);
   ctx.fillStyle = C.muted; ctx.font = `italic 14px ${SANS}`; ctx.textAlign = "left";
-  ctx.fillText("Quantidades em kg. FCA = ração acumulada ÷ biomassa.", PAD, y + 18);
+  ctx.fillText("Quantidades em kg.", PAD, y + 18);
   y += legendH + GAP;
 
   // lançamentos
