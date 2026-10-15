@@ -140,6 +140,23 @@ function ViveirosPage() {
   const racaoPorViveiro = totaisPorViveiro.racao ?? {};
   const custoPorViveiro = totaisPorViveiro.custo ?? {};
 
+  // Gasto por viveiro vindo do CAIXA (mesmo valor que aparece em "Caixa por viveiro").
+  const { data: gastoCaixaPorViveiro = {} } = useQuery({
+    queryKey: ["viveiros", "gasto-caixa"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("caixa_lancamentos")
+        .select("viveiro_id, tipo, valor");
+      if (error) throw error;
+      const m: Record<string, number> = {};
+      for (const l of (data ?? []) as { viveiro_id: string | null; tipo: string | null; valor: number | null }[]) {
+        if (!l.viveiro_id || l.tipo === "receita") continue;
+        m[l.viveiro_id] = (m[l.viveiro_id] ?? 0) + Number(l.valor ?? 0);
+      }
+      return m;
+    },
+  });
+
   type LancViv = { id: string; data_lancamento: string; produto_nome: string; quantidade: number | null; unidade: string | null; tipo: string };
   const { data: lancamentosPorViveiro = {} } = useQuery({
     queryKey: ["viveiros", "lancamentos_lista"],
@@ -505,6 +522,12 @@ function ViveirosPage() {
                     <Pencil className="size-3.5" />
                   </span>
                 </button>
+                <InfoBlock
+                  label="Gasto (Caixa)"
+                  value={(gastoCaixaPorViveiro[v.id] ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  hint="total do viveiro"
+                  highlight
+                />
               </div>
               {v.data_povoamento && (
                 <button
